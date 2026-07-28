@@ -1,0 +1,318 @@
+from __future__ import annotations
+
+from enum import Enum
+from typing import Literal
+
+from pydantic import BaseModel, Field
+
+from app.core.api_schemas import ErrorSchema
+
+
+class PassportOcrModel(str, Enum):
+    PADDLE = "paddle"
+    MRZ = "mrz"
+    QWEN3_VL_4B = "qwen3-vl-4b"
+    QWEN3_VL_8B = "qwen3-vl-8b"
+
+
+class PassportPage(int, Enum):
+    PAGE_3 = 3
+
+
+class PassportPageOcrModel(str, Enum):
+    RUSSIAN_OCR = "russian-ocr"
+    QWEN3_VL_4B = "qwen3-vl-4b"
+    QWEN3_VL_8B = "qwen3-vl-8b"
+
+
+class PassportOcrMetaSchema(BaseModel):
+    engine: Literal[
+        "paddleocr",
+        "mrz-scanner",
+        "qwen3-vl",
+        "russian-docs-ocr",
+    ] = Field(
+        ...,
+        description="Движок, выполнивший распознавание.",
+    )
+    model: Literal[
+        "paddle",
+        "mrz",
+        "russian-ocr",
+        "qwen3-vl-4b",
+        "qwen3-vl-8b",
+    ] = Field(
+        ...,
+        description="Выбранная в запросе модель распознавания.",
+    )
+    duration_seconds: float = Field(
+        ...,
+        ge=0,
+        description=(
+            "Длительность вызова OCR в секундах, включая ожидание движка; "
+            "чтение, проверка и обрезка изображения в это время не входят."
+        ),
+    )
+
+
+class PassportMrzCorrectionSchema(BaseModel):
+    line: Literal[1, 2] = Field(
+        ...,
+        description="Номер строки MRZ: 1 — верхняя, 2 — нижняя.",
+    )
+    position: int = Field(
+        ...,
+        ge=1,
+        description="Позиция символа в итоговой строке MRZ, начиная с 1.",
+    )
+    source_position: int | None = Field(
+        ...,
+        ge=1,
+        description=(
+            "Позиция символа в исходной строке OCR, начиная с 1; "
+            "null, если символ добавлен."
+        ),
+    )
+    field: str = Field(
+        ...,
+        description=(
+            "Название поля MRZ: например, Тип документа, Страна выдачи, "
+            "Фамилия и имена, Номер паспорта или Гражданство."
+        ),
+    )
+    operation: Literal["замена", "вставка"] = Field(
+        ...,
+        description="Операция над символом: замена или вставка.",
+    )
+    source: str = Field(
+        ...,
+        max_length=1,
+        description="Исходный символ; пустая строка, если символ добавлен.",
+    )
+    replacement: str = Field(
+        ...,
+        min_length=1,
+        max_length=1,
+        description="Символ после исправления или добавленный символ.",
+    )
+    reason: str = Field(
+        ...,
+        description="Причина исправления на русском языке.",
+    )
+
+
+class PassportMrzNormalizationIssueSchema(BaseModel):
+    line: Literal[1, 2] = Field(
+        ...,
+        description="Номер строки MRZ, в которой обнаружена проблема.",
+    )
+    code: str = Field(..., description="Код обнаруженной проблемы.")
+    message: str = Field(
+        ..., description="Описание проблемы на русском языке."
+    )
+
+
+class PassportMrzNormalizationSchema(BaseModel):
+    corrections_count: int = Field(
+        ...,
+        ge=0,
+        description=(
+            "Общее количество исправлений символов: замен и добавлений."
+        ),
+    )
+    replacements_count: int = Field(
+        ...,
+        ge=0,
+        description="Количество заменённых символов.",
+    )
+    insertions_count: int = Field(
+        ...,
+        ge=0,
+        description="Количество добавленных символов.",
+    )
+    corrections: list[PassportMrzCorrectionSchema] = Field(
+        ...,
+        description=(
+            "Журнал исправлений, отдельная запись для каждого символа."
+        ),
+    )
+    issues: list[PassportMrzNormalizationIssueSchema] = Field(
+        default_factory=list,
+        description=(
+            "Обнаруженные проблемы, из-за "
+            "которых часть нормализации не выполнена."
+        ),
+    )
+
+
+class PassportDataSchema(BaseModel):
+    mrz: list[str] | None = Field(
+        ...,
+        description=(
+            "Две нормализованные строки MRZ или null, если сценарий не "
+            "использует машиносчитываемую зону."
+        ),
+    )
+    normalization: PassportMrzNormalizationSchema | None = Field(
+        default=None,
+        description=(
+            "Журнал исправлений MRZ, их количество и обнаруженные проблемы; "
+            "null, если отчёт отключён или сценарий не использует MRZ."
+        ),
+    )
+    passport_type: Literal["internal", "international"] | None = Field(
+        ...,
+        description=(
+            "Тип паспорта: internal — внутренний паспорт, international — "
+            "международный паспорт; null, если тип определить нельзя."
+        ),
+    )
+    document_code: str | None = Field(
+        ...,
+        description="Код документа: например P, PP или PN.",
+    )
+    issuing_country: str | None = Field(
+        ...,
+        description="Трёхбуквенный код страны выдачи.",
+    )
+    surname: str | None = Field(..., description="Фамилия владельца паспорта.")
+    name: str | None = Field(..., description="Имя владельца паспорта.")
+    patronymic: str | None = Field(
+        ...,
+        description="Отчество или дополнительные имена владельца паспорта.",
+    )
+    sex: Literal["МУЖ.", "ЖЕН."] | None = Field(
+        ...,
+        description="Пол владельца в формате публичного API.",
+    )
+    date_of_birth: str | None = Field(
+        ...,
+        description="Дата рождения в формате ДД.ММ.ГГГГ.",
+    )
+    passport_series: str | None = Field(
+        ...,
+        description="Серия паспорта, если она выделяется для этого документа.",
+    )
+    passport_number: str | None = Field(
+        ...,
+        description="Номер паспорта без пробелов.",
+    )
+    nationality: str | None = Field(
+        ...,
+        description="Трёхбуквенный код гражданства, если он доступен.",
+    )
+    issue_date: str | None = Field(
+        ...,
+        description="Дата выдачи в формате ДД.ММ.ГГГГ.",
+    )
+    expiry_date: str | None = Field(
+        ...,
+        description="Дата окончания срока действия в формате ДД.ММ.ГГГГ.",
+    )
+    department_code: str | None = Field(
+        ...,
+        description="Код подразделения в формате XXX-XXX, если он доступен.",
+    )
+    personal_number: str | None = Field(
+        ...,
+        description="Персональный номер, если он доступен.",
+    )
+    mrz_valid: bool | None = Field(
+        ...,
+        description=(
+            "Результат проверки контрольных цифр MRZ; null, если MRZ не "
+            "использовалась или строка неполная."
+        ),
+    )
+
+
+class PassportMrzDataSchema(PassportDataSchema):
+    mrz: list[str] = Field(
+        ...,
+        min_length=2,
+        max_length=2,
+        description=(
+            "Две MRZ-строки. При normalize=true применены исправления типа "
+            "документа, страны и остальных полей; при normalize=false "
+            "выполнены только удаление пробелов и перевод в верхний регистр."
+        ),
+    )
+    normalization: PassportMrzNormalizationSchema | None = Field(
+        default=None,
+        description=(
+            "Журнал исправлений MRZ, их количество и обнаруженные проблемы. "
+            "Пустой журнал означает, что исправлений не было или они "
+            "отключены параметром normalize=false; "
+            "null — отчёт отключён параметром normalization=false или не "
+            "получен от OCR."
+        ),
+    )
+    meta: PassportOcrMetaSchema = Field(
+        ...,
+        description="Движок, выбранная модель и время распознавания.",
+    )
+
+
+class PassportMrzResponseSchema(BaseModel):
+    success: bool
+    data: PassportMrzDataSchema | None
+    error: ErrorSchema | None
+
+
+class PassportPageDataSchema(PassportDataSchema):
+    mrz: None = Field(
+        ...,
+        description="Всегда null: этот сценарий не читает MRZ-зону.",
+    )
+    normalization: None = Field(
+        ...,
+        description="Всегда null: нормализация MRZ не выполняется.",
+    )
+    passport_type: Literal["internal"] = Field(
+        ...,
+        description=(
+            "Всегда internal: endpoint "
+            "предназначен для внутреннего паспорта РФ."
+        ),
+    )
+    document_code: Literal["PN"] = Field(
+        ...,
+        description="Код сценария внутреннего паспорта РФ.",
+    )
+    issuing_country: Literal["RUS"] = Field(
+        ...,
+        description="Страна выдачи для внутреннего паспорта РФ.",
+    )
+    nationality: Literal["RUS"] = Field(
+        ...,
+        description=(
+            "Гражданство в поддерживаемом сценарии внутреннего паспорта РФ."
+        ),
+    )
+    expiry_date: None = Field(
+        ...,
+        description=(
+            "Всегда null: у внутреннего паспорта "
+            "РФ нет фиксированной даты окончания."
+        ),
+    )
+    personal_number: None = Field(
+        ...,
+        description=(
+            "Всегда null: визуальный сценарий не извлекает personal number."
+        ),
+    )
+    mrz_valid: None = Field(
+        ...,
+        description="Всегда null: MRZ и её контрольные цифры не проверяются.",
+    )
+    meta: PassportOcrMetaSchema = Field(
+        ...,
+        description="Движок, выбранная модель и время распознавания.",
+    )
+
+
+class PassportPageResponseSchema(BaseModel):
+    success: bool
+    data: PassportPageDataSchema | None
+    error: ErrorSchema | None
