@@ -1,0 +1,7 @@
+Angle90: models\Angles90
+DocDetector: models\Borders
+TextFieldsDetector: models\TextFields
+DocType: models\DocType
+WordsDetector: models\Words
+OCREngNums: models\OCR\eng+nums
+OCRRus: models\OCR\rus

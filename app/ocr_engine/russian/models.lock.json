@@ -1,0 +1,92 @@
+{
+  "schema_version": 1,
+  "package": "RussianDocsOCR",
+  "version": "1.0.1",
+  "source": {
+    "repository": "https://github.com/protei300/RussianDocsOCR",
+    "source_commit": "8f75028a8015e91a6011f9616c56e51eccbebeab",
+    "commit_base_url": "https://raw.githubusercontent.com/protei300/RussianDocsOCR/8f75028a8015e91a6011f9616c56e51eccbebeab/russian_docs_ocr/document_processing/models/",
+    "base_url": "https://raw.githubusercontent.com/protei300/RussianDocsOCR/v1.0.1/russian_docs_ocr/document_processing/models/",
+    "license": {
+      "spdx": "Apache-2.0",
+      "url": "https://github.com/protei300/RussianDocsOCR/blob/v1.0.1/LICENSE"
+    }
+  },
+  "files": [
+    {
+      "path": "Angles90/ONNX/model.json",
+      "size": 761,
+      "sha256": "b1836f1deacf50a3f25686b775c7f65a13140c013feb768ce6206035d3b17ae0"
+    },
+    {
+      "path": "Angles90/ONNX/model.onnx",
+      "size": 1631175,
+      "sha256": "0f3f3bc1be0794e599800d2f6e542eed7b0eb454823bf9e78ab93e15b2db31bf"
+    },
+    {
+      "path": "Borders/ONNX/model.json",
+      "size": 974,
+      "sha256": "6e729d50ba3c812fb5599073aa191adec6c722b193e0f031aff16370c757c902"
+    },
+    {
+      "path": "Borders/ONNX/model.onnx",
+      "size": 13232793,
+      "sha256": "950a20073715b918c37d6bf160ee26068b105f4052594948c7d79df79b0bca2c"
+    },
+    {
+      "path": "DocType/ONNX/model.json",
+      "size": 778,
+      "sha256": "3c97a42333b1bb673db949a374d8203826f74d46757346347a9e82a6d3051076"
+    },
+    {
+      "path": "DocType/ONNX/model.onnx",
+      "size": 8879550,
+      "sha256": "39610cd2d4aaa119b2bc4d549d9aa578a50f0946fa46f2449466f84283d0d58b"
+    },
+    {
+      "path": "DocType/ONNX/resources/centers.pkl",
+      "size": 36954,
+      "sha256": "18e9c3685456fff5629b64120c3da86c2eb45bb76f24e11716b995d37128ad38"
+    },
+    {
+      "path": "OCR/eng+nums/ONNX/model.json",
+      "size": 682,
+      "sha256": "20f361d8d2ee0f1e9ca9093581c9238b936b5bb6cd63c22844897bc6c0039661"
+    },
+    {
+      "path": "OCR/eng+nums/ONNX/model.onnx",
+      "size": 6642657,
+      "sha256": "1288aa0d88a50674b958c79d9bea546a7567e7f1554cea383fb540e00e48346e"
+    },
+    {
+      "path": "OCR/rus/ONNX/model.json",
+      "size": 768,
+      "sha256": "aeb0dc2bc42104c1cff494747abe34616cc29e1c2690c484d1e9eeba18276816"
+    },
+    {
+      "path": "OCR/rus/ONNX/model.onnx",
+      "size": 6629219,
+      "sha256": "59d69456e27d3bfadc7eb5a6cdc380d4773dceaac02864dc4e99ebe5eb4ed678"
+    },
+    {
+      "path": "TextFields/ONNX/model.json",
+      "size": 1330,
+      "sha256": "8705f3e7cb0bf3abe5ad0b0e56db2b836a906b7fe60a5d2db7a444f69148f48f"
+    },
+    {
+      "path": "TextFields/ONNX/model.onnx",
+      "size": 44722648,
+      "sha256": "7da0be8bb4735b83de632b9567d72e4542ce1759b717b30f4fff5d1c75407f67"
+    },
+    {
+      "path": "Words/ONNX/model.json",
+      "size": 787,
+      "sha256": "4630b015c7edb9390fc6e3aff625e31f26b78a0d97653f0ffaad7dce25e158fe"
+    },
+    {
+      "path": "Words/ONNX/model.onnx",
+      "size": 12231567,
+      "sha256": "06bc0ceecdea6edb342dcd3c1b181c3a13b76e728c5a1045a1d7d8242b08d3e7"
+    }
+  ]
+}
