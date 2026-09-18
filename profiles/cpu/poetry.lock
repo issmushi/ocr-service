@@ -4632,21 +4632,17 @@ files = [
 
 [[package]]
 name = "pyturbojpeg"
-version = "2.5.0"
+version = "1.7.7"
 description = "A Python wrapper of libjpeg-turbo for decoding and encoding JPEG image."
 optional = false
-python-versions = ">=3.8"
+python-versions = "*"
 groups = ["main"]
 files = [
-    {file = "pyturbojpeg-2.5.0-py3-none-any.whl", hash = "sha256:2c10c2de86aa0e4fd9d08de187e46e975d108db35c25842d342393913cf54c36"},
-    {file = "pyturbojpeg-2.5.0.tar.gz", hash = "sha256:572e74886110e0bd85f8a95a188f1cda94c4a5f0222ff38a22d7e12faeb9844b"},
+    {file = "PyTurboJPEG-1.7.7.tar.gz", hash = "sha256:2f1929f6bb32faf3c6007fbfbae1932e125b690173be60bcae03f678ffa4963b"},
 ]
 
 [package.dependencies]
 numpy = "*"
-
-[package.extras]
-test = ["pytest (>=7.0.0)", "pytest-cov (>=4.1.0)", "pytest-memray (>=1.7.0) ; platform_system != \"Windows\""]
 
 [[package]]
 name = "pyyaml"
@@ -5983,4 +5979,4 @@ propcache = ">=0.2.1"
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.11,<3.12"
-content-hash = "5e5fc318e86f729fc27de00690d474e1d185aa0aa1b5fe2c1d61b4a66ffd2b5b"
+content-hash = "e32ea022c26e5cbf31372ec815b2003e03a7615b9677e40ce7f70cb859c067aa"
