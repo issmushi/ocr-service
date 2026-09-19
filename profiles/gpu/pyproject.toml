@@ -23,6 +23,7 @@ dependencies = [
     "opencv-python>=4.13.0.92,<5.0.0.0",
     "mrzscanner-docsaid==1.0.7",
     "capybara-docsaid==0.12.0",
+    "PyTurboJPEG==1.7.7",
     "onnxruntime-gpu[cuda,cudnn]==1.22.0; sys_platform == 'linux'",
     "paddleocr>=3.6.0,<4.0.0",
     "paddlepaddle-gpu @ https://paddle-whl.bj.bcebos.com/stable/cu126/paddlepaddle-gpu/paddlepaddle_gpu-3.3.1-cp311-cp311-linux_x86_64.whl",

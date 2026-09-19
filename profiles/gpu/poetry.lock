@@ -1922,9 +1922,6 @@ files = [
     {file = "humanfriendly-10.0.tar.gz", hash = "sha256:6b0b831ce8f15f7300721aa49829fc4e83921a9a301cc7f606be6686a2288ddc"},
 ]
 
-[package.dependencies]
-pyreadline3 = {version = "*", markers = "sys_platform == \"win32\" and python_version >= \"3.8\""}
-
 [[package]]
 name = "idna"
 version = "3.20"
@@ -4661,22 +4658,6 @@ files = [
 ]
 
 [[package]]
-name = "pyreadline3"
-version = "3.5.6"
-description = "A python implementation of GNU readline."
-optional = false
-python-versions = ">=3.8"
-groups = ["main"]
-markers = "(platform_system == \"Linux\" or platform_system == \"Darwin\") and sys_platform == \"win32\""
-files = [
-    {file = "pyreadline3-3.5.6-py3-none-any.whl", hash = "sha256:8449b734232e42a5dcd74048e39b60db2839a4c38cf3ae2bf7707d58b5389c0d"},
-    {file = "pyreadline3-3.5.6.tar.gz", hash = "sha256:61e53218b99656091ddb077df9e71f25850e72e030b6183b39c9b7e6e4f4a9bf"},
-]
-
-[package.extras]
-dev = ["build", "flake8", "mypy", "pytest", "twine"]
-
-[[package]]
 name = "pytest"
 version = "8.4.2"
 description = "pytest: simple powerful testing with Python"
@@ -4880,21 +4861,17 @@ files = [
 
 [[package]]
 name = "pyturbojpeg"
-version = "2.5.0"
+version = "1.7.7"
 description = "A Python wrapper of libjpeg-turbo for decoding and encoding JPEG image."
 optional = false
-python-versions = ">=3.8"
+python-versions = "*"
 groups = ["main"]
 files = [
-    {file = "pyturbojpeg-2.5.0-py3-none-any.whl", hash = "sha256:2c10c2de86aa0e4fd9d08de187e46e975d108db35c25842d342393913cf54c36"},
-    {file = "pyturbojpeg-2.5.0.tar.gz", hash = "sha256:572e74886110e0bd85f8a95a188f1cda94c4a5f0222ff38a22d7e12faeb9844b"},
+    {file = "PyTurboJPEG-1.7.7.tar.gz", hash = "sha256:2f1929f6bb32faf3c6007fbfbae1932e125b690173be60bcae03f678ffa4963b"},
 ]
 
 [package.dependencies]
 numpy = "*"
-
-[package.extras]
-test = ["pytest (>=7.0.0)", "pytest-cov (>=4.1.0)", "pytest-memray (>=1.7.0) ; platform_system != \"Windows\""]
 
 [[package]]
 name = "pyyaml"
@@ -6231,4 +6208,4 @@ propcache = ">=0.2.1"
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.11,<3.12"
-content-hash = "fdabb60faae9ffd663fbd5e40192e8339ad9e0c7d3561e57088937c3a4d3ecfd"
+content-hash = "994e2b5146df710dde07233cf072703100cc2e395591da14b2f5f657cf97fc57"
