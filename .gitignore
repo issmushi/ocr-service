@@ -19,7 +19,9 @@ htmlcov/
 .tox/
 .nox/
 
-/node_modules/
+/node_modules
+/frontend/node_modules
+*.tsbuildinfo
 build/
 dist/
 .eggs/
@@ -34,6 +36,9 @@ logs/
 /regula-stats/
 /test/
 /tmp/
+/reports/
+/report/
+/OCR_SERVICE_API.md
 
 **/__pycache__/
 **/*.py[cod]
