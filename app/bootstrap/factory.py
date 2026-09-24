@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI
 from fastapi.openapi.utils import get_openapi
 
+from app.bootstrap.frontend import configure_frontend
 from app.bootstrap.http import configure_http
 from app.bootstrap.lifecycle import lifespan
 from app.core.config import settings
@@ -38,7 +40,7 @@ def configure_openapi(app: FastAPI) -> None:
     app.openapi = custom_openapi
 
 
-def create_app() -> FastAPI:
+def create_app(*, frontend_dist_dir: str | Path | None = None) -> FastAPI:
     """Build the API backed by this process's shared OCR runtimes."""
     configure_logging(
         service_name="api",
@@ -53,5 +55,6 @@ def create_app() -> FastAPI:
     app.include_router(v1_router)
     app.include_router(tasks_router)
     app.include_router(health_router)
+    configure_frontend(app, frontend_dist_dir)
     configure_openapi(app)
     return app
