@@ -10,8 +10,10 @@ from app.core.config import settings
 from app.core.errors import AppError, ErrorCode
 from app.core.images.quality import (
     ImageQualityAssessment,
-    assess_image_quality,
     qr_quality_score,
+)
+from app.core.images.quality import (
+    assess_qr_image_quality as assess_image_quality,
 )
 from app.core.images.uploads import prepare_upload_stream
 

@@ -66,6 +66,19 @@ class _DocumentGeometry:
     perspective_distortion: float
 
 
+@dataclass(frozen=True)
+class _ReadabilityMetrics:
+    sharpness_variance: float
+    glare_ratio: float
+    brightness: float
+    underexposure_ratio: float
+    overexposure_ratio: float
+    illumination_spread: float
+    local_contrast: float
+    noise_level: float
+    component_scores: dict[str, float]
+
+
 def _clip(value: float) -> float:
     return float(np.clip(value, 0.0, 1.0))
 
@@ -286,12 +299,13 @@ def _glare_ratio(image: np.ndarray) -> float:
     return float(np.mean(glare))
 
 
-def assess_image_quality(
-    image_source: str | Path | BinaryIO,
-) -> ImageQualityAssessment:
-    image, original_width, original_height = _load_analysis_image(image_source)
+def _qr_readability(
+    image: np.ndarray,
+    original_width: int,
+    original_height: int,
+    geometry: _DocumentGeometry,
+) -> _ReadabilityMetrics:
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    geometry = _document_geometry(image)
     region = _analysis_region(gray, geometry)
 
     sharpness_variance = float(cv2.Laplacian(region, cv2.CV_64F).var())
@@ -362,12 +376,180 @@ def assess_image_quality(
         "resolution": resolution_score,
         "noise_and_blur": noise_and_blur_score,
     }
+    return _ReadabilityMetrics(
+        sharpness_variance=sharpness_variance,
+        glare_ratio=glare_ratio,
+        brightness=brightness,
+        underexposure_ratio=underexposure_ratio,
+        overexposure_ratio=overexposure_ratio,
+        illumination_spread=illumination_spread,
+        local_contrast=local_contrast,
+        noise_level=noise_level,
+        component_scores=component_scores,
+    )
+
+
+def _document_mask(
+    gray: np.ndarray, geometry: _DocumentGeometry
+) -> np.ndarray:
+    """Exclude the desk and document outline from readability measurements."""
+    mask = np.zeros(gray.shape, dtype=np.uint8)
+    if geometry.points is None:
+        mask[:] = 255
+    else:
+        cv2.fillConvexPoly(mask, geometry.points.astype(np.int32), 255)
+    inset = max(2, round(min(gray.shape) * 0.015))
+    eroded = cv2.erode(
+        mask,
+        np.ones((inset * 2 + 1, inset * 2 + 1), dtype=np.uint8),
+        borderType=cv2.BORDER_CONSTANT,
+        borderValue=0,
+    )
+    return eroded > 0 if np.any(eroded) else mask > 0
+
+
+def _document_detail(
+    gray: np.ndarray, mask: np.ndarray
+) -> tuple[float, float, float]:
+    """Measure text detail after removing the estimated sensor-noise energy."""
+    gray_float = gray.astype(np.float32)
+    smooth = cv2.GaussianBlur(gray_float, (5, 5), 0.8)
+    gradient_x = cv2.Sobel(smooth, cv2.CV_32F, 1, 0, ksize=3) / 8
+    gradient_y = cv2.Sobel(smooth, cv2.CV_32F, 0, 1, ksize=3) / 8
+    gradient = cv2.magnitude(gradient_x, gradient_y)
+    flat = mask & (gradient <= np.percentile(gradient[mask], 50))
+    # MAD on low-gradient pixels avoids counting printed strokes as noise.
+    high_pass = cv2.filter2D(
+        gray_float,
+        -1,
+        np.array([[1, -2, 1], [-2, 4, -2], [1, -2, 1]], np.float32),
+    )
+    noise = float(np.median(np.abs(high_pass[flat]))) / (6 * 0.6745)
+
+    laplacian = cv2.Laplacian(smooth, cv2.CV_32F)
+    # The squared filter norm is the response variance to unit white noise.
+    impulse = np.zeros((9, 9), dtype=np.float32)
+    impulse[4, 4] = 1
+    response = cv2.Laplacian(
+        cv2.GaussianBlur(impulse, (5, 5), 0.8), cv2.CV_32F
+    )
+    noise_gain = float(np.sum(response * response))
+    sharpness = max(
+        0.0, float(np.var(laplacian[mask])) - noise * noise * noise_gain
+    )
+
+    local_mean = cv2.GaussianBlur(gray_float, (0, 0), 3.0)
+    local_variance = cv2.GaussianBlur(gray_float**2, (0, 0), 3.0)
+    local_variance -= local_mean**2
+    local_variance -= noise * noise
+    contrast = float(np.mean(np.sqrt(np.maximum(local_variance[mask], 0))))
+    return sharpness, noise, contrast
+
+
+def _document_glare(image: np.ndarray, mask: np.ndarray) -> float:
+    hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
+    value = hsv[:, :, 2]
+    # A uniformly white sheet is expected. Glare is a localized clipped patch
+    # brighter than the surrounding paper, including its textureless center.
+    paper_brightness = float(np.percentile(value[mask], 60))
+    if paper_brightness >= 245:
+        return 0.0
+    clipped = (mask & (value >= 250) & (hsv[:, :, 1] <= 35)).astype(np.uint8)
+    clipped = cv2.morphologyEx(
+        clipped, cv2.MORPH_OPEN, np.ones((5, 5), dtype=np.uint8)
+    )
+    return float(np.count_nonzero(clipped) / np.count_nonzero(mask))
+
+
+def _document_resolution(
+    image: np.ndarray,
+    geometry: _DocumentGeometry,
+    original_width: int,
+    original_height: int,
+) -> float:
+    if geometry.points is None:
+        return float(min(original_width, original_height))
+    points = geometry.points * np.array(
+        [original_width / image.shape[1], original_height / image.shape[0]]
+    )
+    sides = np.linalg.norm(np.roll(points, -1, axis=0) - points, axis=1)
+    return float(min((sides[0] + sides[2]) / 2, (sides[1] + sides[3]) / 2))
+
+
+def _document_readability(
+    image: np.ndarray,
+    original_width: int,
+    original_height: int,
+    geometry: _DocumentGeometry,
+) -> _ReadabilityMetrics:
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    mask = _document_mask(gray, geometry)
+    pixels = gray[mask]
+    sharpness, noise, contrast = _document_detail(gray, mask)
+    resolution_score = _scaled_score(
+        _document_resolution(image, geometry, original_width, original_height),
+        200.0,
+        1_200.0,
+    )
+    # Smooth response curves still distinguish already-sharp burst frames.
+    noise_score = 1.0 / (1.0 + (noise / 10.0) ** 2)
+    sharpness_score = sharpness / (sharpness + 35.0) * noise_score
+    # Downsampling narrows strokes and can increase pixel-level sharpness.
+    # A sharp thumbnail still contains fewer readable document samples.
+    sharpness_score *= 0.5 + 0.5 * resolution_score
+    contrast_score = contrast / (contrast + 8.0) * noise_score**0.5
+
+    brightness = float(np.mean(pixels))
+    underexposure_ratio = float(np.mean(pixels <= 20))
+    overexposure_ratio = float(np.mean(pixels >= 245))
+    # Paper can legitimately be white and text black; neither is itself proof
+    # of clipping damage. Lost text is measured by focus and local contrast.
+    paper_brightness = float(np.percentile(pixels, 90))
+    brightness_score = _scaled_score(paper_brightness, 45.0, 180.0)
+    illumination = cv2.GaussianBlur(
+        gray, (0, 0), sigmaX=max(5.0, min(gray.shape) / 30.0)
+    )
+    illumination_spread = float(
+        np.percentile(illumination[mask], 90)
+        - np.percentile(illumination[mask], 10)
+    )
+    illumination_score = 1.0 - _scaled_score(illumination_spread, 35.0, 150.0)
+    glare = _document_glare(image, mask)
+    component_scores = {
+        "document_completeness": geometry.completeness_score,
+        "sharpness": sharpness_score,
+        "glare": 1.0 - _scaled_score(glare, 0.005, 0.20),
+        "exposure": brightness_score * 0.75 + illumination_score * 0.25,
+        "perspective": geometry.perspective_score,
+        "local_contrast": contrast_score,
+        "resolution": resolution_score,
+        "noise_and_blur": noise_score * 0.6 + sharpness_score * 0.4,
+    }
+    return _ReadabilityMetrics(
+        sharpness_variance=sharpness,
+        glare_ratio=glare,
+        brightness=brightness,
+        underexposure_ratio=underexposure_ratio,
+        overexposure_ratio=overexposure_ratio,
+        illumination_spread=illumination_spread,
+        local_contrast=contrast,
+        noise_level=noise,
+        component_scores=component_scores,
+    )
+
+
+def _assess_image_quality(
+    image_source: str | Path | BinaryIO, *, qr: bool
+) -> ImageQualityAssessment:
+    image, original_width, original_height = _load_analysis_image(image_source)
+    geometry = _document_geometry(image)
+    measure = _qr_readability if qr else _document_readability
+    metrics = measure(image, original_width, original_height, geometry)
     score = sum(
-        component_scores[name] * weight
+        metrics.component_scores[name] * weight
         for name, weight in QUALITY_WEIGHTS.items()
     )
     grade = "good" if score >= 0.75 else "medium" if score >= 0.50 else "poor"
-
     return ImageQualityAssessment(
         score=round(score, 4),
         grade=grade,
@@ -377,19 +559,34 @@ def assess_image_quality(
         touches_frame=geometry.touches_frame,
         document_area_ratio=round(geometry.area_ratio, 4),
         border_margin_ratio=round(geometry.border_margin_ratio, 4),
-        sharpness_variance=round(sharpness_variance, 2),
-        glare_ratio=round(glare_ratio, 4),
-        brightness=round(brightness, 2),
-        underexposure_ratio=round(underexposure_ratio, 4),
-        overexposure_ratio=round(overexposure_ratio, 4),
-        illumination_spread=round(illumination_spread, 2),
-        local_contrast=round(local_contrast, 2),
-        noise_level=round(noise_level, 2),
+        sharpness_variance=round(metrics.sharpness_variance, 2),
+        glare_ratio=round(metrics.glare_ratio, 4),
+        brightness=round(metrics.brightness, 2),
+        underexposure_ratio=round(metrics.underexposure_ratio, 4),
+        overexposure_ratio=round(metrics.overexposure_ratio, 4),
+        illumination_spread=round(metrics.illumination_spread, 2),
+        local_contrast=round(metrics.local_contrast, 2),
+        noise_level=round(metrics.noise_level, 2),
         perspective_distortion=round(geometry.perspective_distortion, 4),
         component_scores={
-            name: round(value, 4) for name, value in component_scores.items()
+            name: round(value, 4)
+            for name, value in metrics.component_scores.items()
         },
     )
+
+
+def assess_image_quality(
+    image_source: str | Path | BinaryIO,
+) -> ImageQualityAssessment:
+    """Rank document frames using bounded, CPU-only readability heuristics."""
+    return _assess_image_quality(image_source, qr=False)
+
+
+def assess_qr_image_quality(
+    image_source: str | Path | BinaryIO,
+) -> ImageQualityAssessment:
+    """Preserve QR measurements independently of document-specific scoring."""
+    return _assess_image_quality(image_source, qr=True)
 
 
 def qr_quality_score(assessment: ImageQualityAssessment) -> float:
