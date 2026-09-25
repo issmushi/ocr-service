@@ -1,6 +1,6 @@
 [project]
 name = "ocr-service"
-version = "0.1.0"
+version = "1.0.0"
 description = "Unified OCR API, PaddleOCR, RussianDocsOCR, QR and queue worker"
 requires-python = ">=3.11,<3.12"
 dependencies = [
@@ -38,6 +38,7 @@ run-ocr-service = "app.main:run"
 
 [tool.poetry]
 packages = [{ include = "app" }]
+include = [{ path = "app/static/ui", format = ["sdist", "wheel"] }]
 
 [dependency-groups]
 dev = ["pytest>=8.3,<9.0", "ruff>=0.15.22,<0.16.0"]
