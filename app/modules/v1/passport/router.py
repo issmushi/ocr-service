@@ -63,9 +63,10 @@ async def recognize_passport(
         description="Изображение страницы паспорта с MRZ-зоной.",
     ),
     model: PassportOcrModel = Form(
-        PassportOcrModel.PADDLE,
+        PassportOcrModel.MRZ,
         description=(
-            "Движок распознавания: paddle, mrz, qwen3-vl-4b или qwen3-vl-8b."
+            "Движок распознавания: mrz (по умолчанию), paddle, "
+            "qwen3-vl-4b или qwen3-vl-8b."
         ),
     ),
     crop: bool = Form(

@@ -30,7 +30,7 @@ ENGINE_BY_MODEL = {
 async def recognize_idcard_upload(
     image: UploadFile,
     *,
-    model: IdcardOcrModel = IdcardOcrModel.PADDLE,
+    model: IdcardOcrModel = IdcardOcrModel.MRZ,
     crop: bool = True,
     normalize: bool = True,
     normalization: bool = True,

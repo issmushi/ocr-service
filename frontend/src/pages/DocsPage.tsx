@@ -84,7 +84,7 @@ const taskOperations = [
 export function DocsPage({ navigate }: Props) {
   const [active, setActive] = useState("quickstart");
   const [copied, setCopied] = useState(false);
-  const curl = `BASE_URL=http://127.0.0.1:8000\ncurl -X POST "$BASE_URL/v1/ocr/passport/mrz" \\\n  -F 'image=@passport.jpg' \\\n  -F 'model=paddle' \\\n  -F 'crop=true' \\\n  -F 'normalize=true' \\\n  -F 'normalization=true'`;
+  const curl = `BASE_URL=http://127.0.0.1:8000\ncurl -X POST "$BASE_URL/v1/ocr/passport/mrz" \\\n  -F 'image=@passport.jpg' \\\n  -F 'model=mrz' \\\n  -F 'crop=true' \\\n  -F 'normalize=true' \\\n  -F 'normalization=true'`;
 
   useEffect(() => {
     const observer = new IntersectionObserver(

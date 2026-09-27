@@ -63,7 +63,7 @@ def _passport_ocr_meta(
 async def recognize_passport_upload(
     image: UploadFile,
     *,
-    model: PassportOcrModel = PassportOcrModel.PADDLE,
+    model: PassportOcrModel = PassportOcrModel.MRZ,
     crop: bool = True,
     normalize: bool = True,
     normalization: bool = True,

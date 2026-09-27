@@ -13,7 +13,7 @@ const mrzParams: ParamDefinition[] = [
     key: "model",
     label: "Модель",
     description: "Движок для чтения MRZ.",
-    defaultValue: "paddle",
+    defaultValue: "mrz",
     options: mrzModels,
   },
   {

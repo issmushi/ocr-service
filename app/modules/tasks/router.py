@@ -86,7 +86,7 @@ TASK_ERRORS = {
 )
 async def create_passport_mrz_task(
     image: UploadFile = File(...),
-    model: PassportOcrModel = Form(PassportOcrModel.PADDLE),
+    model: PassportOcrModel = Form(PassportOcrModel.MRZ),
     crop: bool = Form(True),
     normalize: bool = Form(True),
     normalization: bool = Form(True),
@@ -138,7 +138,7 @@ async def create_passport_page_task(
 )
 async def create_idcard_mrz_task(
     image: UploadFile = File(...),
-    model: IdcardOcrModel = Form(IdcardOcrModel.PADDLE),
+    model: IdcardOcrModel = Form(IdcardOcrModel.MRZ),
     crop: bool = Form(True),
     normalize: bool = Form(True),
     normalization: bool = Form(True),

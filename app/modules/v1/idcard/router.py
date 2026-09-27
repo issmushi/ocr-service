@@ -56,7 +56,8 @@ async def recognize_idcard(
         ..., description="Изображение стороны ID-карты с MRZ."
     ),
     model: IdcardOcrModel = Form(
-        IdcardOcrModel.PADDLE, description="Модель распознавания."
+        IdcardOcrModel.MRZ,
+        description="Модель распознавания. По умолчанию MRZ Scanner (mrz).",
     ),
     crop: bool = Form(True, description="Вырезать MRZ перед OCR."),
     normalize: bool = Form(
