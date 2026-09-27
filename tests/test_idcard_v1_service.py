@@ -466,7 +466,7 @@ def test_openapi_documents_models_flags_and_response_fields() -> None:
     assert properties["image"]["type"] == "string"
     assert properties["image"]["format"] == "binary"
     assert body_schema["required"] == ["image"]
-    assert properties["model"]["default"] == "paddle"
+    assert properties["model"]["default"] == "mrz"
     assert schema["components"]["schemas"][model_component]["enum"] == [
         "paddle",
         "mrz",
@@ -516,8 +516,8 @@ def test_request_defaults_enable_crop_normalization_and_report(
     assert response.status_code == 200, response.text
     assert response.json()["data"]["normalization"] == EMPTY_NORMALIZATION
     assert response.json()["data"]["meta"] == {
-        "engine": "paddleocr",
-        "model": "paddle",
+        "engine": "mrz-scanner",
+        "model": "mrz",
         "duration_seconds": 0.25,
     }
-    _assert_selected_runtime(mocks, model="paddle", crop=True)
+    _assert_selected_runtime(mocks, model="mrz", crop=True)

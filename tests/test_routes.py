@@ -88,7 +88,7 @@ class RouteTests(unittest.TestCase):
         self.assertNotIn("model", body_schema["required"])
         self.assertNotIn("crop", body_schema["required"])
         self.assertNotIn("normalization", body_schema["required"])
-        self.assertEqual(model_schema["default"], "paddle")
+        self.assertEqual(model_schema["default"], "mrz")
         self.assertEqual(crop_schema["type"], "boolean")
         self.assertIs(crop_schema["default"], True)
         self.assertEqual(normalization_schema["type"], "boolean")
@@ -142,8 +142,8 @@ class RouteTests(unittest.TestCase):
                 "normalization": None,
                 **empty_passport_mrz_data(),
                 "meta": {
-                    "engine": "paddleocr",
-                    "model": "paddle",
+                    "engine": "mrz-scanner",
+                    "model": "mrz",
                     "duration_seconds": 0.25,
                 },
             },
@@ -171,7 +171,7 @@ class RouteTests(unittest.TestCase):
         self.assertEqual(
             recognize_passport_upload.await_args.kwargs,
             {
-                "model": PassportOcrModel.PADDLE,
+                "model": PassportOcrModel.MRZ,
                 "crop": True,
                 "normalization": True,
             },

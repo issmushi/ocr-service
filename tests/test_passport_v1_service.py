@@ -41,7 +41,7 @@ def expected_meta(
     *,
     duration_seconds: float = 0.25,
 ) -> dict[str, Any]:
-    selected_model = model or "paddle"
+    selected_model = model or "mrz"
     engine = {
         "paddle": "paddleocr",
         "mrz": "mrz-scanner",
@@ -101,13 +101,16 @@ class PassportV1ServiceTests(unittest.TestCase):
             )
 
         self.assertEqual(response.status_code, 200)
+        selected_model = model or "mrz"
         selected, unused = (
-            (mrz_run, paddle_run) if model == "mrz" else (paddle_run, mrz_run)
+            (mrz_run, paddle_run)
+            if selected_model == "mrz"
+            else (paddle_run, mrz_run)
         )
         selected.assert_awaited_once_with(
             "passport_v1",
             b"fake-image",
-            timeout_seconds=17.0 if model == "mrz" else 11.0,
+            timeout_seconds=17.0 if selected_model == "mrz" else 11.0,
         )
         unused.assert_not_awaited()
         return response.json()

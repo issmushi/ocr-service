@@ -29,7 +29,7 @@ CASES = [
         "passport_mrz",
         {},
         {
-            "model": "paddle",
+            "model": "mrz",
             "crop": True,
             "normalize": True,
             "normalization": True,
@@ -46,7 +46,7 @@ CASES = [
         "idcard_mrz",
         {},
         {
-            "model": "paddle",
+            "model": "mrz",
             "crop": True,
             "normalize": True,
             "normalization": True,
