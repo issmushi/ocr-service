@@ -6,6 +6,9 @@ ENV_FILE="$ROOT_DIR/.env"
 RUNTIME_DIR="$ROOT_DIR/.runtime"
 RUN_DIR="$ROOT_DIR/storage/run"
 LOG_DIR_DEFAULT="$ROOT_DIR/logs"
+FRONTEND_DIR="$ROOT_DIR/frontend"
+FRONTEND_DIST_DIR="$ROOT_DIR/app/static/ui"
+FRONTEND_STAGE_DIR="$RUNTIME_DIR/frontend-next"
 
 COMMAND="install"
 COMMAND_SET=0
@@ -73,6 +76,9 @@ Editions:
   standard  PaddleOCR, MRZ Scanner and Russian OCR
   extended  Standard edition plus Qwen3-VL 4B and 8B
   manual    Read the comma-separated OCR_MODELS list from .env
+
+Requirements:
+  Python 3.11, Poetry, Node.js 18/20/22+ with npm, and Docker Compose when services start
 
 Examples:
   ./install.sh
@@ -531,8 +537,22 @@ validate_runtime_path() {
 }
 
 preflight() {
+  local node_major
   require_command poetry
   PYTHON_BIN="$(python_command)" || die "Требуется Python 3.11"
+  [ -f "$FRONTEND_DIR/package.json" ] \
+    || die "Не найден frontend/package.json; веб-интерфейс не может быть собран"
+  [ -f "$FRONTEND_DIR/package-lock.json" ] \
+    || die "Не найден frontend/package-lock.json; установка должна быть воспроизводимой"
+  require_command node
+  require_command npm
+  node_major="$(node -p 'process.versions.node.split(".")[0]' 2>/dev/null)" \
+    || die "Не удалось определить версию Node.js"
+  [[ "$node_major" =~ ^[0-9]+$ ]] \
+    || die "Некорректная версия Node.js: $node_major"
+  if [ "$node_major" -ne 18 ] && [ "$node_major" -ne 20 ] && [ "$node_major" -lt 22 ]; then
+    die "Требуется Node.js 18, 20 или 22+; обнаружена версия $(node --version)"
+  fi
   if [ "$NO_START" -eq 0 ]; then
     require_command docker
     docker compose version >/dev/null 2>&1 || die "Требуется Docker Compose v2"
@@ -544,6 +564,40 @@ preflight() {
   fi
   validate_runtime_path "$RUNTIME_DIR/api"
   validate_runtime_path "$RUNTIME_DIR/vlm"
+}
+
+install_frontend() {
+  info "Устанавливаю зависимости веб-интерфейса"
+  (cd "$FRONTEND_DIR" && npm ci --include=dev)
+
+  info "Собираю веб-интерфейс"
+  rm -rf "$FRONTEND_STAGE_DIR"
+  (cd "$FRONTEND_DIR" && npm run build -- --outDir "$FRONTEND_STAGE_DIR")
+  [ -f "$FRONTEND_STAGE_DIR/index.html" ] \
+    || die "Frontend build завершился без index.html"
+  success "Веб-интерфейс собран и готов к активации"
+}
+
+activate_frontend() {
+  local backup_dir="$RUNTIME_DIR/frontend-previous"
+  rm -rf "$backup_dir"
+  mkdir -p "$(dirname "$FRONTEND_DIST_DIR")"
+  if [ -d "$FRONTEND_DIST_DIR" ]; then
+    mv "$FRONTEND_DIST_DIR" "$backup_dir"
+  fi
+  if ! mv "$FRONTEND_STAGE_DIR" "$FRONTEND_DIST_DIR"; then
+    if [ -d "$backup_dir" ]; then
+      mv "$backup_dir" "$FRONTEND_DIST_DIR"
+    fi
+    die "Не удалось активировать новую сборку веб-интерфейса"
+  fi
+  rm -rf "$backup_dir"
+  success "Веб-интерфейс активирован"
+}
+
+require_frontend_build() {
+  [ -f "$FRONTEND_DIST_DIR/index.html" ] \
+    || die "Веб-интерфейс не собран; запусти ./install.sh"
 }
 
 install_profile() {
@@ -832,6 +886,7 @@ start_stack() {
     log_dir="$ROOT_DIR/$log_dir"
   fi
   runtime_profile_from_env
+  require_frontend_build
   ensure_runtime_links
   require_command docker
   docker compose version >/dev/null 2>&1 || die "Требуется Docker Compose v2"
@@ -839,7 +894,7 @@ start_stack() {
   info "Запускаю PostgreSQL и RabbitMQ"
   (cd "$ROOT_DIR" && docker compose up -d --wait --remove-orphans postgres rabbitmq)
   info "Применяю миграции"
-  (cd "$ROOT_DIR" && "$RUNTIME_DIR/api/bin/python" -m alembic -c alembic.ini upgrade head)
+  (cd "$ROOT_DIR" && "$RUNTIME_DIR/api/bin/alembic" -c alembic.ini upgrade head)
   if contains_model qwen3-vl-4b || contains_model qwen3-vl-8b; then
     start_process "Qwen VLM" "$RUN_DIR/vlm.pid" "$log_dir/vlm.log" "app.modules.vlm.server" \
       "$RUNTIME_DIR/vlm/bin/python" -m app.modules.vlm.server
@@ -862,6 +917,7 @@ start_stack() {
   printf '\n'
   success "OCR Service запущен"
   printf '  API:      http://%s:%s\n' "${API_HOST:-127.0.0.1}" "${API_PORT:-8000}"
+  printf '  UI:       http://%s:%s/ui/\n' "${API_HOST:-127.0.0.1}" "${API_PORT:-8000}"
   printf '  Swagger:  http://%s:%s/docs\n' "${API_HOST:-127.0.0.1}" "${API_PORT:-8000}"
   printf '  Логи:     %s\n' "$log_dir"
 }
@@ -930,17 +986,23 @@ install_stack() {
     return
   fi
   preflight
+  # Build the UI before downtime and keep the current build intact until
+  # every dependency has been prepared successfully.
+  install_frontend
+  # The active API can point at the profile that Poetry is about to update.
+  # Stop it before changing that Python environment.
+  stop_stack
   install_profile "$RUNTIME_PROFILE"
   prepare_russian_ocr_assets
   verify_profile
   prepare_mrz_assets
   install_qwen
+  activate_frontend
   activate_runtime
   write_configuration
   success "Установка и конфигурация завершены"
   if [ "$NO_START" -eq 0 ]; then
     load_env
-    stop_stack
     start_stack
   fi
 }
@@ -961,8 +1023,9 @@ main() {
       stop_stack
       ;;
     restart)
-      stop_stack
       load_env
+      require_frontend_build
+      stop_stack
       start_stack
       ;;
     status)

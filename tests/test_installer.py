@@ -195,6 +195,14 @@ def test_offline_russian_ocr_assets_are_fetched_then_checked(
     fake_bin.mkdir()
     shutil.copy2(INSTALLER, project / "install.sh")
     (project / "profiles" / "cpu").mkdir(parents=True)
+    (project / "frontend").mkdir()
+    (project / "frontend" / "package.json").write_text(
+        '{"scripts":{"build":"test-build"}}',
+        encoding="utf-8",
+    )
+    (project / "frontend" / "package-lock.json").write_text(
+        "{}", encoding="utf-8"
+    )
 
     call_log = tmp_path / "python-calls.log"
     fake_python = fake_bin / "python3.11"
@@ -203,6 +211,29 @@ def test_offline_russian_ocr_assets_are_fetched_then_checked(
         encoding="utf-8",
     )
     fake_python.chmod(0o755)
+
+    fake_node = fake_bin / "node"
+    fake_node.write_text(
+        '#!/bin/sh\nif [ "${1:-}" = "-p" ]; then echo 20; fi\n',
+        encoding="utf-8",
+    )
+    fake_node.chmod(0o755)
+
+    fake_npm = fake_bin / "npm"
+    fake_npm.write_text(
+        "#!/bin/sh\n"
+        'if [ "${1:-}" = "run" ] && [ "${2:-}" = "build" ]; then\n'
+        '  out_dir="$PWD/../app/static/ui"\n'
+        '  while [ "$#" -gt 0 ]; do\n'
+        '    if [ "$1" = "--outDir" ]; then out_dir=$2; shift 2; '
+        "else shift; fi\n"
+        "  done\n"
+        '  mkdir -p "$out_dir"\n'
+        "  printf '<!doctype html>' > \"$out_dir/index.html\"\n"
+        "fi\n",
+        encoding="utf-8",
+    )
+    fake_npm.chmod(0o755)
 
     fake_poetry = fake_bin / "poetry"
     fake_poetry.write_text(
@@ -272,3 +303,177 @@ def test_offline_russian_ocr_assets_are_fetched_then_checked(
     assert f"RUSSIAN_OCR_MODELS_DIR={target}" in (project / ".env").read_text(
         encoding="utf-8"
     )
+
+
+def test_installer_stages_frontend_before_touching_runtime(
+    tmp_path: Path,
+) -> None:
+    project = tmp_path / "project"
+    fake_bin = tmp_path / "bin"
+    project.mkdir()
+    fake_bin.mkdir()
+    shutil.copy2(INSTALLER, project / "install.sh")
+    (project / "profiles" / "cpu").mkdir(parents=True)
+    frontend = project / "frontend"
+    frontend.mkdir()
+    (frontend / "package.json").write_text(
+        '{"scripts":{"build":"test-build"}}',
+        encoding="utf-8",
+    )
+    (frontend / "package-lock.json").write_text("{}", encoding="utf-8")
+
+    fake_python = fake_bin / "python3.11"
+    fake_python.write_text(
+        '#!/bin/sh\nif [ "${1:-}" = "-c" ]; then echo 3.11; fi\n',
+        encoding="utf-8",
+    )
+    fake_python.chmod(0o755)
+
+    fake_poetry = fake_bin / "poetry"
+    fake_poetry.write_text(
+        "#!/bin/sh\n"
+        "profile=\n"
+        'while [ "$#" -gt 0 ]; do\n'
+        '  if [ "$1" = "-C" ]; then profile=$2; shift 2; '
+        "else shift; fi\n"
+        "done\n"
+        'mkdir -p "$profile/.venv/bin"\n'
+        "cat > \"$profile/.venv/bin/python\" <<'PY'\n"
+        "#!/bin/sh\n"
+        'if [ "${1:-}" = "-c" ]; then echo test-key; fi\n'
+        "PY\n"
+        'chmod +x "$profile/.venv/bin/python"\n',
+        encoding="utf-8",
+    )
+    fake_poetry.chmod(0o755)
+
+    fake_node = fake_bin / "node"
+    fake_node.write_text(
+        '#!/bin/sh\nif [ "${1:-}" = "-p" ]; then echo 20; fi\n',
+        encoding="utf-8",
+    )
+    fake_node.chmod(0o755)
+
+    npm_log = tmp_path / "npm.log"
+    fake_npm = fake_bin / "npm"
+    fake_npm.write_text(
+        "#!/bin/sh\n"
+        'printf \'%s|%s\\n\' "$PWD" "$*" >> "$INSTALL_TEST_NPM_LOG"\n'
+        'if [ "${1:-}" = "run" ] && [ "${2:-}" = "build" ]; then\n'
+        '  out_dir="$PWD/../app/static/ui"\n'
+        '  while [ "$#" -gt 0 ]; do\n'
+        '    if [ "$1" = "--outDir" ]; then out_dir=$2; shift 2; '
+        "else shift; fi\n"
+        "  done\n"
+        '  mkdir -p "$out_dir"\n'
+        "  printf '<!doctype html>' > \"$out_dir/index.html\"\n"
+        "fi\n",
+        encoding="utf-8",
+    )
+    fake_npm.chmod(0o755)
+
+    result = subprocess.run(
+        [
+            "bash",
+            str(project / "install.sh"),
+            "--edition",
+            "manual",
+            "--device",
+            "cpu",
+            "--yes",
+            "--no-start",
+        ],
+        cwd=project,
+        env={
+            **os.environ,
+            "PATH": f"{fake_bin}:{os.environ['PATH']}",
+            "INSTALL_TEST_NPM_LOG": str(npm_log),
+            "OCR_MODELS": "paddle",
+        },
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.index(
+        "Устанавливаю зависимости веб-интерфейса"
+    ) < result.stdout.index("OCR API не запущен")
+    assert result.stdout.index("OCR API не запущен") < result.stdout.index(
+        "Устанавливаю Python-профиль cpu"
+    )
+    assert npm_log.read_text(encoding="utf-8").splitlines() == [
+        f"{frontend}|ci --include=dev",
+        (
+            f"{frontend}|run build -- --outDir "
+            f"{project / '.runtime' / 'frontend-next'}"
+        ),
+    ]
+    assert (project / "app" / "static" / "ui" / "index.html").is_file()
+
+
+def test_installer_fails_clearly_when_node_is_missing(tmp_path: Path) -> None:
+    project = tmp_path / "project"
+    fake_bin = tmp_path / "bin"
+    project.mkdir()
+    fake_bin.mkdir()
+    shutil.copy2(INSTALLER, project / "install.sh")
+    (project / "frontend").mkdir()
+    (project / "frontend" / "package.json").write_text("{}", encoding="utf-8")
+    (project / "frontend" / "package-lock.json").write_text(
+        "{}", encoding="utf-8"
+    )
+
+    for name, body in {
+        "python3.11": "#!/bin/sh\necho 3.11\n",
+        "poetry": "#!/bin/sh\nexit 0\n",
+    }.items():
+        executable = fake_bin / name
+        executable.write_text(body, encoding="utf-8")
+        executable.chmod(0o755)
+
+    result = subprocess.run(
+        [
+            "/bin/bash",
+            str(project / "install.sh"),
+            "--edition",
+            "manual",
+            "--device",
+            "cpu",
+            "--yes",
+            "--no-start",
+        ],
+        cwd=project,
+        env={
+            **os.environ,
+            "PATH": f"{fake_bin}:/usr/bin:/bin",
+            "OCR_MODELS": "paddle",
+        },
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    assert result.returncode != 0
+    assert "Не найдена обязательная команда: node" in result.stderr
+
+
+def test_restart_validates_frontend_before_stopping_services(
+    tmp_path: Path,
+) -> None:
+    project = tmp_path / "project"
+    project.mkdir()
+    shutil.copy2(INSTALLER, project / "install.sh")
+
+    result = subprocess.run(
+        ["/bin/bash", str(project / "install.sh"), "restart"],
+        cwd=project,
+        env=os.environ,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    assert result.returncode != 0
+    assert "Веб-интерфейс не собран" in result.stderr
+    assert "OCR API не запущен" not in result.stdout
