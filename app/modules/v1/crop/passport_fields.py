@@ -1,4 +1,4 @@
-"""Experimental field cropping without passport text recognition."""
+"""Experimental passport field cropping with optional per-field OCR."""
 
 from __future__ import annotations
 
@@ -17,6 +17,8 @@ from app.core.images.validation import (
 )
 from app.core.model_availability import ensure_ocr_model_enabled
 from app.modules.russian.runtime import russian_runtime
+from app.modules.v1.crop.field_ocr import recognize_field_previews
+from app.modules.v1.crop.field_schemas import FieldOcrModel
 
 
 async def crop_passport_fields_upload(
@@ -24,9 +26,12 @@ async def crop_passport_fields_upload(
     *,
     crop_document: bool = True,
     padding: int = 4,
+    ocr_model: FieldOcrModel = FieldOcrModel.NONE,
 ) -> dict[str, Any]:
     try:
         ensure_ocr_model_enabled("russian-ocr")
+        if ocr_model != FieldOcrModel.NONE:
+            ensure_ocr_model_enabled(ocr_model.value)
         validate_image_extension(image.filename or "image.jpg")
         await prepare_upload_stream(
             image, max_bytes=settings.ocr_max_image_size_bytes
@@ -44,6 +49,7 @@ async def crop_passport_fields_upload(
         crop_document=crop_document,
         padding=padding,
     )
+    ocr_meta = await recognize_field_previews(result["fields"], ocr_model)
     return api_success_response(
         {
             "document": result["document"],
@@ -53,6 +59,7 @@ async def crop_passport_fields_upload(
                 "model": "text-fields-detector",
                 "duration_seconds": perf_counter() - started,
                 "timings": result["timings"],
+                "ocr": ocr_meta,
             },
         }
     )

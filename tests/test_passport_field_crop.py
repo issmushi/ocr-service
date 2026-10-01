@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import base64
+from copy import deepcopy
 from io import BytesIO
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock, patch
@@ -90,6 +91,8 @@ def test_endpoint_returns_previews_coordinates_and_detector_metadata(
     assert field["detection_bbox"] == [10, 10, 50, 20]
     assert (field["width"], field["height"]) == (48, 18)
     assert "text" not in field
+    assert field["ocr"] is None
+    assert data["meta"]["ocr"] is None
     assert data["meta"]["engine"] == "russian-docs-ocr"
     assert data["meta"]["model"] == "text-fields-detector"
     assert data["meta"]["duration_seconds"] >= 0
@@ -101,6 +104,207 @@ def test_endpoint_returns_previews_coordinates_and_detector_metadata(
         crop_document=True,
         padding=4,
     )
+
+
+def test_paddle_reads_each_displayed_crop_preserving_order_and_duplicates(
+    client, engine
+):
+    fields = engine.return_value["fields"]
+    fields.append(deepcopy(fields[0]))
+    fields[1]["image"] = (
+        "data:image/jpeg;base64,"
+        + base64.b64encode(
+            image_bytes(Image.new("RGB", (32, 15), "blue"))
+        ).decode()
+    )
+    for name in ("Face", "Signature"):
+        skipped = deepcopy(fields[0])
+        skipped["name"] = name
+        fields.append(skipped)
+
+    with patch(
+        "app.modules.v1.crop.field_ocr.paddle_runtime.run",
+        new_callable=AsyncMock,
+        side_effect=[
+            {"text": "ТЕСТОВ", "confidence": 0.91, "device": "cpu"},
+            {"text": "  ВТОРАЯ\nСТРОКА  ", "confidence": 0.8, "device": "cpu"},
+        ],
+    ) as recognize:
+        response = client.post(
+            PATH,
+            files={"image": ("page.png", image_bytes(), "image/png")},
+            data={"ocr_model": "paddle"},
+        )
+    assert response.status_code == 200, response.text
+    data = response.json()["data"]
+    assert len(data["fields"]) == 4
+    assert recognize.await_count == 2
+    for index, call in enumerate(recognize.await_args_list):
+        assert call.args == (
+            "field_text",
+            base64.b64decode(fields[index]["image"].split(",")[1]),
+        )
+    first, second, face, signature = data["fields"]
+    assert first["ocr"]["text"] == "ТЕСТОВ"
+    assert first["ocr"]["device"] == "cpu"
+    assert first["confidence"] == 0.95
+    assert first["ocr"]["confidence"] == 0.91
+    assert second["ocr"]["text"] == "  ВТОРАЯ\nСТРОКА  "
+    assert face["ocr"]["status"] == signature["ocr"]["status"] == "skipped"
+    assert face["ocr"]["duration_seconds"] == 0
+    assert data["meta"]["ocr"]["processed_fields"] == 2
+    assert data["meta"]["ocr"]["failed_fields"] == 0
+    assert (
+        data["meta"]["duration_seconds"]
+        >= data["meta"]["ocr"]["duration_seconds"]
+    )
+
+
+def test_field_failure_does_not_discard_crops_or_other_ocr_results(
+    client, engine
+):
+    fields = engine.return_value["fields"]
+    fields.extend([deepcopy(fields[0]), deepcopy(fields[0])])
+    with patch(
+        "app.modules.v1.crop.field_ocr.paddle_runtime.run",
+        new_callable=AsyncMock,
+        side_effect=[
+            AppError(ErrorCode.OCR_TIMEOUT, "Превышен таймаут обработки"),
+            {"text": "", "confidence": 0.0, "device": "cpu"},
+            {"text": "ТЕСТ", "confidence": 0.7, "device": "cpu"},
+        ],
+    ):
+        response = client.post(
+            PATH,
+            files={"image": ("page.png", image_bytes(), "image/png")},
+            data={"ocr_model": "paddle"},
+        )
+    assert response.status_code == 200
+    assert response.json()["success"] is True
+    data = response.json()["data"]
+    assert data["document"]["image"].startswith("data:image/jpeg;base64,")
+    first, second, third = data["fields"]
+    assert first["ocr"]["status"] == "error"
+    assert first["ocr"]["error"]["code"] == "OCR_TIMEOUT"
+    assert second["ocr"]["status"] == third["ocr"]["status"] == "success"
+    assert second["ocr"]["text"] == ""
+    assert third["ocr"]["text"] == "ТЕСТ"
+    assert data["meta"]["ocr"]["processed_fields"] == 3
+    assert data["meta"]["ocr"]["failed_fields"] == 1
+
+
+@pytest.mark.parametrize("model", ["qwen3-vl-4b", "qwen3-vl-8b"])
+def test_qwen_reads_crop_as_plain_ocr_and_reports_actual_device(
+    client, engine, model
+):
+    with (
+        patch(f"{SERVICE}.ensure_ocr_model_enabled") as enabled,
+        patch(
+            "app.modules.v1.crop.field_ocr.recognize_vlm_image",
+            new_callable=AsyncMock,
+            return_value={
+                "items": [{"text": " ТЕСТОВ "}, {"text": "ИВАН"}],
+                "device": "metal",
+            },
+        ) as recognize,
+    ):
+        response = client.post(
+            PATH,
+            files={"image": ("page.png", image_bytes(), "image/png")},
+            data={"ocr_model": model},
+        )
+    assert response.status_code == 200, response.text
+    field = response.json()["data"]["fields"][0]
+    assert field["ocr"]["text"] == " ТЕСТОВ \nИВАН"
+    assert field["ocr"]["device"] == "metal"
+    assert field["ocr"]["confidence"] is None
+    assert field["ocr"]["model"] == model
+    recognize.assert_awaited_once_with(
+        base64.b64decode(field["image"].split(",")[1]),
+        model=model,
+        filename="field-1.jpg",
+        content_type="image/jpeg",
+        task="ocr",
+        report_runtime=True,
+    )
+    assert [call.args[0] for call in enabled.call_args_list] == [
+        "russian-ocr",
+        model,
+    ]
+
+
+@pytest.mark.parametrize(
+    "result", [{}, {"items": [None]}, {"items": [{"text": 123}]}]
+)
+def test_invalid_model_output_is_reported_on_field(client, engine, result):
+    with (
+        patch(f"{SERVICE}.ensure_ocr_model_enabled"),
+        patch(
+            "app.modules.v1.crop.field_ocr.recognize_vlm_image",
+            new_callable=AsyncMock,
+            return_value=result,
+        ),
+    ):
+        response = client.post(
+            PATH,
+            files={"image": ("page.png", image_bytes(), "image/png")},
+            data={"ocr_model": "qwen3-vl-4b"},
+        )
+    assert response.status_code == 200
+    field = response.json()["data"]["fields"][0]
+    assert field["ocr"]["status"] == "error"
+    assert field["ocr"]["error"]["code"] == "OCR_FAILED"
+
+
+def test_unknown_ocr_model_is_rejected_before_detection(client, engine):
+    response = client.post(
+        PATH,
+        files={"image": ("page.png", image_bytes(), "image/png")},
+        data={"ocr_model": "mrz"},
+    )
+    assert response.status_code == 422
+    engine.assert_not_awaited()
+
+
+def test_disabled_ocr_model_is_rejected_before_detection(client, engine):
+    with patch(
+        f"{SERVICE}.ensure_ocr_model_enabled",
+        side_effect=[
+            None,
+            AppError(ErrorCode.OCR_ENGINE_UNAVAILABLE, "Модель отключена"),
+        ],
+    ):
+        response = client.post(
+            PATH,
+            files={"image": ("page.png", image_bytes(), "image/png")},
+            data={"ocr_model": "paddle"},
+        )
+    assert response.status_code == 503
+    engine.assert_not_awaited()
+
+
+@pytest.mark.parametrize("ocr_model", ["none", "paddle", "qwen3-vl-8b"])
+def test_no_text_fields_never_calls_ocr_runtime(client, engine, ocr_model):
+    engine.return_value["fields"] = []
+    with (
+        patch(f"{SERVICE}.ensure_ocr_model_enabled"),
+        patch(
+            "app.modules.v1.crop.field_ocr.paddle_runtime.run",
+            new_callable=AsyncMock,
+        ) as paddle,
+        patch(
+            "app.modules.v1.crop.field_ocr.recognize_vlm_image",
+            new_callable=AsyncMock,
+        ) as qwen,
+    ):
+        response = client.post(
+            PATH,
+            files={"image": ("page.png", image_bytes(), "image/png")},
+            data={"ocr_model": ocr_model},
+        )
+    assert response.status_code == 200
+    paddle.assert_not_awaited()
+    qwen.assert_not_awaited()
 
 
 def test_endpoint_passes_crop_and_padding_controls_and_accepts_no_fields(

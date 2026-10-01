@@ -14,7 +14,10 @@ from app.core.api_schemas import (
 from app.core.config import settings
 from app.core.images.uploads import prepare_upload_stream
 from app.core.images.validation import validate_image_extension
-from app.modules.v1.crop.field_schemas import PassportFieldCropResponse
+from app.modules.v1.crop.field_schemas import (
+    FieldOcrModel,
+    PassportFieldCropResponse,
+)
 from app.modules.v1.crop.passport_fields import crop_passport_fields_upload
 from app.modules.v1.crop.service import (
     crop_document_image_bytes,
@@ -41,7 +44,12 @@ ERROR_RESPONSES = {
         "Эксперимент для третьей страницы внутреннего паспорта РФ. "
         "Использует детектор Russian OCR, исправляет ориентацию, "
         "при crop_document=true выравнивает документ, затем вырезает поля. "
-        "Текст не распознаётся. Возвращает документ, фрагменты JPEG, "
+        "При ocr_model=none возвращает только вырезки. Можно отдельно "
+        "прочитать каждое текстовое поле через Paddle на CPU или Qwen "
+        "в текущем режиме VLM-сервера. Текст возвращается без нормализации, "
+        "фото и подпись пропускаются. Ошибки OCR указаны в отдельных полях; "
+        "success=true означает, что вырезки получены. "
+        "Возвращает документ, фрагменты JPEG, "
         "координаты и уверенность детектора. Вертикальная серия и номер "
         "поворачиваются горизонтально. Если поля не найдены, fields пустой. "
         "Изображения не сохраняются."
@@ -59,10 +67,17 @@ async def crop_passport_fields(
     padding: int = Form(
         4, ge=0, le=64, description="Отступ вокруг каждого поля в пикселях."
     ),
+    ocr_model: FieldOcrModel = Form(
+        FieldOcrModel.NONE,
+        description="Модель чтения вырезанных полей; none — только вырезки.",
+    ),
 ) -> dict[str, Any]:
     response.headers["Cache-Control"] = "no-store"
     return await crop_passport_fields_upload(
-        image, crop_document=crop_document, padding=padding
+        image,
+        crop_document=crop_document,
+        padding=padding,
+        ocr_model=ocr_model,
     )
 
 

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from enum import Enum
 from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field
@@ -10,6 +11,34 @@ from app.core.api_schemas import ErrorSchema
 
 Coordinate = Annotated[int, Field(ge=0)]
 BoundingBox = tuple[Coordinate, Coordinate, Coordinate, Coordinate]
+
+
+class FieldOcrModel(str, Enum):
+    NONE = "none"
+    PADDLE = "paddle"
+    QWEN3_VL_4B = "qwen3-vl-4b"
+    QWEN3_VL_8B = "qwen3-vl-8b"
+
+
+class FieldOcrResult(BaseModel):
+    model: FieldOcrModel
+    engine: Literal["paddleocr", "qwen3-vl"]
+    device: str | None = None
+    status: Literal["success", "error", "skipped"]
+    text: str | None = Field(
+        None, description="Прочитанный текст без нормализации."
+    )
+    confidence: float | None = Field(None, ge=0, le=1)
+    duration_seconds: float = Field(..., ge=0)
+    error: ErrorSchema | None = None
+
+
+class FieldOcrMeta(BaseModel):
+    model: FieldOcrModel
+    engine: Literal["paddleocr", "qwen3-vl"]
+    duration_seconds: float = Field(..., ge=0)
+    processed_fields: int = Field(..., ge=0)
+    failed_fields: int = Field(..., ge=0)
 
 
 class ImagePreview(BaseModel):
@@ -33,6 +62,14 @@ class DocumentPreview(ImagePreview):
 
 
 class PassportFieldPreview(ImagePreview):
+    ocr: FieldOcrResult | None = Field(
+        None,
+        description=(
+            "Результат OCR этого фрагмента. Null при ocr_model=none. "
+            "Фото и подпись пропускаются (status=skipped). "
+            "Ошибка отдельного поля не удаляет остальные вырезки."
+        ),
+    )
     name: str = Field(..., description="Название класса детектора.")
     label: str = Field(..., description="Название поля на русском.")
     bbox: BoundingBox = Field(
@@ -68,6 +105,7 @@ class FieldCropMeta(BaseModel):
     timings: dict[str, float] = Field(
         ..., description="Время отдельных этапов обработки в секундах."
     )
+    ocr: FieldOcrMeta | None = None
 
 
 class PassportFieldCropData(BaseModel):
