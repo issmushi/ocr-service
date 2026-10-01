@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
+from typing import Any
 
-from fastapi import APIRouter, File, Response, UploadFile
+from fastapi import APIRouter, File, Form, Response, UploadFile
 
 from app.core.api_schemas import (
     COMMON_ERROR_RESPONSES,
@@ -13,6 +14,8 @@ from app.core.api_schemas import (
 from app.core.config import settings
 from app.core.images.uploads import prepare_upload_stream
 from app.core.images.validation import validate_image_extension
+from app.modules.v1.crop.field_schemas import PassportFieldCropResponse
+from app.modules.v1.crop.passport_fields import crop_passport_fields_upload
 from app.modules.v1.crop.service import (
     crop_document_image_bytes,
     crop_mrz_bytes,
@@ -28,6 +31,39 @@ ERROR_RESPONSES = {
     503: OCR_ENGINE_UNAVAILABLE_RESPONSE,
     504: OCR_TIMEOUT_RESPONSE,
 }
+
+
+@router.post(
+    "/crop/passport-fields",
+    response_model=PassportFieldCropResponse,
+    summary="Найти и вырезать поля паспорта РФ",
+    description=(
+        "Эксперимент для третьей страницы внутреннего паспорта РФ. "
+        "Использует детектор Russian OCR, исправляет ориентацию, "
+        "при crop_document=true выравнивает документ, затем вырезает поля. "
+        "Текст не распознаётся. Возвращает документ, фрагменты JPEG, "
+        "координаты и уверенность детектора. Вертикальная серия и номер "
+        "поворачиваются горизонтально. Если поля не найдены, fields пустой. "
+        "Изображения не сохраняются."
+    ),
+    responses=ERROR_RESPONSES,
+)
+async def crop_passport_fields(
+    response: Response,
+    image: UploadFile = File(
+        ..., description="Фото третьей страницы внутреннего паспорта РФ."
+    ),
+    crop_document: bool = Form(
+        True, description="Найти границы и исправить перспективу документа."
+    ),
+    padding: int = Form(
+        4, ge=0, le=64, description="Отступ вокруг каждого поля в пикселях."
+    ),
+) -> dict[str, Any]:
+    response.headers["Cache-Control"] = "no-store"
+    return await crop_passport_fields_upload(
+        image, crop_document=crop_document, padding=padding
+    )
 
 
 async def _crop_upload(

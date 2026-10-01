@@ -574,11 +574,15 @@ class CropRouteTests(unittest.TestCase):
         self.assertEqual(response.headers["cache-control"], "no-store")
         operation.assert_awaited_once_with(content)
 
-    def test_only_two_crop_routes_are_exposed(self) -> None:
+    def test_crop_routes_are_exposed(self) -> None:
         paths = set(self.client.app.openapi()["paths"])
         self.assertEqual(
             paths,
-            {"/v1/ocr/crop/document", "/v1/ocr/crop/mrz"},
+            {
+                "/v1/ocr/crop/document",
+                "/v1/ocr/crop/mrz",
+                "/v1/ocr/crop/passport-fields",
+            },
         )
         for path in paths:
             self.assertEqual(

@@ -11,6 +11,7 @@ def russian_inference_worker(
     device: str,
 ) -> None:
     """Own a RussianDocsOCR pipeline in a serial, killable worker."""
+    from app.modules.russian.fields import detect_passport_fields_bytes
     from app.modules.russian.passport import recognize_passport_text_bytes
     from app.ocr_engine.russian.factory import create_pipeline
 
@@ -23,6 +24,10 @@ def russian_inference_worker(
         args: tuple[Any, ...],
         kwargs: dict[str, Any],
     ) -> Any:
+        if operation == "passport_fields":
+            return detect_passport_fields_bytes(
+                *args, pipeline=pipeline, **kwargs
+            )
         if operation != "passport_text":
             raise ValueError(
                 f"Unsupported RussianDocsOCR operation: {operation}"
