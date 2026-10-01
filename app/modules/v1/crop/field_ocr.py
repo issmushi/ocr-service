@@ -55,7 +55,8 @@ async def recognize_field_previews(
     """Keep crop order and duplicates; isolate failures to each field.
 
     Calls are sequential because the local model runtimes serialize inference.
-    Every OCR input is the displayed JPEG, including its padding and rotation.
+    Every OCR input is the lossless displayed PNG, including its padding
+    and rotation. The JPEG document overview is never sent to field OCR.
     """
     if model == FieldOcrModel.NONE:
         for field in fields:
@@ -96,8 +97,8 @@ async def recognize_field_previews(
                 result = await recognize_vlm_image(
                     content,
                     model=model.value,
-                    filename=f"field-{index + 1}.jpg",
-                    content_type="image/jpeg",
+                    filename=f"field-{index + 1}.png",
+                    content_type="image/png",
                     task="ocr",
                     report_runtime=True,
                 )

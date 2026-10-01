@@ -42,7 +42,9 @@ class FieldOcrMeta(BaseModel):
 
 
 class ImagePreview(BaseModel):
-    image: str = Field(..., description="Изображение JPEG в виде data URL.")
+    image: str = Field(
+        ..., description="Изображение PNG или JPEG в виде data URL."
+    )
     width: int = Field(..., gt=0)
     height: int = Field(..., gt=0)
 
@@ -62,6 +64,13 @@ class DocumentPreview(ImagePreview):
 
 
 class PassportFieldPreview(ImagePreview):
+    image: str = Field(
+        ...,
+        description=(
+            "Вырезка PNG без потерь в виде data URL; "
+            "эти же байты получает OCR."
+        ),
+    )
     ocr: FieldOcrResult | None = Field(
         None,
         description=(

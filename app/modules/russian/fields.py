@@ -5,7 +5,7 @@ from __future__ import annotations
 import base64
 from io import BytesIO
 from time import perf_counter
-from typing import Any
+from typing import Any, Literal
 
 import numpy as np
 from PIL import Image
@@ -39,12 +39,17 @@ FIELD_LABELS = {
 }
 
 
-def _preview(image: np.ndarray) -> dict[str, Any]:
+def _preview(
+    image: np.ndarray, *, image_format: Literal["JPEG", "PNG"] = "JPEG"
+) -> dict[str, Any]:
     output = BytesIO()
-    Image.fromarray(image).save(output, format="JPEG", quality=94)
+    options = (
+        {"quality": 94} if image_format == "JPEG" else {"compress_level": 3}
+    )
+    Image.fromarray(image).save(output, format=image_format, **options)
     height, width = image.shape[:2]
     return {
-        "image": "data:image/jpeg;base64,"
+        "image": f"data:image/{image_format.lower()};base64,"
         + base64.b64encode(output.getvalue()).decode("ascii"),
         "width": width,
         "height": height,
@@ -75,7 +80,7 @@ def detect_passport_fields_bytes(
             "detection_bbox": field["detection_bbox"],
             "confidence": field["confidence"],
             "rotation_degrees": field["rotation_degrees"],
-            **_preview(field["image"]),
+            **_preview(field["image"], image_format="PNG"),
         }
         for field in result["fields"]
     ]

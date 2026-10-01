@@ -13,9 +13,9 @@ from app.modules.paddle.fields import recognize_field_text_bytes
 from app.modules.paddle.inference_worker import paddle_inference_worker
 
 
-def image_bytes() -> bytes:
+def image_bytes(image_format: str = "JPEG") -> bytes:
     output = io.BytesIO()
-    Image.new("RGB", (41, 17), (220, 70, 20)).save(output, format="JPEG")
+    Image.new("RGB", (41, 17), (220, 70, 20)).save(output, format=image_format)
     return output.getvalue()
 
 
@@ -34,9 +34,12 @@ def recognizer(text: str, confidence: float):
     return ocr, pipeline
 
 
-def test_field_reads_the_whole_crop_without_detection_or_orientation():
+@pytest.mark.parametrize("image_format", ["JPEG", "PNG"])
+def test_field_reads_the_whole_crop_without_detection_or_orientation(
+    image_format,
+):
     ocr, pipeline = recognizer("ТЕСТОВ", 0.93)
-    content = image_bytes()
+    content = image_bytes(image_format)
 
     result = recognize_field_text_bytes(content, ocr=ocr)
 

@@ -78,8 +78,8 @@ function isOcrSummary(value: unknown): value is FieldOcrSummary {
 
 function isCropImage(value: unknown): value is CropImage {
   if (!isRecord(value)) return false;
-  // Only render embedded JPEGs from this response; never request image URLs supplied by a server.
-  return typeof value.image === "string" && /^data:image\/jpeg;base64,[A-Za-z0-9+/]+={0,2}$/.test(value.image)
+  // Only render embedded JPEG/PNG images; never request image URLs supplied by a server.
+  return typeof value.image === "string" && /^data:image\/(?:jpeg|png);base64,[A-Za-z0-9+/]+={0,2}$/.test(value.image)
     && typeof value.width === "number" && Number.isSafeInteger(value.width) && value.width > 0
     && typeof value.height === "number" && Number.isSafeInteger(value.height) && value.height > 0
     && typeof value.rotation_degrees === "number" && [0, 90, 180, 270].includes(value.rotation_degrees);

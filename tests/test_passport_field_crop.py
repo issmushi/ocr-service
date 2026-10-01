@@ -86,6 +86,7 @@ def test_endpoint_returns_previews_coordinates_and_detector_metadata(
     assert data["document"]["width"] == 80
     assert data["document"]["height"] == 60
     field = data["fields"][0]
+    assert field["image"].startswith("data:image/png;base64,")
     assert field["label"] == "Фамилия"
     assert field["bbox"] == [6, 6, 54, 24]
     assert field["detection_bbox"] == [10, 10, 50, 20]
@@ -112,7 +113,7 @@ def test_paddle_reads_each_displayed_crop_preserving_order_and_duplicates(
     fields = engine.return_value["fields"]
     fields.append(deepcopy(fields[0]))
     fields[1]["image"] = (
-        "data:image/jpeg;base64,"
+        "data:image/png;base64,"
         + base64.b64encode(
             image_bytes(Image.new("RGB", (32, 15), "blue"))
         ).decode()
@@ -222,8 +223,8 @@ def test_qwen_reads_crop_as_plain_ocr_and_reports_actual_device(
     recognize.assert_awaited_once_with(
         base64.b64decode(field["image"].split(",")[1]),
         model=model,
-        filename="field-1.jpg",
-        content_type="image/jpeg",
+        filename="field-1.png",
+        content_type="image/png",
         task="ocr",
         report_runtime=True,
     )
@@ -397,8 +398,14 @@ def test_preview_encoding_preserves_rgb_and_uses_exif_orientation():
     exif = Image.Exif()
     exif[274] = 6
     pipeline = Mock()
+    detected = detector_result()
+    # Detailed pixels expose JPEG loss even when dimensions and colors match.
+    expected = np.random.default_rng(0).integers(
+        0, 256, size=(18, 48, 3), dtype=np.uint8
+    )
+    detected["fields"][0]["image"] = expected
     with patch(
-        f"{WORKER}.detect_passport_fields", return_value=detector_result()
+        f"{WORKER}.detect_passport_fields", return_value=detected
     ) as detect:
         result = detect_passport_fields_bytes(
             image_bytes(image, exif=exif), pipeline, padding=8
@@ -409,9 +416,9 @@ def test_preview_encoding_preserves_rgb_and_uses_exif_orientation():
     assert detect.call_args.kwargs["padding"] == 8
     encoded = result["fields"][0]["image"].split(",", 1)[1]
     with Image.open(BytesIO(base64.b64decode(encoded))) as preview:
+        assert preview.format == "PNG"
         assert preview.size == (48, 18)
-        rgb = np.asarray(preview).mean(axis=(0, 1))
-        assert np.abs(rgb - [220, 15, 35]).max() < 3
+        np.testing.assert_array_equal(np.asarray(preview), expected)
 
 
 def test_worker_reuses_existing_pipeline_for_field_detection():

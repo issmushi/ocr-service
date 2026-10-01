@@ -87,6 +87,19 @@ test("raw multiline OCR is shown beside each crop with separate confidence, devi
   assert.match(markup, /Каждое текстовое поле распознаётся отдельно, без нормализации/);
 });
 
+test("JPEG document previews and lossless PNG field crops render together", () => {
+  const data = sample();
+  const png = "data:image/png;base64,iVBORw0KGgo=";
+  data.fields = data.fields.map((field) => ({ ...field, image: png }));
+  const parsed = parsePassportFieldCrops(data);
+  assert.equal(parsed.document.image, data.document.image);
+  assert.deepEqual(parsed.fields.map((field) => field.image), [png, png]);
+  const markup = renderToStaticMarkup(createElement(PassportFieldsView, { data }));
+  assert.match(markup, /<image[^>]*href="data:image\/jpeg;base64,/);
+  assert.equal((markup.match(/<img[^>]*src="data:image\/png;base64,/g) ?? []).length, 2);
+  assert.doesNotMatch(markup, /неожиданный формат/);
+});
+
 test("one field error or skipped non-text region does not hide other crops or recognized text", () => {
   const data = sample();
   data.fields[0].ocr = ocr();
@@ -131,7 +144,10 @@ test("a successful empty detection keeps the document and explicitly reports no 
 test("unexpected, unsafe, or out-of-bounds results never become rendered image URLs or boxes", () => {
   for (const mutate of [
     (data) => { data.document.image = "https://other.example/document.jpg"; },
+    (data) => { data.fields[0].image = "https://other.example/field.png"; },
     (data) => { data.fields[0].image = "data:image/svg+xml;base64,PHN2Zz4="; },
+    (data) => { data.fields[0].image = "data:image/png;base64,"; },
+    (data) => { data.fields[0].image = "data:image/png;base64,!!!!"; },
     (data) => { data.fields[0].bbox = [-1, 0, 200, 20]; },
     (data) => { data.fields[0].detection_bbox = [0, 0, 601, 20]; },
     (data) => { data.fields[0].confidence = Number.NaN; },
