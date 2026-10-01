@@ -10,6 +10,7 @@ def paddle_inference_worker(connection: Connection, device: str) -> None:
     """Own the PaddleOCR model and execute commands in an isolated process."""
 
     from app.core.images.preprocessing import decode_image_bytes
+    from app.modules.paddle.fields import recognize_field_text_bytes
     from app.modules.v1.full.paddle import recognize_full_bytes
     from app.modules.v1.idcard.recognition import process_idcard_text_bytes
     from app.modules.v1.passport.pipeline import process_passport_bytes
@@ -31,6 +32,15 @@ def paddle_inference_worker(connection: Connection, device: str) -> None:
         args: tuple[Any, ...],
         kwargs: dict[str, Any],
     ) -> Any:
+        if operation == "field_text":
+            if device == "cpu":
+                field_ocr = engine["general"]
+            else:
+                if "field_cpu" not in engine:
+                    engine["field_cpu"] = create_ocr(device="cpu")
+                field_ocr = engine["field_cpu"]
+            return recognize_field_text_bytes(*args, ocr=field_ocr, **kwargs)
+
         if operation == "document_orientation":
             orientation = predict_document_orientation(
                 decode_image_bytes(*args, **kwargs),
