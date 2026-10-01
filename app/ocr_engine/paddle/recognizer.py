@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import cv2
 import numpy as np
@@ -66,8 +66,17 @@ def recognize_text_crops(
             for crop, angle in zip(prepared_crops, angles)
         ]
 
-    raw_results = list(pipeline.text_rec_model.predict(prepared_crops))
-    if len(raw_results) != len(prepared_crops):
+    return recognize_text_model_crops(pipeline.text_rec_model, prepared_crops)
+
+
+def recognize_text_model_crops(
+    model: Any, crops: Sequence[np.ndarray]
+) -> list[RecognizedText]:
+    """Read crops with a standalone recognizer or a pipeline's text model."""
+    if not crops:
+        return []
+    raw_results = list(model.predict(list(crops)))
+    if len(raw_results) != len(crops):
         raise RuntimeError(
             "PaddleOCR recognition result count does not match text crops"
         )

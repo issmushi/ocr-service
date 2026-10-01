@@ -10,11 +10,15 @@ def paddle_inference_worker(connection: Connection, device: str) -> None:
     """Own the PaddleOCR model and execute commands in an isolated process."""
 
     from app.core.images.preprocessing import decode_image_bytes
-    from app.modules.paddle.fields import recognize_field_text_bytes
+    from app.modules.paddle.fields import (
+        recognize_cyrillic_field_text_bytes,
+        recognize_field_text_bytes,
+    )
     from app.modules.v1.full.paddle import recognize_full_bytes
     from app.modules.v1.idcard.recognition import process_idcard_text_bytes
     from app.modules.v1.passport.pipeline import process_passport_bytes
     from app.ocr_engine.paddle.factory import (
+        create_cyrillic_text_recognizer,
         create_mrz_ocr,
         create_ocr,
     )
@@ -32,6 +36,15 @@ def paddle_inference_worker(connection: Connection, device: str) -> None:
         args: tuple[Any, ...],
         kwargs: dict[str, Any],
     ) -> Any:
+        if operation == "field_text_cyrillic":
+            if "field_cyrillic_cpu" not in engine:
+                engine["field_cyrillic_cpu"] = (
+                    create_cyrillic_text_recognizer()
+                )
+            return recognize_cyrillic_field_text_bytes(
+                *args, recognizer=engine["field_cyrillic_cpu"], **kwargs
+            )
+
         if operation == "field_text":
             if device == "cpu":
                 field_ocr = engine["general"]

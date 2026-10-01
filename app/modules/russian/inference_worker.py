@@ -11,9 +11,13 @@ def russian_inference_worker(
     device: str,
 ) -> None:
     """Own a RussianDocsOCR pipeline in a serial, killable worker."""
+    from app.modules.russian.field_ocr import recognize_field_text_bytes
     from app.modules.russian.fields import detect_passport_fields_bytes
     from app.modules.russian.passport import recognize_passport_text_bytes
     from app.ocr_engine.russian.factory import create_pipeline
+    from app.ocr_engine.russian.field_recognizer import create_cpu_field_reader
+
+    field_reader = None
 
     def initialize() -> Any:
         return create_pipeline(device=device)
@@ -24,6 +28,13 @@ def russian_inference_worker(
         args: tuple[Any, ...],
         kwargs: dict[str, Any],
     ) -> Any:
+        nonlocal field_reader
+        if operation == "field_text_accurate":
+            if field_reader is None:
+                field_reader = create_cpu_field_reader(pipeline, device=device)
+            return recognize_field_text_bytes(
+                *args, reader=field_reader, **kwargs
+            )
         if operation == "passport_fields":
             return detect_passport_fields_bytes(
                 *args, pipeline=pipeline, **kwargs

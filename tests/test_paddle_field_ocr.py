@@ -9,8 +9,15 @@ import numpy as np
 import pytest
 from PIL import Image
 
-from app.modules.paddle.fields import recognize_field_text_bytes
+from app.modules.paddle.fields import (
+    recognize_cyrillic_field_text_bytes,
+    recognize_field_text_bytes,
+)
 from app.modules.paddle.inference_worker import paddle_inference_worker
+from app.ocr_engine.paddle.factory import (
+    CYRILLIC_TEXT_MODEL,
+    create_cyrillic_text_recognizer,
+)
 
 
 def image_bytes(image_format: str = "JPEG") -> bytes:
@@ -129,3 +136,91 @@ def test_worker_reuses_or_lazily_caches_the_cpu_field_engine(device):
         # A field request must not replace the engine for normal full OCR.
         dispatch(engine, "full", (content,), {})
         read_full.assert_called_once_with(content, ocr=general)
+
+
+def test_cyrillic_factory_loads_only_the_exact_cpu_recognizer():
+    create_model = Mock()
+    with patch.dict(
+        "sys.modules",
+        {"paddleocr": SimpleNamespace(TextRecognition=create_model)},
+    ):
+        result = create_cyrillic_text_recognizer()
+    assert result is create_model.return_value
+    create_model.assert_called_once_with(
+        model_name="cyrillic_PP-OCRv5_mobile_rec",
+        device="cpu",
+        enable_mkldnn=False,
+    )
+    assert CYRILLIC_TEXT_MODEL == "cyrillic_PP-OCRv5_mobile_rec"
+
+
+def test_cyrillic_recognizer_receives_the_lossless_bgr_crop():
+    model = Mock()
+    model.predict.return_value = [{"rec_text": " ТЕСТОВ ", "rec_score": 0.91}]
+    content = image_bytes("PNG")
+    result = recognize_cyrillic_field_text_bytes(content, recognizer=model)
+    assert result == {"text": "ТЕСТОВ", "confidence": 0.91, "device": "cpu"}
+    model.predict.assert_called_once()
+    crops = model.predict.call_args.args[0]
+    assert len(crops) == 1
+    expected = cv2.imdecode(
+        np.frombuffer(content, dtype=np.uint8), cv2.IMREAD_COLOR
+    )
+    np.testing.assert_array_equal(crops[0], expected)
+
+
+@pytest.mark.parametrize("count", [0, 2])
+def test_cyrillic_recognizer_rejects_mismatched_results(count):
+    model = Mock()
+    model.predict.return_value = [{"rec_text": "", "rec_score": 0.0}] * count
+    with pytest.raises(RuntimeError, match="result count"):
+        recognize_cyrillic_field_text_bytes(image_bytes(), recognizer=model)
+
+
+@pytest.mark.parametrize("device", ["cpu", "gpu:0"])
+def test_worker_lazily_caches_a_separate_cyrillic_cpu_recognizer(device):
+    general, mrz, cyrillic = object(), object(), object()
+    expected = {"text": "ТЕСТОВ", "confidence": 0.93, "device": "cpu"}
+    with (
+        patch(
+            "app.modules.paddle.inference_worker.serve_inference_worker"
+        ) as serve,
+        patch(
+            "app.ocr_engine.paddle.factory.create_ocr", return_value=general
+        ),
+        patch(
+            "app.ocr_engine.paddle.factory.create_mrz_ocr", return_value=mrz
+        ),
+        patch(
+            "app.ocr_engine.paddle.factory.create_cyrillic_text_recognizer",
+            return_value=cyrillic,
+        ) as create_cyrillic,
+        patch(
+            "app.modules.paddle.fields.recognize_cyrillic_field_text_bytes",
+            return_value=expected,
+        ) as read_cyrillic,
+        patch(
+            "app.modules.paddle.fields.recognize_field_text_bytes",
+            return_value=expected,
+        ) as read_default,
+    ):
+        paddle_inference_worker(object(), device)
+        _, initialize, dispatch = serve.call_args.args
+        engine = initialize()
+        create_cyrillic.assert_not_called()
+        assert engine == {"general": general, "mrz": mrz}
+
+        content = image_bytes("PNG")
+        for _ in range(2):
+            assert (
+                dispatch(engine, "field_text_cyrillic", (content,), {})
+                == expected
+            )
+        create_cyrillic.assert_called_once_with()
+        assert read_cyrillic.call_args_list == [
+            call(content, recognizer=cyrillic),
+            call(content, recognizer=cyrillic),
+        ]
+        assert engine["general"] is general
+        assert engine["mrz"] is mrz
+        read_default.assert_not_called()

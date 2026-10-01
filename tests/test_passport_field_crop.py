@@ -194,6 +194,64 @@ def test_field_failure_does_not_discard_crops_or_other_ocr_results(
     assert data["meta"]["ocr"]["failed_fields"] == 1
 
 
+@pytest.mark.parametrize(
+    ("model", "runtime_name", "operation", "base_model", "engine_name"),
+    [
+        (
+            "paddle-cyrillic",
+            "paddle_runtime",
+            "field_text_cyrillic",
+            "paddle",
+            "paddleocr",
+        ),
+        (
+            "russian-ocr-accurate",
+            "russian_runtime",
+            "field_text_accurate",
+            "russian-ocr",
+            "russian-docs-ocr",
+        ),
+    ],
+)
+def test_new_cpu_models_read_exact_png_and_use_installed_engine_availability(
+    client, engine, model, runtime_name, operation, base_model, engine_name
+):
+    preview = engine.return_value
+    content = base64.b64decode(preview["fields"][0]["image"].split(",")[1])
+    # Russian OCR shares one runtime with the preceding field detector.
+    results = [{"text": "ПРИМЕР", "confidence": None, "device": "cpu"}]
+    if runtime_name == "russian_runtime":
+        results.insert(0, preview)
+    with (
+        patch(f"{SERVICE}.ensure_ocr_model_enabled") as enabled,
+        patch(
+            f"app.modules.v1.crop.field_ocr.{runtime_name}.run",
+            new_callable=AsyncMock,
+            side_effect=results,
+        ) as recognize,
+    ):
+        response = client.post(
+            PATH,
+            files={"image": ("page.png", image_bytes(), "image/png")},
+            data={"ocr_model": model},
+        )
+    assert response.status_code == 200, response.text
+    data = response.json()["data"]
+    field_ocr = data["fields"][0]["ocr"]
+    assert field_ocr["model"] == model
+    assert field_ocr["engine"] == engine_name
+    assert field_ocr["device"] == "cpu"
+    assert field_ocr["text"] == "ПРИМЕР"
+    assert recognize.await_args.args == (operation, content)
+    if runtime_name == "russian_runtime":
+        assert recognize.await_args.kwargs["field_name"] == "Last_name_ru"
+    assert [call.args[0] for call in enabled.call_args_list] == [
+        "russian-ocr",
+        base_model,
+    ]
+    assert data["meta"]["ocr"]["failed_fields"] == 0
+
+
 @pytest.mark.parametrize("model", ["qwen3-vl-4b", "qwen3-vl-8b"])
 def test_qwen_reads_crop_as_plain_ocr_and_reports_actual_device(
     client, engine, model

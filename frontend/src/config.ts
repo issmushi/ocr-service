@@ -7,6 +7,19 @@ const mrzModels = [
   { value: "qwen3-vl-8b", label: "Qwen3-VL 8B", note: "Если включён на сервере" },
 ];
 
+const passportFieldModels = [
+  { value: "none", label: "Только вырезки" },
+  { value: "paddle", label: "Paddle eslav v5 · CPU" },
+  { value: "paddle-cyrillic", label: "Paddle Cyrillic v5 · CPU" },
+  { value: "russian-ocr-accurate", label: "Russian OCR accurate · CPU" },
+  { value: "qwen3-vl-4b", label: "Qwen3-VL 4B", note: "Если включён на сервере" },
+  { value: "qwen3-vl-8b", label: "Qwen3-VL 8B", note: "Если включён на сервере" },
+];
+
+export function passportFieldOcrLabel(model: string): string {
+  return passportFieldModels.find((option) => option.value === model)?.label ?? model;
+}
+
 const mrzParams: ParamDefinition[] = [
   {
     kind: "select",
@@ -152,7 +165,7 @@ export const tools: ToolDefinition[] = [
     group: "Обрезка и качество",
     title: "Поля паспорта",
     shortTitle: "Passport fields",
-    description: "Найти поля паспорта РФ и проверить, как выбранная модель читает каждую вырезку отдельно. Текст возвращается без нормализации.",
+    description: "Найти поля паспорта РФ и сравнить чтение вырезок моделями Paddle eslav v5, Paddle Cyrillic v5, Russian OCR accurate и Qwen. Текст возвращается без нормализации.",
     endpoint: "/v1/ocr/crop/passport-fields",
     responseKind: "json",
     params: [
@@ -160,14 +173,9 @@ export const tools: ToolDefinition[] = [
         kind: "select",
         key: "ocr_model",
         label: "Распознавание полей",
-        description: "Paddle читает вырезку как строку на CPU, Qwen — как отдельное изображение в режиме сервера. Фото и подпись пропускаются.",
+        description: "Paddle eslav v5, Paddle Cyrillic v5 и Russian OCR accurate работают на CPU; Qwen — в режиме сервера. Каждое поле читается отдельно, фото и подпись пропускаются.",
         defaultValue: "paddle",
-        options: [
-          { value: "none", label: "Только вырезки" },
-          { value: "paddle", label: "PaddleOCR · CPU" },
-          { value: "qwen3-vl-4b", label: "Qwen3-VL 4B", note: "Если включён на сервере" },
-          { value: "qwen3-vl-8b", label: "Qwen3-VL 8B", note: "Если включён на сервере" },
-        ],
+        options: passportFieldModels,
       },
       {
         kind: "toggle",

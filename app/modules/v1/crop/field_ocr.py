@@ -10,21 +10,31 @@ from typing import Any
 from app.core.config import settings
 from app.core.errors import AppError, ErrorCode, error_payload
 from app.modules.paddle.runtime import paddle_runtime
+from app.modules.russian.runtime import russian_runtime
 from app.modules.v1.crop.field_schemas import FieldOcrModel
 from app.modules.vlm.client import recognize_vlm_image
 
 ENGINE_BY_MODEL = {
     FieldOcrModel.PADDLE: "paddleocr",
+    FieldOcrModel.PADDLE_CYRILLIC: "paddleocr",
+    FieldOcrModel.RUSSIAN_OCR_ACCURATE: "russian-docs-ocr",
     FieldOcrModel.QWEN3_VL_4B: "qwen3-vl",
     FieldOcrModel.QWEN3_VL_8B: "qwen3-vl",
 }
 NON_TEXT_FIELDS = {"Face", "Signature"}
+PADDLE_OPERATIONS = {
+    FieldOcrModel.PADDLE: "field_text",
+    FieldOcrModel.PADDLE_CYRILLIC: "field_text_cyrillic",
+}
 
 
 def _text_result(
     result: dict[str, Any], model: FieldOcrModel
 ) -> tuple[str, float | None, str | None]:
-    if model == FieldOcrModel.PADDLE:
+    if (
+        model in PADDLE_OPERATIONS
+        or model == FieldOcrModel.RUSSIAN_OCR_ACCURATE
+    ):
         text = result.get("text")
         confidence = result.get("confidence")
         if confidence is not None and (
@@ -85,12 +95,21 @@ async def recognize_field_previews(
         processed += 1
         try:
             content = base64.b64decode(field["image"].split(",", 1)[1])
-            if model == FieldOcrModel.PADDLE:
+            if model in PADDLE_OPERATIONS:
                 result = await paddle_runtime.run(
-                    "field_text",
+                    PADDLE_OPERATIONS[model],
                     content,
                     timeout_seconds=(
                         settings.paddle_ocr_full_hard_timeout_seconds
+                    ),
+                )
+            elif model == FieldOcrModel.RUSSIAN_OCR_ACCURATE:
+                result = await russian_runtime.run(
+                    "field_text_accurate",
+                    content,
+                    field_name=field["name"],
+                    timeout_seconds=(
+                        settings.russian_ocr_document_hard_timeout_seconds
                     ),
                 )
             else:

@@ -6,7 +6,31 @@ import warnings
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from paddleocr import PaddleOCR
+    from paddleocr import PaddleOCR, TextRecognition
+
+CYRILLIC_TEXT_MODEL = "cyrillic_PP-OCRv5_mobile_rec"
+
+
+def create_cyrillic_text_recognizer() -> TextRecognition:
+    """Load only the experimental Cyrillic text recognizer, always on CPU."""
+    with open(os.devnull, "w", encoding="utf-8") as devnull:
+        with warnings.catch_warnings():
+            warnings.filterwarnings(
+                "ignore",
+                message="No ccache found.*",
+                category=UserWarning,
+            )
+            with (
+                contextlib.redirect_stdout(devnull),
+                contextlib.redirect_stderr(devnull),
+            ):
+                from paddleocr import TextRecognition as TextRecognitionClass
+
+                return TextRecognitionClass(
+                    model_name=CYRILLIC_TEXT_MODEL,
+                    device="cpu",
+                    enable_mkldnn=False,
+                )
 
 
 def create_paddle_ocr_quietly(kwargs: dict[str, Any]) -> PaddleOCR:

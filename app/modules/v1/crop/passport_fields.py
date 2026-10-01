@@ -31,7 +31,11 @@ async def crop_passport_fields_upload(
     try:
         ensure_ocr_model_enabled("russian-ocr")
         if ocr_model != FieldOcrModel.NONE:
-            ensure_ocr_model_enabled(ocr_model.value)
+            installed_model = {
+                FieldOcrModel.PADDLE_CYRILLIC: "paddle",
+                FieldOcrModel.RUSSIAN_OCR_ACCURATE: "russian-ocr",
+            }.get(ocr_model, ocr_model.value)
+            ensure_ocr_model_enabled(installed_model)
         validate_image_extension(image.filename or "image.jpg")
         await prepare_upload_stream(
             image, max_bytes=settings.ocr_max_image_size_bytes

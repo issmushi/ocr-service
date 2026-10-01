@@ -22,12 +22,14 @@ async function sourceUrl(path, imports = {}) {
 
 const parserUrl = await sourceUrl("../src/components/passportFields.ts");
 const { parsePassportFieldCrops } = await import(parserUrl);
+const configUrl = await sourceUrl("../src/config.ts");
+const { toolById, defaultParams } = await import(configUrl);
 const { PassportFieldsView } = await import(await sourceUrl("../src/components/PassportFieldsView.tsx", {
   "./passportFields": parserUrl,
+  "../config": configUrl,
   react: pathToFileURL(require.resolve("react")).href,
   "react/jsx-runtime": pathToFileURL(require.resolve("react/jsx-runtime")).href,
 }));
-const { toolById, defaultParams } = await import(await sourceUrl("../src/config.ts"));
 const { runTool, buildCurl } = await import(await sourceUrl("../src/api.ts"));
 
 function sample() {
@@ -82,9 +84,28 @@ test("raw multiline OCR is shown beside each crop with separate confidence, devi
   assert.match(markup, /Уверенность OCR<\/dt><dd>87\.0%/);
   assert.match(markup, /Устройство OCR<\/dt><dd>CPU/);
   assert.match(markup, /Время OCR<\/dt><dd>0\.12 с/);
-  assert.match(markup, /OCR: paddle · 0\.50 с/);
+  assert.match(markup, /OCR: Paddle eslav v5 · CPU · 0\.50 с/);
   assert.match(markup, /Обработано полей: 2 · Ошибок: 0/);
   assert.match(markup, /Каждое текстовое поле распознаётся отдельно, без нормализации/);
+});
+
+test("CPU alternatives show the selected model label in each crop and the OCR summary", () => {
+  for (const [model, label, engine] of [
+    ["paddle-cyrillic", "Paddle Cyrillic v5 · CPU", "paddleocr"],
+    ["russian-ocr-accurate", "Russian OCR accurate · CPU", "russian-docs-ocr"],
+  ]) {
+    const data = sample();
+    data.fields[0].ocr = ocr({ model, engine });
+    data.meta.ocr = { model, engine, duration_seconds: 0.5, processed_fields: 1, failed_fields: 0 };
+    const parsed = parsePassportFieldCrops(data);
+    assert.equal(parsed.fields[0].ocr.model, model);
+    assert.equal(parsed.ocr.model, model);
+    const markup = renderToStaticMarkup(createElement(PassportFieldsView, { data }));
+    assert.ok(markup.includes(`<dt>Модель OCR</dt><dd>${label}</dd>`));
+    assert.ok(markup.includes(`OCR: ${label} · 0.50 с`));
+    assert.match(markup, /Устройство OCR<\/dt><dd>CPU/);
+    assert.match(markup, /ПРИМЕР\nСТРОКА/);
+  }
 });
 
 test("JPEG document previews and lossless PNG field crops render together", () => {
@@ -179,8 +200,10 @@ test("field recognition defaults to CPU Paddle and sends each selected OCR model
   assert.deepEqual(defaultParams(tool), { ocr_model: "paddle", crop_document: true, padding: "4" });
   const selector = tool.params.find((param) => param.key === "ocr_model");
   assert.equal(selector.label, "Распознавание полей");
-  assert.equal(selector.options.find((option) => option.value === "paddle").label, "PaddleOCR · CPU");
-  assert.deepEqual(selector.options.map((option) => option.value), ["none", "paddle", "qwen3-vl-4b", "qwen3-vl-8b"]);
+  assert.equal(selector.options.find((option) => option.value === "paddle").label, "Paddle eslav v5 · CPU");
+  assert.equal(selector.options.find((option) => option.value === "paddle-cyrillic").label, "Paddle Cyrillic v5 · CPU");
+  assert.equal(selector.options.find((option) => option.value === "russian-ocr-accurate").label, "Russian OCR accurate · CPU");
+  assert.deepEqual(selector.options.map((option) => option.value), ["none", "paddle", "paddle-cyrillic", "russian-ocr-accurate", "qwen3-vl-4b", "qwen3-vl-8b"]);
   const file = new File(["synthetic"], "synthetic.jpg", { type: "image/jpeg" });
   const controller = new AbortController();
   for (const model of selector.options.map((option) => option.value)) {
@@ -206,5 +229,14 @@ test("field recognition defaults to CPU Paddle and sends each selected OCR model
     assert.match(curl, /-F 'padding=16'/);
     assert.ok(curl.includes(`-F 'ocr_model=${model}'`));
     assert.doesNotMatch(curl, /--output|normalize=/);
+  }
+});
+
+test("new CPU alternatives are available only in the passport field crop experiment", () => {
+  for (const tool of Object.values(toolById)) {
+    if (tool.id === "crop-passport-fields") continue;
+    const values = tool.params.flatMap((param) => param.kind === "select" ? param.options.map((option) => option.value) : []);
+    assert.ok(!values.includes("paddle-cyrillic"), tool.id);
+    assert.ok(!values.includes("russian-ocr-accurate"), tool.id);
   }
 });
