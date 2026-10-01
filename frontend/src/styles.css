@@ -249,6 +249,7 @@ code, pre { font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospac
 .passport-fields { display: grid; gap: 14px; }
 .passport-fields__summary { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 7px; color: #52656e; font-size: 11px; }
 .passport-fields__summary strong { color: #293c45; }
+.passport-fields__ocr-summary { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 7px; padding: 9px 11px; border-radius: 6px; background: var(--teal-soft); color: #37665e; font-size: 10px; overflow-wrap: anywhere; }
 .passport-fields__document { min-width: 0; margin: 0; }
 .passport-fields__document > svg { display: block; width: 100%; height: auto; max-height: 500px; border: 1px solid var(--line); border-radius: 8px; background: #edf1f0; }
 .passport-fields__box { fill: rgba(17, 123, 108, .08); stroke: #00796b; stroke-width: 2; }
@@ -271,6 +272,13 @@ code, pre { font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospac
 .passport-field dl > div { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 3px 8px; }
 .passport-field dt { color: #7a878d; }
 .passport-field dd { margin: 0; overflow-wrap: anywhere; }
+.passport-field__ocr { padding: 11px; border-top: 1px solid var(--line); }
+.passport-field__ocr > strong { color: #384950; font-size: 10px; }
+.passport-field__text { margin: 9px 0; padding: 9px; border-radius: 5px; background: #f4f7f6; color: #203b34; font-family: inherit; font-size: 13px; line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; }
+.passport-field__ocr-message { margin: 8px 0; color: #718087; font-size: 10px; line-height: 1.6; overflow-wrap: anywhere; }
+.passport-field__ocr-message code { display: block; margin-top: 3px; }
+.passport-field__ocr--error .passport-field__ocr-message { color: #b74e43; }
+.passport-field__ocr dl { padding: 3px 0 0; }
 .result-panel--best-frame .image-result .result-body { min-height: 0; }
 .camera-dialog { max-height: calc(100dvh - 44px); overflow-y: auto; }
 .camera-viewport video { object-fit: contain; }

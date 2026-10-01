@@ -152,10 +152,23 @@ export const tools: ToolDefinition[] = [
     group: "Обрезка и качество",
     title: "Поля паспорта",
     shortTitle: "Passport fields",
-    description: "Экспериментальный детектор полей паспорта РФ. Возвращает области и вырезки без распознавания текста.",
+    description: "Найти поля паспорта РФ и проверить, как выбранная модель читает каждую вырезку отдельно. Текст возвращается без нормализации.",
     endpoint: "/v1/ocr/crop/passport-fields",
     responseKind: "json",
     params: [
+      {
+        kind: "select",
+        key: "ocr_model",
+        label: "Распознавание полей",
+        description: "Paddle читает вырезку как строку на CPU, Qwen — как отдельное изображение в режиме сервера. Фото и подпись пропускаются.",
+        defaultValue: "paddle",
+        options: [
+          { value: "none", label: "Только вырезки" },
+          { value: "paddle", label: "PaddleOCR · CPU" },
+          { value: "qwen3-vl-4b", label: "Qwen3-VL 4B", note: "Если включён на сервере" },
+          { value: "qwen3-vl-8b", label: "Qwen3-VL 8B", note: "Если включён на сервере" },
+        ],
+      },
       {
         kind: "toggle",
         key: "crop_document",
@@ -172,7 +185,7 @@ export const tools: ToolDefinition[] = [
         options: [0, 4, 8, 16, 32, 64].map((value) => ({ value: String(value), label: `${value} px` })),
       },
     ],
-    outputHint: "Ответ: документ с областями полей и отдельные вырезки в JSON",
+    outputHint: "Ответ: вырезки полей, сырой текст выбранной модели и время обработки",
   },
   {
     id: "best-frame",

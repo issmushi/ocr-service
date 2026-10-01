@@ -163,7 +163,8 @@ export function DocsPage({ navigate }: Props) {
               <div><strong><code>normalization</code></strong><p>При true возвращает журнал исправлений, при false — null в data.normalization. На исправление MRZ не влияет.</p></div>
               <div><strong><code>model</code></strong><p>Выбирает модель. Для запросов к Qwen она должна быть включена и запущена на сервере.</p></div>
               <div><strong><code>crop_document</code></strong><p>Для «Полей паспорта»: при true выравнивает и обрезает документ перед поиском полей. По умолчанию true.</p></div>
-              <div><strong><code>padding</code></strong><p>Для «Полей паспорта»: отступ вокруг каждой вырезки в пикселях, от 0 до 64. По умолчанию 4. Ответ содержит изображения и координаты без OCR текста.</p></div>
+              <div><strong><code>padding</code></strong><p>Для «Полей паспорта»: отступ вокруг каждой вырезки в пикселях, от 0 до 64. По умолчанию 4.</p></div>
+              <div><strong><code>ocr_model</code></strong><p>Для «Полей паспорта»: none — только вырезки, paddle — чтение на CPU, qwen3-vl-4b или qwen3-vl-8b — режим сервера. API по умолчанию не читает текст; в UI выбран Paddle. Paddle читает каждую вырезку как строку, Qwen — как отдельное изображение. Нормализации нет. Фото и подпись пропускаются.</p></div>
             </div>
           </div>
         </section>

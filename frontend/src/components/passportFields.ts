@@ -7,18 +7,39 @@ interface CropImage {
   rotation_degrees: number;
 }
 
+export interface PassportFieldOcr {
+  model: string;
+  engine: string;
+  device: string | null;
+  status: "success" | "error" | "skipped";
+  text: string | null;
+  confidence: number | null;
+  duration_seconds: number;
+  error: { code: string; message: string } | null;
+}
+
+interface FieldOcrSummary {
+  model: string;
+  engine: string;
+  duration_seconds: number;
+  processed_fields: number;
+  failed_fields: number;
+}
+
 export interface PassportFieldCrop extends CropImage {
   name: string;
   label: string;
   bbox: Box;
   detection_bbox: Box;
   confidence: number;
+  ocr: PassportFieldOcr | null;
 }
 
 export interface PassportFieldCrops {
   document: CropImage & { detected: boolean; orientation_confidence: number | null };
   fields: PassportFieldCrop[];
   durationSeconds: number | null;
+  ocr: FieldOcrSummary | null;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -27,6 +48,32 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function isProbability(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 1;
+}
+
+function isDuration(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0;
+}
+
+function isFieldOcr(value: unknown): value is PassportFieldOcr {
+  if (!isRecord(value)) return false;
+  return typeof value.model === "string" && Boolean(value.model.trim())
+    && typeof value.engine === "string" && Boolean(value.engine.trim())
+    && (value.device === null || typeof value.device === "string")
+    && typeof value.status === "string" && ["success", "error", "skipped"].includes(value.status)
+    && (value.text === null || typeof value.text === "string")
+    && (value.confidence === null || isProbability(value.confidence))
+    && isDuration(value.duration_seconds)
+    && (value.error === null || (isRecord(value.error)
+      && typeof value.error.code === "string" && typeof value.error.message === "string"));
+}
+
+function isOcrSummary(value: unknown): value is FieldOcrSummary {
+  if (!isRecord(value)) return false;
+  return typeof value.model === "string" && Boolean(value.model.trim())
+    && typeof value.engine === "string" && Boolean(value.engine.trim())
+    && isDuration(value.duration_seconds)
+    && typeof value.processed_fields === "number" && Number.isSafeInteger(value.processed_fields) && value.processed_fields >= 0
+    && typeof value.failed_fields === "number" && Number.isSafeInteger(value.failed_fields) && value.failed_fields >= 0;
 }
 
 function isCropImage(value: unknown): value is CropImage {
@@ -60,15 +107,19 @@ export function parsePassportFieldCrops(value: unknown): PassportFieldCrops | nu
       || typeof field.label !== "string" || !field.label.trim()
       || !isBox(field.bbox, document.width, document.height)
       || !isBox(field.detection_bbox, document.width, document.height)
-      || !isProbability(field.confidence)) return null;
+      || !isProbability(field.confidence)
+      || (field.ocr != null && !isFieldOcr(field.ocr))) return null;
     fields.push({
       name: field.name, label: field.label, image: field.image,
       width: field.width, height: field.height, rotation_degrees: field.rotation_degrees,
       bbox: field.bbox, detection_bbox: field.detection_bbox, confidence: field.confidence,
+      ocr: field.ocr ?? null,
     });
   }
 
   const duration = isRecord(value.meta) ? value.meta.duration_seconds : null;
+  const ocr = isRecord(value.meta) ? value.meta.ocr : null;
+  if (ocr != null && !isOcrSummary(ocr)) return null;
   return {
     document: {
       image: document.image, width: document.width, height: document.height,
@@ -76,6 +127,7 @@ export function parsePassportFieldCrops(value: unknown): PassportFieldCrops | nu
       orientation_confidence: document.orientation_confidence,
     },
     fields,
-    durationSeconds: typeof duration === "number" && Number.isFinite(duration) && duration >= 0 ? duration : null,
+    durationSeconds: isDuration(duration) ? duration : null,
+    ocr: ocr ?? null,
   };
 }

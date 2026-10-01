@@ -42,6 +42,14 @@ function sample() {
   };
 }
 
+function ocr(overrides = {}) {
+  return {
+    model: "paddle", engine: "paddleocr", device: "cpu", status: "success",
+    text: "ПРИМЕР\nСТРОКА", confidence: 0.87, duration_seconds: 0.123, error: null,
+    ...overrides,
+  };
+}
+
 test("field result renders numbered detector boxes and padded, rotated crops in document coordinates", () => {
   const data = sample();
   const parsed = parsePassportFieldCrops(data);
@@ -56,6 +64,56 @@ test("field result renders numbered detector boxes and padded, rotated crops in 
   assert.match(markup, /208 × 38 px/);
   assert.match(markup, /94\.0%/);
   assert.match(markup, /Обработка: 0\.25 с/);
+  assert.equal(parsed.ocr, null);
+  assert.equal(parsed.fields[0].ocr, null);
+  assert.match(markup, /Распознавание текста выключено/);
+});
+
+test("raw multiline OCR is shown beside each crop with separate confidence, device and timings", () => {
+  const data = sample();
+  data.fields[0].ocr = ocr({ text: "ПРИМЕР\n<script>СТРОКА</script>" });
+  data.fields[1].ocr = ocr({ text: null, confidence: null });
+  data.meta.ocr = { model: "paddle", engine: "paddleocr", duration_seconds: 0.5, processed_fields: 2, failed_fields: 0 };
+  const markup = renderToStaticMarkup(createElement(PassportFieldsView, { data }));
+  assert.match(markup, /ПРИМЕР\n&lt;script&gt;СТРОКА&lt;\/script&gt;/);
+  assert.doesNotMatch(markup, /<script>/);
+  assert.match(markup, /Текст не найден/);
+  assert.match(markup, /Уверенность детектора<\/dt><dd>94\.0%/);
+  assert.match(markup, /Уверенность OCR<\/dt><dd>87\.0%/);
+  assert.match(markup, /Устройство OCR<\/dt><dd>CPU/);
+  assert.match(markup, /Время OCR<\/dt><dd>0\.12 с/);
+  assert.match(markup, /OCR: paddle · 0\.50 с/);
+  assert.match(markup, /Обработано полей: 2 · Ошибок: 0/);
+  assert.match(markup, /Каждое текстовое поле распознаётся отдельно, без нормализации/);
+});
+
+test("one field error or skipped non-text region does not hide other crops or recognized text", () => {
+  const data = sample();
+  data.fields[0].ocr = ocr();
+  data.fields[1].ocr = ocr({ status: "error", text: null, confidence: null, error: { code: "OCR_TIMEOUT", message: "Время ожидания истекло" } });
+  data.fields.push({ ...data.fields[0], name: "Face", label: "Фото", ocr: ocr({ status: "skipped", text: null, confidence: null, duration_seconds: 0 }) });
+  data.meta.ocr = { model: "paddle", engine: "paddleocr", duration_seconds: 1.5, processed_fields: 2, failed_fields: 1 };
+  const markup = renderToStaticMarkup(createElement(PassportFieldsView, { data }));
+  assert.match(markup, /ПРИМЕР\nСТРОКА/);
+  assert.match(markup, /Ошибка: Время ожидания истекло/);
+  assert.match(markup, /OCR_TIMEOUT/);
+  assert.match(markup, /Поле без печатного текста/);
+  assert.match(markup, /Обработано полей: 2 · Ошибок: 1/);
+  assert.equal((markup.match(/class="passport-field"/g) ?? []).length, 3);
+});
+
+test("explicit null OCR remains compatible and malformed OCR never renders as a successful result", () => {
+  const data = sample();
+  data.meta.ocr = null;
+  data.fields[0].ocr = null;
+  assert.notEqual(parsePassportFieldCrops(data), null);
+  for (const invalid of [ocr({ status: "pending" }), ocr({ status: ["success"] }), ocr({ confidence: 3 }), ocr({ text: {} }), ocr({ duration_seconds: -1 })]) {
+    data.fields[0].ocr = invalid;
+    assert.equal(parsePassportFieldCrops(data), null);
+  }
+  data.fields[0].ocr = null;
+  data.meta.ocr = { model: "paddle", engine: "paddleocr", duration_seconds: 1, processed_fields: 2, failed_fields: -1 };
+  assert.equal(parsePassportFieldCrops(data), null);
 });
 
 test("a successful empty detection keeps the document and explicitly reports no fields", () => {
@@ -98,31 +156,39 @@ test("server labels are escaped as text", () => {
   assert.match(markup, /&lt;script&gt;/);
 });
 
-test("the field detector sends exactly the selected image, crop flag, and padding as multipart", async (t) => {
+test("field recognition defaults to CPU Paddle and sends each selected OCR model as multipart", async (t) => {
   const originalFetch = globalThis.fetch;
   t.after(() => { globalThis.fetch = originalFetch; });
   const tool = toolById["crop-passport-fields"];
-  assert.deepEqual(defaultParams(tool), { crop_document: true, padding: "4" });
-  const params = { crop_document: false, padding: "16" };
+  assert.deepEqual(defaultParams(tool), { ocr_model: "paddle", crop_document: true, padding: "4" });
+  const selector = tool.params.find((param) => param.key === "ocr_model");
+  assert.equal(selector.label, "Распознавание полей");
+  assert.equal(selector.options.find((option) => option.value === "paddle").label, "PaddleOCR · CPU");
+  assert.deepEqual(selector.options.map((option) => option.value), ["none", "paddle", "qwen3-vl-4b", "qwen3-vl-8b"]);
   const file = new File(["synthetic"], "synthetic.jpg", { type: "image/jpeg" });
   const controller = new AbortController();
-  globalThis.fetch = async (url, options) => {
-    assert.equal(url, "/v1/ocr/crop/passport-fields");
-    assert.equal(options.method, "POST");
-    assert.equal(options.signal, controller.signal);
-    assert.deepEqual([...options.body.keys()], ["image", "crop_document", "padding"]);
-    assert.equal(options.body.get("image").name, "synthetic.jpg");
-    assert.equal(await options.body.get("image").text(), "synthetic");
-    assert.equal(options.body.get("crop_document"), "false");
-    assert.equal(options.body.get("padding"), "16");
-    return new Response(JSON.stringify({ success: true, data: sample(), error: null }), { headers: { "content-type": "application/json" } });
-  };
-  const response = await runTool("", tool, [file], params, controller.signal);
-  assert.equal(response.ok, true);
-  assert.equal(parsePassportFieldCrops(response.json.data).fields.length, 2);
-  const curl = buildCurl("http://localhost:8000", tool, [file], params);
-  assert.match(curl, /\/v1\/ocr\/crop\/passport-fields/);
-  assert.match(curl, /-F 'crop_document=false'/);
-  assert.match(curl, /-F 'padding=16'/);
-  assert.doesNotMatch(curl, /--output|model=|normalize=/);
+  for (const model of selector.options.map((option) => option.value)) {
+    const params = { crop_document: false, padding: "16", ocr_model: model };
+    globalThis.fetch = async (url, options) => {
+      assert.equal(url, "/v1/ocr/crop/passport-fields");
+      assert.equal(options.method, "POST");
+      assert.equal(options.signal, controller.signal);
+      assert.deepEqual([...options.body.keys()], ["image", "crop_document", "padding", "ocr_model"]);
+      assert.equal(options.body.get("image").name, "synthetic.jpg");
+      assert.equal(await options.body.get("image").text(), "synthetic");
+      assert.equal(options.body.get("crop_document"), "false");
+      assert.equal(options.body.get("padding"), "16");
+      assert.equal(options.body.get("ocr_model"), model);
+      return new Response(JSON.stringify({ success: true, data: sample(), error: null }), { headers: { "content-type": "application/json" } });
+    };
+    const response = await runTool("", tool, [file], params, controller.signal);
+    assert.equal(response.ok, true);
+    assert.equal(parsePassportFieldCrops(response.json.data).fields.length, 2);
+    const curl = buildCurl("http://localhost:8000", tool, [file], params);
+    assert.match(curl, /\/v1\/ocr\/crop\/passport-fields/);
+    assert.match(curl, /-F 'crop_document=false'/);
+    assert.match(curl, /-F 'padding=16'/);
+    assert.ok(curl.includes(`-F 'ocr_model=${model}'`));
+    assert.doesNotMatch(curl, /--output|normalize=/);
+  }
 });
