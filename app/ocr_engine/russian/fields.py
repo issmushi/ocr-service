@@ -47,7 +47,7 @@ def detect_passport_fields(
     Rotations are counterclockwise; a rotated crop retains its document bbox.
 
     The existing stage modules resize their own model inputs and map detections
-    back to the supplied image. Avoid Pipeline.__call__: it downscales the
+    back to the supplied image. Avoid Pipeline.process_img: it downscales the
     source and invokes the word detector even with OCR disabled.
     """
     if not isinstance(padding, int) or isinstance(padding, bool):
@@ -71,7 +71,7 @@ def detect_passport_fields(
 
     timings: dict[str, float] = {}
     started = perf_counter()
-    angle = pipeline.angle90.predict_transform(image)["Angle90"]
+    angle = pipeline.doctype_angles.predict_transform(image)["DocTypeAngles"]
     document_image = angle["warped_img"]
     timings["orientation"] = perf_counter() - started
 
@@ -129,7 +129,7 @@ def detect_passport_fields(
         "document_image": document_image,
         "fields": fields,
         "rotation_degrees": int(angle["angle"]),
-        "orientation_confidence": float(angle["confidence"]),
+        "orientation_confidence": float(angle["angle_confidence"]),
         "document_detected": document_detected,
         "original_width": original_width,
         "original_height": original_height,

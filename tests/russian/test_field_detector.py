@@ -21,10 +21,13 @@ def stub_pipeline(
     segments: list | None = None,
 ) -> Mock:
     """Use real stage transformations with mocked model inference only."""
-    angle_module = object.__new__(pipeline_modules.Angle90)
-    angle_module.model_name = "Angle90"
+    angle_module = object.__new__(pipeline_modules.DocTypeAngles)
+    angle_module.model_name = "DocTypeAngles"
     angle_module.model = Mock()
-    angle_module.model.predict.return_value = (angle, np.float32(0.98))
+    angle_module.model.predict.return_value = (
+        ("INTPASSPORT_2011", 0.02, 1.0),
+        (angle, np.float32(0.98)),
+    )
     document_module = object.__new__(pipeline_modules.DocDetector)
     document_module.model_name = "DocDetector"
     document_module.model = Mock()
@@ -38,7 +41,7 @@ def stub_pipeline(
     fields_module.model = Mock()
     fields_module.model.predict.return_value = boxes or []
     engine = Mock()
-    engine.angle90 = angle_module
+    engine.doctype_angles = angle_module
     engine.doc_detector = document_module
     engine.text_fields = fields_module
     return engine
@@ -66,7 +69,7 @@ class FieldDetectorTests(unittest.TestCase):
             result["orientation_confidence"], 0.98, places=6
         )
         self.assertFalse(result["document_detected"])
-        engine.angle90.model.predict.assert_called_once()
+        engine.doctype_angles.model.predict.assert_called_once()
         engine.doc_detector.model.predict.assert_called_once()
         engine.text_fields.model.predict.assert_called_once()
         np.testing.assert_array_equal(
@@ -86,15 +89,17 @@ class FieldDetectorTests(unittest.TestCase):
             [[2, 1, 6, 3, np.float32(0.87), 2, "First_name_ru"]],
             segments=[np.array([[3, 2], [3, 10], [11, 10], [11, 2]])],
         )
-        module_path = (
-            "app.ocr_engine.russian.vendor.document_processing."
-            "pipeline_modules.doc_detector.doc_detector.fix_perspective"
-        )
-        with patch(module_path, return_value=(document, image)) as transform:
+        with patch.object(
+            engine.doc_detector,
+            "predict_transform",
+            return_value={
+                "DocDetector": {"warped_img": document, "segm": [object()]}
+            },
+        ) as transform:
             result = detect_passport_fields(image, engine, padding=1)
 
         transform.assert_called_once()
-        engine.doc_detector.model.predict.assert_called_once()
+        np.testing.assert_array_equal(transform.call_args.args[0], image)
         self.assertIs(result["document_image"], document)
         self.assertTrue(result["document_detected"])
         np.testing.assert_array_equal(

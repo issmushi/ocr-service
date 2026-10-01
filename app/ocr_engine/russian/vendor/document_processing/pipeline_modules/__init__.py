@@ -1,17 +1,13 @@
-from .angles_classificator import Angle90
 from .doc_detector import DocDetector
-from .doctype_classificator import DocType
 from .textfields_detector import TextFieldsDetector
 from .words_detector import WordsDetector
-from .ocr_rus import OCRRus
-from .ocr_engnums import OCREngNums
+from .ocr_cyrillic import OCRCyrillic
+from .ocr_latin import OCRLatin
+from .doctype_angles_classificator import DocTypeAngles
+from .deskewer import DocDeskewer
+from .page_registration.geometry import PageGeometry
 
-__all__ = (
-    "Angle90",
-    "DocDetector",
-    "DocType",
-    "TextFieldsDetector",
-    "WordsDetector",
-    "OCRRus",
-    "OCREngNums",
-)
+__all__ = [
+    "DocDetector", "TextFieldsDetector", "WordsDetector", "OCRCyrillic",
+    "OCRLatin", "DocTypeAngles", "DocDeskewer", "PageGeometry",
+]

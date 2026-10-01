@@ -3,7 +3,6 @@ from typing import Union
 from pathlib import Path
 import numpy as np
 
-
 class TextFieldsDetector(BaseModule):
     """Detects text field regions in document images.
 
@@ -11,11 +10,10 @@ class TextFieldsDetector(BaseModule):
     returns bounding boxes and image patches.
 
     """
-
-    def __init__(self, device="cpu", verbose: bool = False):
+    def __init__(self, model_format: str = 'ONNX', device='cpu', verbose: bool=False, runtime: str = None):
         """Initializes the text field detection model."""
-        self.model_name = "TextFieldsDetector"
-        super().__init__(self.model_name, device=device, verbose=verbose)
+        self.model_name = 'TextFieldsDetector'
+        super().__init__(self.model_name, model_format=model_format, device=device, verbose=verbose, runtime=runtime)
 
     def predict(self, img: Union[str, Path, np.ndarray]) -> dict:
         """Detects text fields, returns bounding boxes.
@@ -26,12 +24,14 @@ class TextFieldsDetector(BaseModule):
         Returns:
             List of detected text field bounding boxes
         """
-        self.load_img(img)
+        img = self.load_img(img)
         bbox = self.model.predict(img)
         meta = {
-            self.model_name: {
-                "bbox": bbox,
-            }
+            self.model_name:
+                {
+                    'bbox': bbox,
+
+                }
         }
         return meta
 
@@ -48,11 +48,12 @@ class TextFieldsDetector(BaseModule):
         bbox = self.model.predict(img)
         img_patches = []
         for box in bbox:
-            img_patches.append(img[box[1] : box[3], box[0] : box[2]])
+            img_patches.append(img[box[1]:box[3], box[0]: box[2]])
         meta = {
-            self.model_name: {
-                "bbox": bbox,
-                "warped_img": img_patches,
-            }
+            self.model_name:
+                {
+                    'bbox': bbox,
+                    'warped_img': img_patches,
+                }
         }
         return meta

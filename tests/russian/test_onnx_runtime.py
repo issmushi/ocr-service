@@ -14,7 +14,11 @@ ModelInference = inference.ModelInference
 
 class FakeInferenceSession:
     def get_inputs(self) -> list[SimpleNamespace]:
-        return [SimpleNamespace(name="image", shape=[None, 1])]
+        return [
+            SimpleNamespace(
+                name="image", shape=[None, 1], type="tensor(float)"
+            )
+        ]
 
     def run(self, _outputs: object, _inputs: object) -> list[object]:
         return []

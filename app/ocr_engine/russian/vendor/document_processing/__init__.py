@@ -1,5 +1,6 @@
-__version__ = "1.0.1"
+"""Embedded passport-only RussianDocsOCR integration."""
 
 from .pipeline.pipeline import Pipeline
 
-__all__ = "Pipeline", __version__
+__version__ = "4.6.1"
+__all__ = ["Pipeline", "__version__"]

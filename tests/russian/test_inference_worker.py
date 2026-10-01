@@ -21,7 +21,8 @@ class InferenceWorkerTests(unittest.TestCase):
             doctype="DrivingLicense",
             timings={"total": 0.5},
         )
-        pipeline = Mock(return_value=result)
+        pipeline = Mock()
+        pipeline.process_img.return_value = result
         connection = Mock()
         with (
             patch(

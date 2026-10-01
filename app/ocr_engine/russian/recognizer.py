@@ -31,4 +31,4 @@ def recognize_image(
     """Return raw output; document normalization belongs to modules."""
     if pipeline is None:
         pipeline = create_pipeline(device=device)
-    return pipeline(image, img_size=img_size)
+    return pipeline.process_img(image, img_size=img_size, check_quality=False)

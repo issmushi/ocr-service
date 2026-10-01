@@ -709,7 +709,11 @@ prepare_russian_ocr_assets() {
   local target source
   contains_model russian-ocr || return 0
 
-  target="${RUSSIAN_OCR_MODELS_DIR:-$ROOT_DIR/storage/models/russian-docs-ocr/1.0.1/models}"
+  target="${RUSSIAN_OCR_MODELS_DIR:-}"
+  if [ -z "$target" ]; then
+    target="$(cd "$ROOT_DIR" && "$python" -c \
+      'from app.ocr_engine.russian.assets import models_dir; print(models_dir())')"
+  fi
   if [[ "$target" != /* ]]; then
     target="$ROOT_DIR/$target"
   fi

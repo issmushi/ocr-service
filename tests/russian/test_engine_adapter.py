@@ -41,31 +41,15 @@ class EngineAdapterTests(unittest.TestCase):
             patch(
                 "app.ocr_engine.russian.vendor.document_processing.Pipeline",
             ) as pipeline,
-            patch(
-                "app.ocr_engine.russian.factory.import_module"
-            ) as import_module,
         ):
             self.assertIs(create_pipeline("gpu"), pipeline.return_value)
-        pipeline.assert_called_once_with(device="gpu")
+        pipeline.assert_called_once_with(
+            device="gpu",
+            model_format="ONNX",
+            ocr="accurate",
+            page_registration=False,
+        )
         verify.assert_called_once_with()
-        import_module.assert_called_once_with("sklearn.neighbors")
-
-    def test_missing_classifier_dependency_fails_before_pipeline_start(
-        self,
-    ) -> None:
-        with (
-            patch("app.ocr_engine.russian.factory.verify_models"),
-            patch(
-                "app.ocr_engine.russian.vendor.document_processing.Pipeline",
-            ) as pipeline,
-            patch(
-                "app.ocr_engine.russian.factory.import_module",
-                side_effect=ModuleNotFoundError("sklearn.neighbors"),
-            ),
-        ):
-            with self.assertRaises(ModuleNotFoundError):
-                create_pipeline()
-        pipeline.assert_not_called()
 
     def test_decoding_is_rgb_and_returns_raw_pipeline_result(self) -> None:
         content = image_bytes()
@@ -74,10 +58,16 @@ class EngineAdapterTests(unittest.TestCase):
         result = SimpleNamespace(
             ocr={"Last_name_ru": "ПРИМЕР"}, doctype="NONE"
         )
-        pipeline = Mock(return_value=result)
+        pipeline = Mock()
+        pipeline.process_img.return_value = result
         self.assertIs(recognize_image(decoded, pipeline, img_size=640), result)
-        np.testing.assert_array_equal(pipeline.call_args.args[0], decoded)
-        self.assertEqual(pipeline.call_args.kwargs, {"img_size": 640})
+        np.testing.assert_array_equal(
+            pipeline.process_img.call_args.args[0], decoded
+        )
+        self.assertEqual(
+            pipeline.process_img.call_args.kwargs,
+            {"img_size": 640, "check_quality": False},
+        )
 
     def test_malformed_input_is_rejected_before_model_loading(self) -> None:
         for content in (b"", b"not an image"):
@@ -117,7 +107,7 @@ class EngineAdapterTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             try:
                 os.chdir(tmp)
-                self.assertEqual(len(DEFAULT_CFG), 7)
+                self.assertEqual(len(DEFAULT_CFG), 6)
                 expected = models_dir()
                 for model, directory in DEFAULT_CFG.items():
                     with self.subTest(model=model):

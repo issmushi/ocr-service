@@ -2,7 +2,7 @@ import string
 import numpy as np
 from pathlib import Path
 import cv2
-
+np.set_printoptions(legacy='1.25')
 
 class BasePostprocessing:
     """Base class for postprocessing steps.
@@ -16,6 +16,8 @@ class BasePostprocessing:
         Defaults to False.
 
     """
+    verbose=False
+
 
     def __init__(self, verbose: bool = False):
         """Initialize the postprocessing object.
@@ -46,7 +48,6 @@ class BinaryClassPostprocessing(BasePostprocessing):
                            Defaults to 0.5.
 
     """
-
     def __init__(self, labels: list, threshold=0.5, verbose=False):
         """Initializes postprocessing object.
 
@@ -58,9 +59,8 @@ class BinaryClassPostprocessing(BasePostprocessing):
                             Defaults to False.
         """
         super().__init__(verbose)
-        self.labels = labels
+        self.labels=labels
         self.threshold = threshold
-
     def __call__(self, probability: np.ndarray, **kwargs):
         """Transforms network output to class label and confidence.
 
@@ -71,6 +71,7 @@ class BinaryClassPostprocessing(BasePostprocessing):
             str: Class label
             float: Confidence probability
         """
+        probability = probability.ravel()
         return self.labels[0 if probability[0] < self.threshold else 1], probability[0]
 
 
@@ -96,8 +97,9 @@ class OCRPostprocessing(BasePostprocessing):
                             Defaults to False.
         """
 
+
         super().__init__(verbose)
-        assert lang in ["eng", "rus"]
+        assert lang in ['eng', 'rus']
         self.lang = lang
 
     def __call__(self, output_value: np.ndarray) -> str:
@@ -110,83 +112,167 @@ class OCRPostprocessing(BasePostprocessing):
             str: Decoded text string
         """
 
-        labels = (
-            string.digits + string.ascii_uppercase + "%'(),-./:*#"
-            if self.lang == "eng"
-            else "АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ.-"
-        )
+        labels = string.digits + string.ascii_uppercase + "%'(),-./:*#" if self.lang == 'eng' else \
+            "АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ.-"
 
-        decoded = "".join([labels[x] for x in output_value if x > -1])
+
+        output_value = np.ravel(output_value)
+
+
+        decoded = ''.join([labels[x] for x in output_value if x > -1 ])
 
         return decoded
 
+class OCRFVPostprocessing(BasePostprocessing):
+    """Postprocessing for OCV FV models."""
+
+    def __init__(self, verbose=False):
+        super().__init__(verbose)
+
+    def __call__(self, output_value: np.ndarray) -> np.ndarray:
+        """Transforms network output values into text string."""
+
+        output_value = np.ravel(output_value)
+        return output_value
+
+
+class OCRProbsPostprocessing(BasePostprocessing):
+    """Greedy CTC decode with per-step alphabet masking for the v2 OCR models.
+
+    The v2 models output softmax probabilities ``[batch, T, num_classes]`` with
+    ``blank_index`` (default 0) reserved for the CTC blank; class ``i`` maps to
+    ``alphabet[i - 1]``. ``allowed`` is the set of characters this document is
+    permitted to emit (e.g. RUS Cyrillic + digits/punctuation); characters
+    outside it are *substituted*, not dropped:
+
+      - if the argmax is blank or an allowed char, keep it;
+      - if a disallowed char (a diacritic/near-lookalike) wins, pick the best
+        allowed *non-blank* class instead (blank is a separator, not a letter),
+        so ``Î -> I`` and ``І -> И`` rather than the char being lost.
+
+    Naive column-zeroing before argmax is wrong: blank can win when the model is
+    very confident on the diacritic, silently deleting the character.
+    """
+
+    def __init__(self, alphabet: str, allowed=None, blank_index: int = 0, verbose=False):
+        super().__init__(verbose)
+        self.alphabet = alphabet
+        self.blank_index = blank_index
+        if allowed is None:
+            self._allowed_idx = None
+            self._disallowed_idx = frozenset()
+        else:
+            allowed_set = set(allowed)
+            # class index (1-based over alphabet) -> allowed to emit?
+            self._allowed_idx = frozenset(
+                i + 1 for i, ch in enumerate(alphabet) if ch in allowed_set
+            )
+            self._disallowed_idx = frozenset(
+                range(1, len(alphabet) + 1)
+            ) - self._allowed_idx
+
+    def __call__(self, output_value: np.ndarray) -> str:
+        """probs ``[batch, T, C]`` or ``[T, C]`` -> decoded string."""
+        p = np.asarray(output_value)
+        if p.ndim == 3:
+            p = p[0]
+        blank = self.blank_index
+
+        indices = []
+        if self._allowed_idx is None or not self._disallowed_idx:
+            indices = np.argmax(p, axis=1).tolist()
+        else:
+            for t in range(p.shape[0]):
+                best = int(np.argmax(p[t]))
+                if best == blank or best in self._allowed_idx:
+                    indices.append(best)
+                else:
+                    row = p[t].copy()
+                    row[blank] = -np.inf
+                    for i in self._disallowed_idx:
+                        row[i] = -np.inf
+                    indices.append(int(np.argmax(row)))
+
+        chars, prev = [], -1
+        for idx in indices:
+            if idx != prev and idx != blank:
+                chars.append(self.alphabet[idx - 1])
+            prev = idx
+        return ''.join(chars)
+
 
 class MetricPostprocessing(BasePostprocessing):
-    """
+    '''
     Postprocessing for Metric learning. Accept both Euclidean distance and Cosine Distance
-    """
-
-    def __init__(self, centers: Path, metric: str, verbose=False):
-        """
-        :param centers: coordinates for counted centers
-        :param metric: type of metric to use, can be either 'cosine' or 'euclidean'
-        """
-        import pandas as pd
-
-        super().__init__(verbose)
-        self.metric = metric
-        if self.metric == "cosine":
-            self.radius = 1
-        elif self.metric == "euclidean":
-            self.radius = 10
-        else:
-            raise Exception("Unsupported metric type")
-        self.centers = pd.read_pickle(centers)
-
-    def __call__(self, vector, **kwargs):
-        """
-        :param vector: embeding from feature vector layer
-        :return: tuple of predicted label, distance till center of predicted label, and threshold of that label
-        """
+    '''
+    def __init__(self, centers: Path, metric:str, verbose=False):
+        '''
+        :param centers: path to a pickle-free ``.npz`` with arrays
+            ``labels`` (str), ``centers`` (2D float) and ``max_distance`` (float),
+            aligned by row. (Legacy ``.pkl`` pandas DataFrames are no longer used:
+            pickle is a code-execution vector and was numpy-version-fragile.)
+        :param metric: 'cosine' or 'euclidean'
+        '''
         from sklearn.neighbors import NearestNeighbors
 
-        center_coords = np.stack(self.centers["centers"].values)
-        nn = NearestNeighbors(
+        super().__init__(verbose)
+        self.metric = metric.lower()
+        if self.metric == 'cosine':
+            self.radius = 1
+        elif self.metric == 'euclidean':
+            self.radius = 10
+        else:
+            raise Exception('Unsupported metric type')
+
+        data = np.load(Path(centers), allow_pickle=False)
+        self.labels = data['labels']
+        self.center_coords = data['centers']
+        self.max_distance = data['max_distance']
+        # build the neighbor index once (was rebuilt on every __call__)
+        self._nn = NearestNeighbors(
             n_neighbors=1, metric=self.metric, radius=self.radius
-        ).fit(center_coords)
+        ).fit(self.center_coords)
 
+    def __call__(self, vector, **kwargs):
+        '''
+        :param vector: embeding from feature vector layer
+        :return: tuple of predicted label, distance till center of predicted label, and threshold of that label
+        '''
         vector = vector.reshape(1, -1)
+        dists, idxs = self._nn.radius_neighbors(vector, return_distance=True, sort_results=True)
+        if len(idxs[0]) == 0:
+            # no center within radius -> unknown document
+            return 'NONE', float('inf'), 0.0
 
-        pred = nn.radius_neighbors(vector, return_distance=True, sort_results=True)
-        pred_dist = pred[0][0][0]
-        pred_label = self.centers.index[pred[1][0][0]]
-        threshold = self.centers.distance[pred_label]
+        i = int(idxs[0][0])
+        pred_label = str(self.labels[i])
+        pred_dist = float(dists[0][0])
+        threshold = float(self.max_distance[i])
         if pred_dist < threshold:
             return pred_label, pred_dist, threshold
         else:
-            return "NONE", pred_dist, threshold
+            return 'NONE', pred_dist, threshold
 
 
 class MultiClassPostprocessing(BasePostprocessing):
-    """Postprocessing for metric learning models.
+    """Postprocessing for plain multi-class classification models (argmax).
 
-    Supports both euclidean and cosine distance metrics.
-    Classifies input vector against loaded centroid coordinates.
+    Takes a vector of per-class probabilities/scores and returns the label
+    with the highest score, plus that score as a confidence value. (For
+    embedding/centroid-distance classification instead, see
+    MetricPostprocessing.)
 
     Attributes:
-        centers (Path): File path to serialized centroids
-        metric (str): Distance metric to use.
-                      Must be either 'euclidean' or 'cosine'.
+        labels (list): Class labels, indexed the same way as the model's
+            output vector.
 
     """
-
     def __init__(self, labels: list, verbose=False):
-        """Initializes metric postprocessing.
+        """Initializes multi-class postprocessing.
 
         Args:
-            centers (Path): File path to serialized centroids
-            metric (str): Distance metric to use. Must be
-                          'euclidean' or 'cosine'.
+            labels (list): Class labels, indexed the same way as the model's
+                output vector.
             verbose (bool): Print logging messages if True.
                             Defaults to False.
         """
@@ -194,18 +280,18 @@ class MultiClassPostprocessing(BasePostprocessing):
         self.labels = labels
 
     def __call__(self, probability: np.ndarray, **kwargs):
-        """Classifies vector against loaded centroids.
+        """Picks the highest-scoring class.
 
         Args:
-            vector: Input vector from model
+            probability: Per-class probabilities/scores from the model.
 
         Returns:
-            tuple: Label, distance, threshold
+            tuple: (label, confidence) for the highest-scoring class.
         """
-        return self.labels[probability.argmax()], probability.max(initial=0)
+        return self.labels[probability.argmax()], probability.max(initial = 0)
 
 
-class YoloDetectorPostprocessing(BasePostprocessing):
+class YOLODetectorPostprocessing(BasePostprocessing):
     """
     Class for postprocessing YOLO detector predictions
     and preparing detection results
@@ -216,8 +302,7 @@ class YoloDetectorPostprocessing(BasePostprocessing):
         labels (list): list of class labels
         verbose (bool): enable verbose output
     """
-
-    def __init__(self, labels: list, iou=0.2, cls=0.5, verbose=False):
+    def __init__(self, labels:list, iou=0.2, cls=0.5, verbose=False):
         """
         Initialize class parameters
         Args:
@@ -231,11 +316,21 @@ class YoloDetectorPostprocessing(BasePostprocessing):
         self.cls = cls
         self.labels = labels
 
-    def __call__(
-        self,
-        vector: np.ndarray,
-        **kwargs,
-    ):
+    # Two hooks, so a subclass can vary the confidence threshold per class
+    # without copying __call__. The base keeps one shared threshold, exactly as
+    # before.
+    def conf_keep(self, scores: np.ndarray) -> np.ndarray:
+        """Which rows survive the confidence threshold."""
+        return scores.max(axis=1) > self.cls
+
+    def conf_scores(self, scores: np.ndarray) -> np.ndarray:
+        """Scores as they go into argmax. The base does not touch them."""
+        return scores
+
+    def __call__(self,
+                 vector: np.ndarray,
+                 **kwargs,
+                 ):
         """
         Run postprocessing on YOLO predictions
         Args:
@@ -249,52 +344,49 @@ class YoloDetectorPostprocessing(BasePostprocessing):
             list: detection results
         """
 
-        if kwargs.get("padding_meta") is None:
+        if kwargs.get('padding_meta') is None:
             padding_meta = {
-                "pad_to_size": (0, 0),
-                "pad_extra": (0, 0),
-                "ratio": (1, 1),
+                'pad_to_size': (0,0),
+                'pad_extra': (0,0),
+                'ratio': (1, 1),
+
             }
         else:
-            padding_meta = kwargs["padding_meta"]
+            padding_meta = kwargs['padding_meta']
 
         detect_res = []
         if vector.shape[0] == 0:
             return detect_res
 
         n_classes = len(self.labels)
-        vector = vector[vector[..., 4 : 4 + n_classes].max(axis=1) > self.cls]
+        vector = vector[self.conf_keep(vector[..., 4:4+n_classes])]
 
         if len(vector) == 0:
             return []
 
-        box, det, seg = np.split(vector, [4, 4 + n_classes], axis=1)
-        box = self.xywh2xyxy(
-            box
-        )  # creating from x,y height, width -> xy xy coords of box
+        box, det, seg = np.split(vector, [4, 4+n_classes], axis=1)
+        box = self.xywh2xyxy(box)  # creating from x,y height, width -> xy xy coords of box
 
+        det = self.conf_scores(det)
         conf, j = det.max(axis=1, keepdims=True), det.argmax(axis=1, keepdims=True)
-        i = self.nms(box, conf, self.iou)  # calculating non maximum suppression
+        i = self.nms_indices(box, conf, j)  # calculating non maximum suppression
         detect_res = np.concatenate((box, conf, j, seg), axis=1)[i]
 
-        ind = np.lexsort((detect_res[..., 0], detect_res[..., 1]))
+
+        ind = np.lexsort((detect_res[...,0], detect_res[..., 1]))
         detect_res = detect_res[ind]
 
-        if kwargs.get("resize"):  # should we resize to original size
-            ### resize to original pic
-            detect_res[..., :4:2] = (
-                detect_res[..., :4:2] - padding_meta["pad_to_size"][0]
-            ) / padding_meta["ratio"][0] - padding_meta["pad_extra"][0]
-            detect_res[..., 1:4:2] = (
-                detect_res[..., 1:4:2] - padding_meta["pad_to_size"][1]
-            ) / padding_meta["ratio"][1] - padding_meta["pad_extra"][1]
+        if kwargs.get('resize'): # should we resize to original size
+        ### resize to original pic
+            detect_res[..., :4:2] = (detect_res[..., :4:2] - padding_meta['pad_to_size'][0]) \
+                                    / padding_meta['ratio'][0] - padding_meta['pad_extra'][0]
+            detect_res[..., 1:4:2] = (detect_res[..., 1:4:2] - padding_meta['pad_to_size'][1]) \
+                                     / padding_meta['ratio'][1] - padding_meta['pad_extra'][1]
             detect_res[detect_res < 0] = 0
             detect_res[..., :4] = np.round(detect_res[:, :4], 0)
             detect_res[..., 4] = np.round(detect_res[:, 4], 3)
 
-        if (
-            kwargs.get("numpy") is not None
-        ):  # Return result as numpy array without adding labels
+        if kwargs.get('numpy') is not None:  # Return result as numpy array without adding labels
             return detect_res
 
         if self.labels is not None:
@@ -328,6 +420,20 @@ class YoloDetectorPostprocessing(BasePostprocessing):
         y[:, 2] = x[:, 0] + x[:, 2] / 2  # bottom right x
         y[:, 3] = x[:, 1] + x[:, 3] / 2  # bottom right y
         return y
+
+    def nms_indices(self, box: np.ndarray, conf: np.ndarray, cls_ids: np.ndarray):
+        """
+        NMS dispatch hook: which candidate boxes survive suppression.
+        Base behavior is the historical class-agnostic NMS (any box with
+        IOU > threshold suppresses, regardless of class).
+        Args:
+            box (np.ndarray): candidate boxes, xyxy
+            conf (np.ndarray): per-box max class confidence
+            cls_ids (np.ndarray): per-box argmax class index
+        Returns:
+            list: indices of kept boxes
+        """
+        return self.nms(box, conf, self.iou)
 
     @staticmethod
     def nms(bounding_boxes: np.array, confidence_score: np.array, threshold: float):
@@ -374,17 +480,22 @@ class YoloDetectorPostprocessing(BasePostprocessing):
             # Pick the bounding box with largest confidence score
             picked_boxes_index.append(index)
 
+
             # Compute ordinates of intersection-over-union(IOU)
             x1 = np.maximum(start_x[index], start_x[order[:-1]])
             x2 = np.minimum(end_x[index], end_x[order[:-1]])
             y1 = np.maximum(start_y[index], start_y[order[:-1]])
             y2 = np.minimum(end_y[index], end_y[order[:-1]])
 
+
+
+
             # Compute areas of intersection-over-union
             w = np.maximum(0.0, x2 - x1)
             h = np.maximum(0.0, y2 - y1)
 
             intersection = w * h
+
 
             # Compute the ratio between intersection and union
             ratio = intersection / (areas[index] + areas[order[:-1]] - intersection)
@@ -395,7 +506,194 @@ class YoloDetectorPostprocessing(BasePostprocessing):
         return picked_boxes_index
 
 
-class YoloSegmentorPostprocessing(BasePostprocessing):
+class PerClassYOLODetectorPostprocessing(YOLODetectorPostprocessing):
+    """YOLO detector postprocessing with per-class NMS (JSON Type
+    "PerClassYOLODetector").
+
+    The base class suppresses any box with IOU > threshold regardless of
+    class. For TextFields that is wrong: boxes of *different* fields
+    legitimately overlap (the ru/en field pairs on external passports sit at
+    IOU 0.2-0.3), and cross-class suppression silently drops one field of
+    the pair. Here NMS runs independently within each predicted class, so a
+    box can only suppress boxes of its own class. Words/Borders keep the
+    class-agnostic base behavior.
+    """
+
+    def __init__(self, labels: list, iou=0.2, cls=0.5, iou_per_class: dict = None,
+                 cls_per_class: dict = None, verbose=False):
+        """
+        Args:
+            iou_per_class (dict): optional ``{label: threshold}`` overriding the
+                shared NMS threshold for named classes only.
+            cls_per_class (dict): the same for the CONFIDENCE threshold.
+                Measured need (2026-09-02): the two MRZ lines are labeled one
+                box per line, and the second line's confidence sits right at the
+                shared 0.5 - 0.50/0.55/0.58/0.60 on the deployed model. That is
+                not headroom, it is a coincidence, and any retrain moves the
+                class across it: a from-scratch run with the same recipe put the
+                same lines at 0.31-0.49 and lost one line on 8 documents out of
+                42. Lowering the SHARED threshold instead would let every other
+                class fire more, so the override is per class - same reasoning
+                as for IOU.
+        """
+        super().__init__(labels, iou=iou, cls=cls, verbose=verbose)
+        self.iou_per_class = iou_per_class or {}
+        self.cls_per_class = cls_per_class or {}
+        self._cls_vec = None
+
+    def _thresholds(self, n: int) -> np.ndarray:
+        """Per-column confidence thresholds, built once."""
+        if self._cls_vec is None or len(self._cls_vec) != n:
+            self._cls_vec = np.array(
+                [self.cls_per_class.get(self.labels[i], self.cls) if i < len(self.labels)
+                 else self.cls for i in range(n)], dtype=np.float32)
+        return self._cls_vec
+
+    def conf_keep(self, scores: np.ndarray) -> np.ndarray:
+        if not self.cls_per_class:
+            return super().conf_keep(scores)
+        return (scores > self._thresholds(scores.shape[1])).any(axis=1)
+
+    def conf_scores(self, scores: np.ndarray) -> np.ndarray:
+        """Zero out classes that did NOT pass their own threshold.
+
+        Without this the row could survive on a low-threshold class while argmax
+        picks a different, higher-scoring class that did not pass its own bar -
+        and the box would be kept under the wrong label.
+        """
+        if not self.cls_per_class:
+            return super().conf_scores(scores)
+        return np.where(scores > self._thresholds(scores.shape[1]), scores, 0.0)
+
+    def iou_for(self, cls_idx: int) -> float:
+        """NMS threshold for one class.
+
+        A multi-line field is labeled one box per line, and those boxes belong
+        to the SAME class, so they suppress each other. On a tilted document
+        their axis-aligned boxes overlap far more than the shared 0.2: for an
+        MRZ (line 34x its own height, lines 1.87 heights apart) the pair
+        crosses 0.2 at about 3 degrees and reaches 0.36 at 5 - so the second
+        line is dropped exactly on the hard photographs. Raising the shared
+        threshold is not an option: it is what keeps the ru/en field pairs of
+        an external passport (overlapping at 0.2-0.3) from swallowing each
+        other, so the override is per class.
+        """
+        if not self.iou_per_class:
+            return self.iou
+        label = self.labels[cls_idx] if 0 <= cls_idx < len(self.labels) else None
+        return self.iou_per_class.get(label, self.iou)
+
+    def nms_indices(self, box: np.ndarray, conf: np.ndarray, cls_ids: np.ndarray):
+        keep = []
+        flat = cls_ids.reshape(-1)
+        for c in np.unique(flat):
+            idx = np.nonzero(flat == c)[0]
+            picked = self.nms(box[idx], conf[idx], self.iou_for(int(c)))
+            keep.extend(int(idx[k]) for k in picked)
+        return keep
+
+
+class YOLOOBBDetectorPostprocessing(BasePostprocessing):
+    """Postprocessing for YOLO oriented-bbox (OBB) detectors.
+
+    Decodes the raw ultralytics OBB head output and returns oriented
+    detections in original-image coordinates.
+
+    Raw output layout (after squeeze): ``[4 + n_classes + 1, n_anchors]``
+    or its transpose. Columns per anchor are
+    ``[cx, cy, w, h, cls_0..cls_{n-1}, angle]`` where ``angle`` is in
+    radians (ultralytics convention, clockwise-positive in image space).
+
+    Returns a list of detections, each
+    ``[cx, cy, w, h, angle, conf, cls_idx, label]`` in the coordinate
+    system of the original (pre-letterbox) image.
+
+    Attributes:
+        iou (float): rotated-IoU threshold for NMS.
+        cls (float): confidence threshold.
+        labels (list): class label names.
+    """
+
+    def __init__(self, labels: list, iou=0.45, cls=0.25, verbose=False):
+        super().__init__(verbose)
+        self.iou = iou
+        self.cls = cls
+        self.labels = labels
+
+    def __call__(self, vector: np.ndarray, **kwargs):
+        if kwargs.get('padding_meta') is None:
+            padding_meta = {'pad_to_size': (0, 0), 'pad_extra': (0, 0), 'ratio': (1, 1)}
+        else:
+            padding_meta = kwargs['padding_meta']
+
+        if vector is None or vector.size == 0:
+            return []
+
+        # ensure [n_anchors, features]
+        if vector.shape[0] < vector.shape[1]:
+            vector = vector.T
+
+        n_classes = len(self.labels)
+        box = vector[:, :4]                       # cx, cy, w, h
+        det = vector[:, 4:4 + n_classes]          # class scores
+        angle = vector[:, 4 + n_classes]          # radians
+
+        conf = det.max(axis=1)
+        cls_idx = det.argmax(axis=1)
+
+        m = conf > self.cls
+        if not m.any():
+            return []
+        box, conf, cls_idx, angle = box[m], conf[m], cls_idx[m], angle[m]
+
+        keep = self.rotated_nms(box, angle, conf, self.iou)
+
+        results = []
+        for i in keep:
+            cx, cy, w, h = box[i]
+            a = float(angle[i])
+            # rescale center/size from letterboxed space back to original
+            cx = (cx - padding_meta['pad_to_size'][0]) / padding_meta['ratio'][0] - padding_meta['pad_extra'][0]
+            cy = (cy - padding_meta['pad_to_size'][1]) / padding_meta['ratio'][1] - padding_meta['pad_extra'][1]
+            w = w / padding_meta['ratio'][0]
+            h = h / padding_meta['ratio'][1]
+            label = self.labels[int(cls_idx[i])] if self.labels else int(cls_idx[i])
+            results.append([float(cx), float(cy), float(w), float(h), a,
+                            float(conf[i]), int(cls_idx[i]), label])
+
+        # reading order: top-to-bottom, then left-to-right
+        results.sort(key=lambda r: (round(r[1] / 10), r[0]))
+        return results
+
+    @staticmethod
+    def rotated_iou(a, b):
+        """Rotated-rect IoU via OpenCV intersection.
+
+        a, b: (cx, cy, w, h, angle_rad)
+        """
+        ra = ((a[0], a[1]), (a[2], a[3]), np.degrees(a[4]))
+        rb = ((b[0], b[1]), (b[2], b[3]), np.degrees(b[4]))
+        ret, region = cv2.rotatedRectangleIntersection(ra, rb)
+        if region is None:
+            return 0.0
+        inter = cv2.contourArea(region)
+        union = a[2] * a[3] + b[2] * b[3] - inter
+        return inter / union if union > 0 else 0.0
+
+    @classmethod
+    def rotated_nms(cls, box, angle, conf, iou_thresh):
+        """Greedy NMS using rotated IoU. Returns kept indices."""
+        order = np.argsort(-conf).tolist()
+        kept = []
+        rects = [(box[i][0], box[i][1], box[i][2], box[i][3], angle[i]) for i in range(len(conf))]
+        while order:
+            i = order.pop(0)
+            kept.append(i)
+            order = [j for j in order if cls.rotated_iou(rects[i], rects[j]) < iou_thresh]
+        return kept
+
+
+class YOLOSegmentorPostprocessing(BasePostprocessing):
     """Postprocessing for YOLO segmentation models.
 
     Transforms raw masks into final masks and segments.
@@ -414,18 +712,11 @@ class YoloSegmentorPostprocessing(BasePostprocessing):
 
         """
         super().__init__(verbose)
-        assert 0 <= mask_filter <= 1, "[!] Filter must be within [0..1]"
+        assert 0<=mask_filter<=1, "[!] Filter must be within [0..1]"
         self.mask_filter = mask_filter
 
-    def __call__(
-        self,
-        proto_masks: np.array,
-        masks: np.array,
-        bbox: np.array,
-        extra_padding: tuple,
-        img_shape: list,
-        upsample=True,
-    ):
+
+    def __call__(self, proto_masks: np.array, masks: np.array, bbox: np.array, extra_padding:tuple, img_shape: list, upsample=True):
         """Transforms raw YOLO masks into final masks & segments.
 
         Args:
@@ -438,10 +729,12 @@ class YoloSegmentorPostprocessing(BasePostprocessing):
         imh, imw, chn = proto_masks.shape
         im_orig_h, im_orig_w = img_shape
 
-        masks_matmul = masks @ proto_masks.transpose([-1, 0, 1]).reshape((chn, -1))
+        masks_matmul = masks @ proto_masks.transpose([-1, 0, 1]).reshape((chn,-1))
         masks = self.sigmoid(masks_matmul).reshape((-1, imh, imw))
 
-        masks_resized = np.zeros((masks.shape[0], im_orig_h, im_orig_w))
+
+        masks_resized = np.zeros((masks.shape[0],im_orig_h, im_orig_w))
+
 
         # removing padding
         gain = min(imh / im_orig_h, imw / im_orig_w)  # gain  = old / new
@@ -451,28 +744,20 @@ class YoloSegmentorPostprocessing(BasePostprocessing):
         masks = masks[:, top:bottom, left:right]
 
         for i, mask in enumerate(masks):
-            masks_resized[i] = cv2.resize(
-                mask, (im_orig_w, im_orig_h), cv2.INTER_LINEAR
-            )
+            masks_resized[i] = cv2.resize(mask, (im_orig_w, im_orig_h),  cv2.INTER_LINEAR)
 
         top_extra_padding, left_extra_padding = extra_padding[1], extra_padding[0]
-        bottom_extra_padding, right_extra_padding = (
-            masks_resized.shape[1] - extra_padding[1],
-            masks_resized.shape[2] - extra_padding[0],
-        )
-        masks_resized = masks_resized[
-            :,
-            top_extra_padding:bottom_extra_padding,
-            left_extra_padding:right_extra_padding,
-        ]  # removing extra padding
+        bottom_extra_padding, right_extra_padding = masks_resized.shape[1]-extra_padding[1], masks_resized.shape[2]-extra_padding[0]
+        masks_resized = masks_resized[:, top_extra_padding: bottom_extra_padding, left_extra_padding:right_extra_padding] #removing extra padding
 
         masks_resized = self.clip_boxes(masks_resized, bbox)
 
-        masks_resized = np.where(masks_resized > self.mask_filter, 1, 0) * 255
+        masks_resized = np.where(masks_resized>self.mask_filter, 1, 0) * 255
 
         segments = self.get_segments(masks_resized)
 
         return masks_resized, segments
+
 
     @staticmethod
     def get_segments(masks):
@@ -484,14 +769,14 @@ class YoloSegmentorPostprocessing(BasePostprocessing):
         Returns:
             List of generated segments
         """
-        segments = []
-        for x in masks.astype("uint8"):
+        segments=[]
+        for x in masks.astype('uint8'):
             c = cv2.findContours(x, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)[0]
             if c:
                 c = np.array(c[np.array([len(x) for x in c]).argmax()]).reshape(-1, 2)
             else:
                 c = np.zeros((0, 2))  # no segments found
-            segments.append(c.astype("float32"))
+            segments.append(c.astype('float32'))
         return segments
 
     @staticmethod
@@ -511,18 +796,22 @@ class YoloSegmentorPostprocessing(BasePostprocessing):
         # print(boxes)
         x1, y1, x2, y2 = np.split(boxes, 4, axis=1)
         r = np.arange(w)
-        r_mask = (r > x1) * (r < x2)
-        r_mask = np.expand_dims(r_mask, 1)
+        r_mask = (r>x1) * (r<x2)
+        r_mask = np.expand_dims(r_mask,1)
         c = np.arange(h)
-        c_mask = (c > y1) * (c < y2)
+        c_mask = (c>y1) * (c<y2)
         c_mask = np.expand_dims(c_mask, 2)
         # print(r_mask.shape, c_mask.shape)
         masks = masks * (c_mask * r_mask)
 
+
+
         return masks
 
+
+
     @staticmethod
-    def sigmoid(x: np.array) -> np.array:
+    def sigmoid(x:np.array) -> np.array:
         """Applies sigmoid function.
 
         Args:

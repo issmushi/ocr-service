@@ -39,42 +39,38 @@ class ModelManifestTests(unittest.TestCase):
             .with_name("models.lock.json")
             .read_text(encoding="utf-8")
         )
-        expected_paths = {
-            "Angles90/ONNX/model.json",
-            "Angles90/ONNX/model.onnx",
-            "Borders/ONNX/model.json",
-            "Borders/ONNX/model.onnx",
-            "DocType/ONNX/model.json",
-            "DocType/ONNX/model.onnx",
-            "DocType/ONNX/resources/centers.pkl",
-            "OCR/eng+nums/ONNX/model.json",
-            "OCR/eng+nums/ONNX/model.onnx",
-            "OCR/rus/ONNX/model.json",
-            "OCR/rus/ONNX/model.onnx",
-            "TextFields/ONNX/model.json",
-            "TextFields/ONNX/model.onnx",
-            "Words/ONNX/model.json",
-            "Words/ONNX/model.onnx",
+        expected_sets = {
+            "Borders",
+            "TextFields",
+            "DocTypeAngles",
+            "Words",
+            "OCR/cyrillic_accurate",
+            "OCR/latin_accurate",
         }
-
-        self.assertEqual(manifest["version"], "1.0.1")
+        expected_paths = {
+            f"{model}/ONNX/{name}"
+            for model in expected_sets
+            for name in ("model.json", "model.onnx")
+        } | {"DocTypeAngles/ONNX/resources/centers.npz"}
+        self.assertEqual(manifest["version"], "4.6.1")
+        self.assertEqual(manifest["models_version"], "v8")
         self.assertEqual(
             manifest["source"]["source_commit"],
-            "8f75028a8015e91a6011f9616c56e51eccbebeab",
+            "bd0028aa8e9d3a30d2de4df8b672185bfcd984ba",
         )
+        self.assertEqual(manifest["source"]["license"]["spdx"], "MIT")
         self.assertIn(
-            manifest["source"]["source_commit"],
-            manifest["source"]["commit_base_url"],
+            "/releases/download/models-v8/", manifest["source"]["base_url"]
         )
-        self.assertEqual(manifest["source"]["license"]["spdx"], "Apache-2.0")
-        self.assertIn("/v1.0.1/", manifest["source"]["base_url"])
         self.assertEqual(
             {item["path"] for item in manifest["files"]}, expected_paths
         )
-        self.assertEqual(len(manifest["files"]), 15)
+        self.assertEqual(len(manifest["files"]), 13)
         self.assertEqual(
-            sum(item["size"] for item in manifest["files"]), 94012643
+            sum(item["size"] for item in manifest["files"]), 141918502
         )
+        for item in manifest["files"]:
+            self.assertEqual(item["asset"], item["path"].replace("/", "__"))
         for item in manifest["files"]:
             self.assertGreater(item["size"], 0)
             self.assertRegex(item["sha256"], r"^[0-9a-f]{64}$")
@@ -86,7 +82,7 @@ class ModelManifestTests(unittest.TestCase):
             self.assertEqual(
                 assets.models_dir(),
                 assets._PROJECT_ROOT
-                / "storage/models/russian-docs-ocr/1.0.1/models",
+                / "storage/models/russian-docs-ocr/4.6.1/models",
             )
         with tempfile.TemporaryDirectory() as temporary_directory:
             absolute = Path(temporary_directory) / "models"

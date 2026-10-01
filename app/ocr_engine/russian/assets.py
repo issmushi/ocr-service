@@ -19,7 +19,7 @@ from urllib.parse import quote
 from urllib.request import Request, urlopen
 
 _MODELS_ENV = "RUSSIAN_OCR_MODELS_DIR"
-_PACKAGE_VERSION = "1.0.1"
+_PACKAGE_VERSION = "4.6.1"
 _DOWNLOAD_RETRIES = 3
 _DOWNLOAD_WORKERS = 4
 _DOWNLOAD_TIMEOUT_SECONDS = 120
@@ -45,6 +45,7 @@ class _ModelAsset:
     path: PurePosixPath
     size: int
     sha256: str
+    asset: str | None = None
 
 
 def _load_manifest() -> tuple[str, tuple[_ModelAsset, ...]]:
@@ -69,6 +70,15 @@ def _load_manifest() -> tuple[str, tuple[_ModelAsset, ...]]:
             path = PurePosixPath(item["path"])
             size = item["size"]
             sha256 = item["sha256"].lower()
+            remote_asset = item.get("asset")
+            if remote_asset is not None and (
+                not isinstance(remote_asset, str)
+                or not remote_asset
+                or PurePosixPath(remote_asset).name != remote_asset
+                or remote_asset in {".", ".."}
+                or "\\" in remote_asset
+            ):
+                raise ValueError(f"invalid release asset for {path}")
             if (
                 path.is_absolute()
                 or ".." in path.parts
@@ -84,7 +94,7 @@ def _load_manifest() -> tuple[str, tuple[_ModelAsset, ...]]:
             ):
                 raise ValueError(f"invalid SHA-256 for {path}")
             paths.add(path)
-            assets.append(_ModelAsset(path, size, sha256))
+            assets.append(_ModelAsset(path, size, sha256, remote_asset))
     except (KeyError, TypeError, AttributeError, ValueError) as error:
         raise RussianOcrModelsError(
             f"Invalid RussianDocsOCR model manifest: {error}"
@@ -188,7 +198,8 @@ def _validate_download(
 
 
 def _remote_source(asset: _ModelAsset) -> AbstractContextManager[BinaryIO]:
-    url = _BASE_URL + quote(asset.path.as_posix(), safe="/")
+    remote_path = asset.asset or asset.path.as_posix()
+    url = _BASE_URL + quote(remote_path, safe="/")
     request = Request(
         url, headers={"User-Agent": "ocr-service-model-fetcher/1"}
     )

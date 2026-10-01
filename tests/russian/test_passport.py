@@ -43,8 +43,10 @@ class PassportTests(unittest.TestCase):
         result = recognize_passport_text_bytes(
             image_bytes(),
             Mock(
-                return_value=SimpleNamespace(
-                    ocr=raw, doctype="INTPassport_2011"
+                process_img=Mock(
+                    return_value=SimpleNamespace(
+                        ocr=raw, doctype="INTPassport_2011"
+                    )
                 )
             ),
         )

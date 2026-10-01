@@ -19,15 +19,12 @@ class BasePreprocessing(object):
         verbose (bool): Print logging messages if True
 
     """
-
-    def __init__(
-        self,
-        image_size=(224, 224, 3),
-        normalization=(0, 1),
-        padding_size=(0, 0),
-        padding_color=(114, 114, 114),
-        verbose=False,
-    ):
+    def __init__(self,
+                 image_size=(224, 224, 3),
+                 normalization=(0, 1),
+                 padding_size=(0,0),
+                 padding_color = (114,114,114),
+                 verbose=False):
         """Initializes base preprocessing with parameters."""
         self.image_size = image_size
         self.normalization = normalization
@@ -35,7 +32,8 @@ class BasePreprocessing(object):
         self.padding_color = padding_color
 
         if verbose:
-            print(f"[+] {self.__class__.__name__} loaded")
+            print(f'[+] {self.__class__.__name__} loaded')
+
 
     def __call__(self, image_path: Union[Path, str, np.ndarray]):
         """Loads image from file path or NumPy array.
@@ -46,20 +44,19 @@ class BasePreprocessing(object):
         Returns:
             Loaded RGB image array
         """
-        if isinstance(image_path, Path) or isinstance(image_path, str):
-            image = cv2.imread(
-                image_path.as_posix() if isinstance(image_path, Path) else image_path
-            )
-            if image is None:
-                raise Exception(f"Not an image {image_path}")
-            image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        if isinstance(image_path, Path):
+            img = cv2.imdecode(np.frombuffer(image_path.read_bytes(), dtype=np.uint8), cv2.IMREAD_COLOR)
+            img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        elif isinstance(image_path, str):
+            img_path = Path(image_path)
+            img = cv2.imdecode(np.frombuffer(img_path.read_bytes(), dtype=np.uint8), cv2.IMREAD_COLOR)
+            img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
         elif isinstance(image_path, np.ndarray):
-            image = image_path
+            img = image_path
         else:
-            raise Exception("Unsupported Image Type")
+            raise Exception("Unsupported image type")
 
-        return image
-
+        return img
     def padding(self, img: np.array):
         """Adds padding of padding_size with padding_color.
 
@@ -71,16 +68,8 @@ class BasePreprocessing(object):
             pad (tuple): Dimensions of added padding
         """
         pad_h, pad_v = self.padding_size
-        img = cv2.copyMakeBorder(
-            img,
-            pad_v // 2,
-            pad_v // 2,
-            pad_h // 2,
-            pad_h // 2,
-            cv2.BORDER_CONSTANT,
-            value=self.padding_color,
-        )
-        return img, (pad_h // 2, pad_v // 2)
+        img = cv2.copyMakeBorder(img, pad_v//2, pad_v//2 ,pad_h//2, pad_h//2, cv2.BORDER_CONSTANT, value=self.padding_color)
+        return img, (pad_h//2, pad_v//2)
 
     def normalization(self, img: np.array, normalization: tuple):
         """Normalizes image by mean and standard deviation.
@@ -105,23 +94,19 @@ class ClassificationPreprocessing(BasePreprocessing):
     images for a classification model.
 
     """
-
-    def __init__(
-        self,
-        image_size=(224, 224, 3),
-        normalization=(0, 1),
-        padding_size=(0, 0),
-        padding_color=(0, 0, 0),
-        verbose=False,
-    ):
+    def __init__(self,
+                 image_size=(224, 224, 3),
+                 normalization=(0,1),
+                 padding_size=(0,0),
+                 padding_color=(0,0,0),
+                 verbose=False):
         """Initializes preprocessing for image classification."""
-        super().__init__(
-            image_size=image_size,
-            normalization=normalization,
-            padding_size=padding_size,
-            padding_color=padding_color,
-            verbose=verbose,
-        )
+        super().__init__(image_size=image_size,
+                         normalization=normalization,
+                         padding_size=padding_size,
+                         padding_color=padding_color,
+                         verbose=verbose)
+
 
         # print(f'[+] {self.__class__.__name__} loaded')
 
@@ -145,9 +130,10 @@ class ClassificationPreprocessing(BasePreprocessing):
 
         image = cv2.resize(image, self.image_size[:2])
         if len(image.shape) == 3:
-            image = np.expand_dims(image, 0)
-
+            image = np.expand_dims(image,0)
         return image
+
+
 
 
 class YoloPreprocessing(BasePreprocessing):
@@ -157,25 +143,22 @@ class YoloPreprocessing(BasePreprocessing):
     prepare images for YOLO model input.
 
     """
-
-    def __init__(
-        self,
-        image_size=(640, 640, 3),
-        normalization=(0, 1),
-        padding_size=(0, 0),
-        padding_color=(114, 114, 114),
-        verbose=False,
-    ):
+    def __init__(self,
+                 image_size=(640, 640, 3),
+                 normalization = (0,1),
+                 padding_size=(0,0),
+                 padding_color=(114,114,114),
+                 verbose=False
+                 ):
         """Initializes YOLO preprocessing."""
 
-        super().__init__(
-            image_size=image_size,
-            normalization=normalization,
-            padding_size=padding_size,
-            padding_color=padding_color,
-            verbose=verbose,
-        )
+        super().__init__(image_size=image_size,
+                         normalization=normalization,
+                         padding_size=padding_size,
+                         padding_color=padding_color,
+                         verbose=verbose)
         # print(f'[+] {self.__class__.__name__} loaded')
+
 
     def __call__(self, image_path: Union[Path, str, np.ndarray]):
         """Runs YOLO image preprocessing pipeline.
@@ -194,38 +177,31 @@ class YoloPreprocessing(BasePreprocessing):
         # YOLO works with BGR color format, so need swap
         # image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
 
-        image, pad_add_extra = self.padding(
-            image
-        )  # extra_padding is padding surrounding image
+        image, pad_add_extra = self.padding(image) #extra_padding is padding surrounding image
 
-        padded_image_shape = image.shape[:2]  # shape of image with extra padding
+        padded_image_shape = image.shape[:2] # shape of image with extra padding
 
-        # pad_add_to_size - padding added after resize to fill till size we need
-        image, pad_ratio, pad_add_to_size = self.__letterbox(
-            image,
-            new_shape=self.image_size,
-            color=self.padding_color,
-            auto=False,
-            scaleFill=False,
-            scaleup=True,
-            stride=32,
-        )
+
+
+
+        #pad_add_to_size - padding added after resize to fill till size we need
+        image, pad_ratio, pad_add_to_size = self.__letterbox(image,
+                                                          new_shape=self.image_size,
+                                                          color=self.padding_color,
+                                                          auto=False,
+                                                          scaleFill=False,
+                                                          scaleup=True,
+                                                          stride=32)
+
+
 
         if len(image.shape) == 3:
-            image = np.expand_dims(image, 0)
+            image = np.expand_dims(image,0)
 
         return image, pad_ratio, pad_add_extra, pad_add_to_size, padded_image_shape
 
-    def __letterbox(
-        self,
-        im,
-        new_shape=(640, 640),
-        color=(114, 114, 114),
-        auto=True,
-        scaleFill=False,
-        scaleup=True,
-        stride=32,
-    ):
+
+    def __letterbox(self, im, new_shape=(640, 640), color=(114, 114, 114), auto=True, scaleFill=False, scaleup=True, stride=32):
         """Letterbox resize keeping aspect ratio.
 
         Args:
@@ -260,10 +236,7 @@ class YoloPreprocessing(BasePreprocessing):
         elif scaleFill:  # stretch
             dw, dh = 0.0, 0.0
             new_unpad = (new_shape[1], new_shape[0])
-            ratio = (
-                new_shape[1] / shape[1],
-                new_shape[0] / shape[0],
-            )  # width, height ratios
+            ratio = new_shape[1] / shape[1], new_shape[0] / shape[0]  # width, height ratios
 
         dw /= 2  # divide padding into 2 sides
         dh /= 2
@@ -272,10 +245,24 @@ class YoloPreprocessing(BasePreprocessing):
             im = cv2.resize(im, new_unpad, interpolation=cv2.INTER_LINEAR)
         top, bottom = int(round(dh - 0.1)), int(round(dh + 0.1))
         left, right = int(round(dw - 0.1)), int(round(dw + 0.1))
-        im = cv2.copyMakeBorder(
-            im, top, bottom, left, right, cv2.BORDER_CONSTANT, value=color
-        )  # add border
+        im = cv2.copyMakeBorder(im, top, bottom, left, right, cv2.BORDER_CONSTANT, value=color)  # add border
         return im, ratio, (dw, dh)
+
+
+class OBBPreprocessing(YoloPreprocessing):
+    """Preprocessing for YOLO oriented-bbox (OBB) models.
+
+    Reuses the YOLO letterbox pipeline, but emits an NCHW float tensor
+    normalized to [0, 1] (standard ultralytics ONNX export expects
+    channels-first input scaled by 1/255), instead of the NHWC 0-255
+    tensor used by the legacy baked-normalization detectors.
+    """
+
+    def __call__(self, image_path: Union[Path, str, np.ndarray]):
+        tensor, pad_ratio, pad_add_extra, pad_add_to_size, padded_image_shape = super().__call__(image_path)
+        # tensor: [1, H, W, 3] uint8/float 0-255  ->  [1, 3, H, W] float /255
+        tensor = tensor.astype(np.float32).transpose(0, 3, 1, 2) / 255.0
+        return tensor, pad_ratio, pad_add_extra, pad_add_to_size, padded_image_shape
 
 
 class OCRPreprocessing(BasePreprocessing):
@@ -284,24 +271,19 @@ class OCRPreprocessing(BasePreprocessing):
     Handles padding and resizing for OCR input images.
 
     """
-
-    def __init__(
-        self,
-        image_size=(31, 200, 1),
-        normalization=(0, 1),
-        padding_size=(0, 0),
-        padding_color=(0, 0, 0),
-        verbose=False,
-    ):
+    def __init__(self,
+                 image_size=(31, 200, 1),
+                 normalization=(0,1),
+                 padding_size=(0,0),
+                 padding_color=(0,0,0),
+                 verbose=False):
         """Initializes OCR preprocessing."""
 
-        super().__init__(
-            image_size=image_size,
-            normalization=normalization,
-            padding_size=padding_size,
-            padding_color=padding_color,
-            verbose=verbose,
-        )
+        super().__init__(image_size=image_size,
+                         normalization=normalization,
+                         padding_size=padding_size,
+                         padding_color=padding_color,
+                         verbose=verbose)
 
     def __call__(self, image_path: np.ndarray):
         """Runs OCR preprocessing pipeline.
@@ -320,6 +302,8 @@ class OCRPreprocessing(BasePreprocessing):
         image = super().__call__(image_path)
 
         image = self.padding(image)
+        image = image[None, ..., None]
+
 
         return image
 
@@ -369,14 +353,68 @@ class OCRPreprocessing(BasePreprocessing):
         x_offset = 0
         y_offset = 0
 
-        padded = cv2.copyMakeBorder(
-            resized,
-            y_offset,
-            target_h - orig_h - y_offset,
-            x_offset,
-            target_w - orig_w - x_offset,
-            borderType=0,
-            value=[color_value, color_value],
-        )
+        padded = cv2.copyMakeBorder(resized, y_offset, target_h - orig_h - y_offset, x_offset,
+                                    target_w - orig_w - x_offset,
+                                    borderType=0, value=[color_value, color_value])
 
         return padded
+
+
+class OCRv2Preprocessing(BasePreprocessing):
+    """Preprocessing for the v2 OCR models (latin/cyrillic, mn4/edgenext).
+
+    Unlike :class:`OCRPreprocessing` (grayscale, fixed 31x200, [0,1] norm), the
+    v2 models take a full-color ``[1, H, W, 3]`` uint8 tensor with a fixed height
+    and *dynamic* width (no letterbox padding), and bake normalization into the
+    ONNX graph. Channel order defaults to BGR because the models were trained on
+    OpenCV BGR patches, while the pipeline works in RGB - so RGB input is flipped
+    here.
+    """
+
+    def __init__(self,
+                 image_size=(32, None, 3),
+                 normalization=(0, 1),
+                 padding_size=(0, 0),
+                 padding_color=(0, 0, 0),
+                 height=32,
+                 color_order='BGR',
+                 dtype='uint8',
+                 verbose=False):
+        super().__init__(image_size=image_size,
+                         normalization=normalization,
+                         padding_size=padding_size,
+                         padding_color=padding_color,
+                         verbose=verbose)
+        self.height = height
+        self.color_order = color_order.upper()
+        self.dtype = dtype
+
+    def __call__(self, image_path: Union[Path, str, np.ndarray]) -> np.ndarray:
+        """RGB image (any size) -> ``[1, height, W, 3]`` uint8 NHWC.
+
+        Width scales with the input aspect ratio (min 1px); no padding.
+        """
+        image = super().__call__(image_path)  # RGB ndarray (or decoded->RGB)
+
+        if self.color_order == 'BGR':
+            image = image[..., ::-1]
+
+        h, w = image.shape[:2]
+        if h == 0 or w == 0:
+            # Degenerate (zero-size) crop - a rare detector/splitting edge
+            # case (e.g. a zero-height bbox after clipping) rather than
+            # crashing the whole document on a division by zero. OCR on a
+            # blank patch just decodes to empty text.
+            blank = np.zeros((self.height, 16, 3), dtype=np.uint8)
+            return np.ascontiguousarray(blank[np.newaxis, ...], dtype=np.dtype(self.dtype))
+
+        # Minimum 16px: the EdgeNext ('fast') backbone has 3 internal stride-2
+        # downsample stages and errors out ("Invalid input shape") below this
+        # (measured: fails up to w=15, stable from w=16); MobileNetV4
+        # ('accurate') has no such floor, but 16px is harmless for it too.
+        # No genuine text crop needs less than this.
+        new_w = max(16, round(w * self.height / h))
+        resized = cv2.resize(image, (new_w, self.height), interpolation=cv2.INTER_LINEAR)
+
+        tensor = resized[np.newaxis, ...]
+        return np.ascontiguousarray(tensor, dtype=np.dtype(self.dtype))

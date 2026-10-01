@@ -1,6 +1,8 @@
 import numpy as np
 import cv2
 
+from ...geometry import Chain, Homography, Offset, Pieces, Scale
+
 
 def iou(bbox1: np.ndarray, bbox2: np.ndarray):
     """Compute intersection over union between two bboxes.
@@ -15,18 +17,17 @@ def iou(bbox1: np.ndarray, bbox2: np.ndarray):
     area1 = (bbox1[..., 2] - bbox1[..., 0]) * (bbox1[..., 3] - bbox1[..., 1])
     area2 = (bbox2[..., 2] - bbox2[..., 0]) * (bbox2[..., 3] - bbox2[..., 1])
 
-    # intersection
+    #intersection
     x1 = np.maximum(bbox1[..., 0], bbox2[..., 0])
     x2 = np.minimum(bbox1[..., 2], bbox2[..., 2])
     y1 = np.maximum(bbox1[..., 1], bbox2[..., 1])
     y2 = np.minimum(bbox1[..., 3], bbox2[..., 3])
 
-    intersection = np.maximum(0, (x2 - x1)) * np.maximum(0, (y2 - y1))
+    intersection = np.maximum(0, (x2-x1)) * np.maximum(0, (y2-y1))
 
     ratio = intersection / (area1 + area2 - intersection)
 
     return ratio
-
 
 def xywh2xyxy(x):
     """Convert bboxes from (x,y,w,h) to (x1,y1,x2,y2) format.
@@ -44,7 +45,6 @@ def xywh2xyxy(x):
     y[:, 3] = x[:, 1] + x[:, 3] / 2  # bottom right y
     return y
 
-
 def sort_coordinates(list_of_xy_coords):
     """Sorts coordinates clockwise from centroid.
 
@@ -56,26 +56,25 @@ def sort_coordinates(list_of_xy_coords):
     """
     cx, cy = list_of_xy_coords.mean(0)
     x, y = list_of_xy_coords.T
-    angles = np.arctan2(x - cx, y - cy)
+    angles = np.arctan2(x-cx, y-cy)
     indices = np.argsort(angles)
     return list_of_xy_coords[indices]
 
-
 def get_angles(list_of_coords):
-    """Calculates angle between adjacent coordinates.
+    """Calculates angle (degrees) between each coordinate and the next one.
 
     Args:
         coords (list): List of (x, y) tuples
 
-    Prints:
-        Angles between adjacent coordinate pairs
+    Returns:
+        np.ndarray: Angles in degrees between adjacent coordinate pairs.
     """
     x, y = list_of_coords.T
-    x_shifted, y_shifted = np.roll(list_of_coords, -1, axis=0).T
-    print(np.arctan2(x_shifted - x, y_shifted - y) / np.pi * 180)
+    x_shifted, y_shifted = np.roll(list_of_coords,-1, axis=0).T
+    return np.arctan2(x_shifted-x, y_shifted - y)/np.pi*180
 
 
-def perp(a):
+def perp( a ) :
     """Calculates perpendicular vector.
 
     Args:
@@ -90,7 +89,7 @@ def perp(a):
     return b
 
 
-def seg_intersect(a1, a2, b1, b2):
+def seg_intersect(a1,a2, b1,b2) :
     """Finds intersection point of two lines.
 
     Args:
@@ -100,14 +99,13 @@ def seg_intersect(a1, a2, b1, b2):
     Returns:
         Intersection point
     """
-    da = a2 - a1
-    db = b2 - b1
-    dp = a1 - b1
+    da = a2-a1
+    db = b2-b1
+    dp = a1-b1
     dap = perp(da)
-    denom = np.dot(dap, db)
-    num = np.dot(dap, dp)
-    return (num / denom.astype(float)) * db + b1
-
+    denom = np.dot( dap, db)
+    num = np.dot( dap, dp )
+    return (num / denom.astype(float))*db + b1
 
 def get_len(list_of_coords):
     """Approximates quadrangle from coordinates.
@@ -122,21 +120,21 @@ def get_len(list_of_coords):
     n_coord = len(list_of_coords)
 
     # searching 4 segments with max len
-    list_of_coords_shifted = np.roll(list_of_coords, -1, axis=0)
-    dist = np.linalg.norm(list_of_coords - list_of_coords_shifted, axis=1, ord=2)
-    args_dist = np.sort(np.argsort(dist)[:-5:-1])  # searching 4 biggest segments
+    list_of_coords_shifted = np.roll(list_of_coords,-1, axis=0)
+    dist = np.linalg.norm(list_of_coords-list_of_coords_shifted, axis=1, ord=2)
+    args_dist = np.sort(np.argsort(dist)[:-5:-1]) #searching 4 biggest segments
+
 
     # searching inconsistency in vectors order. like 0->2, where dist between em more then 1
-    args_inconsistency = np.roll(args_dist, -1, axis=0) - args_dist
+    args_inconsistency = np.roll(args_dist,-1, axis=0) - args_dist
     args_inconsistency[-1] += n_coord
 
+
     # getting 4 points of 2 segments
-    p2_ix = (args_dist[np.argwhere(args_inconsistency > 1)[0]][0] + 1) % n_coord
-    p1_ix = args_dist[np.argwhere(args_inconsistency > 1)[0]][0]
-    p3_ix = args_dist[(np.argwhere(args_inconsistency > 1)[0] + 1) % len(args_dist)][0]
-    p4_ix = (
-        args_dist[(np.argwhere(args_inconsistency > 1)[0] + 1) % len(args_dist)][0] + 1
-    ) % n_coord
+    p2_ix = (args_dist[np.argwhere(args_inconsistency>1)[0]][0] + 1) % n_coord
+    p1_ix = args_dist[np.argwhere(args_inconsistency>1)[0]][0]
+    p3_ix = args_dist[(np.argwhere(args_inconsistency>1)[0] + 1) % len(args_dist)][0]
+    p4_ix = (args_dist[(np.argwhere(args_inconsistency>1)[0] + 1) % len(args_dist)][0] + 1) % n_coord
     p = list_of_coords[[p1_ix, p2_ix, p3_ix, p4_ix]]
 
     # searching crossing point
@@ -155,68 +153,314 @@ def get_len(list_of_coords):
     return approx
 
 
-def fix_perspective(
-    img: np.ndarray,
-    segments: np.ndarray,
-):
-    """Fix perspective of doc image using segments.
+def order_points(pts):
+    """Order 4 points as top-left, top-right, bottom-right, bottom-left.
+
+    Uses the coordinate sum/difference method which is robust to rotation:
+    the top-left has the smallest x+y, the bottom-right the largest; the
+    top-right has the smallest y-x, the bottom-left the largest.
 
     Args:
-        img: Input document image
-        segments: Document segment coordinates
+        pts: array-like of 4 (x, y) points.
 
     Returns:
-        warped: Rectified document image
-        border_img: Image with segment borders drawn
+        np.ndarray (4, 2) float32 ordered [TL, TR, BR, BL].
     """
-    cnts, imgs = [], []
+    pts = np.asarray(pts, dtype=np.float32).reshape(-1, 2)
+    rect = np.zeros((4, 2), dtype=np.float32)
+    s = pts.sum(axis=1)
+    rect[0] = pts[np.argmin(s)]       # TL: min(x + y)
+    rect[2] = pts[np.argmax(s)]       # BR: max(x + y)
+    d = np.diff(pts, axis=1)[:, 0]    # y - x
+    rect[1] = pts[np.argmin(d)]       # TR: min(y - x)
+    rect[3] = pts[np.argmax(d)]       # BL: max(y - x)
+    return rect
+
+
+def extract_quad(contour):
+    """Extract a 4-point quadrilateral from a segmentation contour.
+
+    Tries convex hull + adaptive polygon approximation; falls back to the
+    minimum-area rotated rectangle (which always yields 4 corners).
+
+    Args:
+        contour: array-like (N, 2) contour points.
+
+    Returns:
+        np.ndarray (4, 2) float32, or None if the contour is degenerate.
+    """
+    cnt = np.asarray(contour, dtype=np.float32).reshape(-1, 2)
+    if len(cnt) < 4:
+        return None
+    hull = cv2.convexHull(cnt)
+    peri = cv2.arcLength(hull, True)
+    for frac in (0.01, 0.02, 0.03, 0.05, 0.08, 0.1, 0.15):
+        approx = cv2.approxPolyDP(hull, frac * peri, True).reshape(-1, 2)
+        if len(approx) == 4:
+            return approx.astype(np.float32)
+    return cv2.boxPoints(cv2.minAreaRect(cnt)).astype(np.float32)
+
+
+def four_point_matrix(quad: np.ndarray):
+    """The perspective matrix and output size `four_point_transform` warps a quad with.
+
+    The matrix is what maps a warped page back (see geometry.py).
+
+    Returns:
+        (M, width, height), or None if the target rectangle is degenerate.
+    """
+    rect = order_points(quad)
+    tl, tr, br, bl = rect
+    width = int(round(max(np.linalg.norm(br - bl), np.linalg.norm(tr - tl))))
+    height = int(round(max(np.linalg.norm(tr - br), np.linalg.norm(tl - bl))))
+    if width < 2 or height < 2:
+        return None
+    dst = np.array([[0, 0], [width - 1, 0], [width - 1, height - 1], [0, height - 1]],
+                   dtype=np.float32)
+    return cv2.getPerspectiveTransform(rect, dst), width, height
+
+
+def four_point_transform(img: np.ndarray, quad: np.ndarray):
+    """Warp a quadrilateral to an axis-aligned rectangle.
+
+    The output size is derived from the real side lengths of the quad, so the
+    document aspect ratio is preserved (no stretching of tilted documents).
+
+    Args:
+        img: Source image.
+        quad: 4 points (any order — they are canonically reordered).
+
+    Returns:
+        Warped image, or None if the target rectangle is degenerate.
+    """
+    found = four_point_matrix(quad)
+    if found is None:
+        return None
+    M, width, height = found
+    return cv2.warpPerspective(img, M, (width, height), flags=cv2.INTER_LINEAR)
+
+
+# Small outward cushion on the document quad, on top of the mask threshold.
+#
+# Most of the crop regression behind issue #10 was a mis-calibrated threshold:
+# Borders/model.json kept MaskFilter=0.9 from the previous checkpoint, which
+# eroded the retrained model's mask down to 0.937 of the human-drawn GT. That is
+# fixed at source (MaskFilter=0.5 -> 0.989 of GT), so this constant no longer
+# carries the correction - it only restores the slight over-coverage the pre-#19
+# model happened to have (1.031 of GT), which is what kept edge-printed content
+# such as the internal passport's series/number inside the crop. 0.989 * 1.0404
+# = ~1.03, i.e. the same cushion. Applied before the corners are clipped to the
+# image bounds, so it can never pull in area from outside the frame; pass
+# margin=0 to disable. Numbers and method in docs/progress-log.md.
+DOC_MARGIN_FRAC = 0.01
+
+
+def expand_quad(quad: np.ndarray, margin: float) -> np.ndarray:
+    """Push a quad's corners outward from its centroid.
+
+    Args:
+        quad: 4 points (N, 2).
+        margin: fraction of the document's OWN size each edge moves out by, so
+            the applied scale factor is 1 + 2*margin.
+
+    Returns:
+        The expanded quad (the input is returned unchanged for margin <= 0).
+    """
+    if margin <= 0:
+        return quad
+    centre = quad.mean(axis=0)
+    return centre + (quad - centre) * (1.0 + 2.0 * margin)
+
+
+def fix_perspective(img: np.ndarray, segments: np.ndarray, stack: str = 'auto',
+                    margin: float = DOC_MARGIN_FRAC, return_geometry: bool = False):
+    """Fix perspective of a document image using segmentation contours.
+
+    Each segment is rectified independently with a robust four-point
+    transform. When two documents are present (e.g. a passport spread) they
+    are merged according to ``stack``:
+      - 'auto'       : direction chosen from the pages' actual layout —
+                       side-by-side -> horizontal, stacked -> vertical (default)
+      - 'horizontal' : force left-to-right, common height, np.hstack
+      - 'vertical'   : force top-to-bottom, common width, np.vstack
+
+    Args:
+        img: Input document image (H, W, 3).
+        segments: List of contours (each (N, 2)) from the segmentation model.
+        stack: Multi-document merge direction ('auto', 'horizontal', 'vertical').
+        margin: outward margin applied to each detected quad, as a fraction of
+            the document's own size (see DOC_MARGIN_FRAC). Pass 0 to disable.
+        return_geometry: also return the map from the rectified image back to
+            `img` (see geometry.py).
+
+    Returns:
+        warped: Rectified image (or the original if no valid quad is found).
+        cnt_img: Original image with the detected quadrilaterals drawn.
+        geometry: only with return_geometry=True - Homography of a single page,
+            Pieces of a stitched spread, an empty Chain when `img` is returned as is.
+    """
+    warps, quads, cnt_img, geometries = rectify_pages(img, segments, margin, return_geometry=True)
+    if not warps:
+        return (img, cnt_img, Chain()) if return_geometry else (img, cnt_img)
+    stitched, placements = stitch_pages(warps, quads, stack)
+    if not return_geometry:
+        return stitched, cnt_img
+    return stitched, cnt_img, stitched_geometry(warps, placements, geometries)
+
+
+def rectify_pages(img: np.ndarray, segments, margin: float = DOC_MARGIN_FRAC,
+                  return_geometry: bool = False):
+    """Rectify each detected page on its own, without stitching them together.
+
+    Split out of ``fix_perspective`` so the pipeline can process a passport
+    spread ONE PAGE AT A TIME: the detectors take a 640x640 input, and a
+    stitched spread gives each page only half of it. Stitching then happens
+    afterwards, over pages that have already been deskewed and read.
+
+    Args:
+        img: Input document image (H, W, 3).
+        segments: List of contours (each (N, 2)) from the segmentation model.
+        margin: outward margin applied to each quad (see DOC_MARGIN_FRAC).
+        return_geometry: also return one map per page, from the rectified page
+            back to `img` (see geometry.py).
+
+    Returns:
+        warps: one rectified image per page, in detection order.
+        quads: the quad each page came from, same order (needed to decide the
+            stitch direction and the page order later).
+        cnt_img: Original image with the detected quadrilaterals drawn.
+        geometries: only with return_geometry=True - a Homography per page,
+            same order as `warps`.
+    """
+    quads, warps, geometries = [], [], []
 
     for cnt in segments:
-        peri = cv2.arcLength(cnt, True)
-        approx = cv2.approxPolyDP(cnt, 0.01 * peri, True)
-        approx = approx.reshape(approx.shape[0], -1)
-        approx = sort_coordinates(approx)
-        # print(approx)
-
-        if approx.shape[0] != 4:
-            approx = get_len(approx)
-
-        if approx.shape[0] != 4:  # if we fail to find 4 points then just skip
+        quad = extract_quad(cnt)
+        if quad is None:
             continue
-
-        approx[:, 0] = np.where(approx[:, 0] > img.shape[1], img.shape[1], approx[:, 0])
-        approx[:, 1] = np.where(approx[:, 1] > img.shape[0], img.shape[0], approx[:, 1])
-
-        top_left = [0, 0]
-        bottom_right = approx.max(axis=0) - approx.min(axis=0)
-        top_right = [top_left[0], bottom_right[1]]
-        bottom_left = [bottom_right[0], top_left[0]]
-
-        ideal_marks = np.vstack(
-            [top_left, top_right, bottom_right, bottom_left],
-        )
-
-        M = cv2.getPerspectiveTransform(approx, ideal_marks.astype(np.float32))
-        imgs.append(
-            cv2.warpPerspective(
-                img.copy(), M, bottom_right.astype(np.int32), flags=cv2.INTER_LINEAR
-            )
-        )
-        cnts.append(approx)
+        rect = order_points(quad)
+        rect = expand_quad(rect, margin)
+        # clip corners to image bounds
+        rect[:, 0] = np.clip(rect[:, 0], 0, img.shape[1])
+        rect[:, 1] = np.clip(rect[:, 1], 0, img.shape[0])
+        found = four_point_matrix(rect)
+        if found is None:
+            continue
+        M, width, height = found
+        warped = cv2.warpPerspective(img, M, (width, height), flags=cv2.INTER_LINEAR)
+        quads.append(rect)
+        warps.append(warped)
+        geometries.append(Homography(M))
 
     cnt_img = img.copy()
-    for cnt in cnts:
-        cnt_img = cv2.polylines(cnt_img, [cnt.astype(np.int32)], True, (255, 0, 0), 4)
+    for q in quads:
+        cnt_img = cv2.polylines(cnt_img, [q.astype(np.int32)], True, (255, 0, 0), 4)
 
-    if 1 < len(cnts):
-        imgs[1] = cv2.resize(imgs[1], imgs[0].shape[:2][::-1], cv2.INTER_LINEAR)
-        if cnts[0][0, 1] > cnts[1][0, 1]:
-            warpimg = np.vstack(imgs[::-1])
-        else:
-            warpimg = np.vstack(imgs)
-    elif len(imgs) > 0:
-        warpimg = imgs[0]
+    if return_geometry:
+        return warps, quads, cnt_img, geometries
+    return warps, quads, cnt_img
+
+
+def stitched_geometry(pages, placements, page_geometries) -> Pieces:
+    """Map from a canvas built by ``stitch_pages`` back to the image the pages came from.
+
+    Args:
+        pages: the pages handed to ``stitch_pages`` (their sizes matter).
+        placements: what ``stitch_pages`` returned for them: (scale, dx, dy)
+            per page, in the same order.
+        page_geometries: one map per page, from that page back to the image
+            the pages were cut from (see geometry.py); None for a page that
+            was handed on unchanged.
+
+    Returns:
+        Pieces: one rectangle of the canvas per page, with the page's own
+        resize and offset composed after the page's own map.
+    """
+    pieces = []
+    for page, placement, geometry in zip(pages, placements, page_geometries):
+        (dx, dy, new_w, new_h), placed = _placed(page, placement)
+        maps = () if geometry is None else (geometry,)
+        pieces.append(((dx, dy, dx + new_w, dy + new_h), Chain((*maps, placed))))
+    return Pieces(tuple(pieces))
+
+
+def placement_rect(page, placement):
+    """Where ``stitch_pages`` put a page on the canvas: (dx, dy, width, height).
+
+    The width and height are the page's size after the resize to the common
+    side, with the rounding ``stitch_pages`` applies - so a map built from
+    them puts a point where the page's pixels went, not where ``scale`` alone
+    would put it.
+    """
+    return _placed(page, placement)[0]
+
+
+def _placed(page, placement):
+    scale, dx, dy = placement
+    h, w = page.shape[:2]
+    # the size stitch_pages resized this page to (see its rounding)
+    new_w = max(1, int(round(w * scale))) if scale != 1.0 else w
+    new_h = max(1, int(round(h * scale))) if scale != 1.0 else h
+    return (dx, dy, new_w, new_h), Chain((Scale(new_w / w, new_h / h), Offset(dx, dy)))
+
+
+def stitch_pages(warps, quads, stack: str = 'auto'):
+    """Merge rectified pages into one canvas, reporting where each page landed.
+
+    Args:
+        warps: rectified pages (see ``rectify_pages``). May already have been
+            deskewed or otherwise processed - only their current sizes matter.
+        quads: the quads the pages came from; used to order them and to pick
+            the direction when ``stack='auto'``.
+        stack: 'auto' | 'horizontal' | 'vertical'.
+
+    Returns:
+        canvas: the stitched image.
+        placements: one (scale, dx, dy) per INPUT page, in the order of
+            ``warps`` - so a box (x, y) found on page i maps onto the canvas as
+            (x*scale + dx, y*scale + dy). This is what lets per-page detections
+            be reported in canvas coordinates.
+    """
+    if not warps:
+        return None, []
+    if len(warps) == 1:
+        return warps[0], [(1.0, 0.0, 0.0)]
+
+    # multiple documents (two pages of a spread): decide merge direction.
+    # 'auto' picks it from the pages' actual layout — if their centroids are
+    # further apart horizontally than vertically they sit side by side
+    # (stitch left->right), otherwise one above the other (stitch top->bottom).
+    if stack == 'auto':
+        c = [q.mean(axis=0) for q in quads]
+        dx = abs(c[0][0] - c[1][0])
+        dy = abs(c[0][1] - c[1][1])
+        direction = 'horizontal' if dx >= dy else 'vertical'
     else:
-        warpimg = img
+        direction = stack
 
-    return warpimg, cnt_img
+    horizontal = direction == 'horizontal'
+    key = 0 if horizontal else 1
+    order = list(np.argsort([q[:, key].min() for q in quads]))
+
+    placements = [None] * len(warps)
+    resized, offset = [], 0.0
+    if horizontal:
+        common = min(warps[i].shape[0] for i in order)
+        for i in order:
+            w = warps[i]
+            scale = common / w.shape[0]
+            new_w = max(1, int(round(w.shape[1] * scale)))
+            resized.append(cv2.resize(w, (new_w, common), interpolation=cv2.INTER_LINEAR))
+            placements[i] = (scale, offset, 0.0)
+            offset += new_w
+        return np.hstack(resized), placements
+
+    common = min(warps[i].shape[1] for i in order)
+    for i in order:
+        w = warps[i]
+        scale = common / w.shape[1]
+        new_h = max(1, int(round(w.shape[0] * scale)))
+        resized.append(cv2.resize(w, (common, new_h), interpolation=cv2.INTER_LINEAR))
+        placements[i] = (scale, 0.0, offset)
+        offset += new_h
+    return np.vstack(resized), placements
