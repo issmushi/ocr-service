@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { buildCurl, runTool } from "../api";
 import { CameraCapture } from "../components/CameraCapture";
+import { PassportFieldsView } from "../components/PassportFieldsView";
 import { acceptedFormats, defaultParams, toolById, tools } from "../config";
 import type { ParamValue, RequestResult, ToolDefinition, ToolId } from "../types";
 import { Icon } from "../components/Icon";
@@ -412,15 +413,15 @@ export function PlaygroundPage({ apiBaseUrl, initialTool, onToolChange }: Props)
           ) : (
             <div className="structured-result">
               <div className="result-tabs" onKeyDown={handleTabListKeyDown} role="tablist">
-                <ResultTabButton active={activeTab === "fields"} id="fields" label="Поля" onClick={() => setActiveTab("fields")} />
-                <ResultTabButton active={activeTab === "mrz"} count={mrz.length || undefined} disabled={!mrz.length} id="mrz" label="MRZ" onClick={() => setActiveTab("mrz")} />
-                <ResultTabButton active={activeTab === "normalization"} count={typeof normalization?.corrections_count === "number" ? normalization.corrections_count : undefined} disabled={!normalization} id="normalization" label="Нормализация" onClick={() => setActiveTab("normalization")} />
+                <ResultTabButton active={activeTab === "fields"} id="fields" label={toolId === "crop-passport-fields" ? "Вырезки" : "Поля"} onClick={() => setActiveTab("fields")} />
+                {toolId !== "crop-passport-fields" && <ResultTabButton active={activeTab === "mrz"} count={mrz.length || undefined} disabled={!mrz.length} id="mrz" label="MRZ" onClick={() => setActiveTab("mrz")} />}
+                {toolId !== "crop-passport-fields" && <ResultTabButton active={activeTab === "normalization"} count={typeof normalization?.corrections_count === "number" ? normalization.corrections_count : undefined} disabled={!normalization} id="normalization" label="Нормализация" onClick={() => setActiveTab("normalization")} />}
                 <ResultTabButton active={activeTab === "meta"} disabled={!meta} id="meta" label="Meta" onClick={() => setActiveTab("meta")} />
                 <ResultTabButton active={activeTab === "json"} id="json" label="JSON" onClick={() => setActiveTab("json")} />
                 <ResultTabButton active={activeTab === "curl"} id="curl" label="cURL" onClick={() => setActiveTab("curl")} />
               </div>
               <div aria-labelledby={`result-tab-${activeTab}`} className="result-body" id={`result-panel-${activeTab}`} role="tabpanel" tabIndex={0}>
-                {activeTab === "fields" && <FieldsView entries={fieldEntries} />}
+                {activeTab === "fields" && (toolId === "crop-passport-fields" ? <PassportFieldsView data={data} /> : <FieldsView entries={fieldEntries} />)}
                 {activeTab === "mrz" && <MrzView lines={mrz} copied={copied} normalized={resultWasNormalized} onCopy={copy} />}
                 {activeTab === "normalization" && <NormalizationView enabled={resultWasNormalized} value={normalization} />}
                 {activeTab === "meta" && <MetaView meta={meta} clientDuration={result.durationMs} />}

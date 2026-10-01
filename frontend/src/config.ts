@@ -148,6 +148,33 @@ export const tools: ToolDefinition[] = [
     outputHint: "Ответ: обрезанная MRZ в JPEG",
   },
   {
+    id: "crop-passport-fields",
+    group: "Обрезка и качество",
+    title: "Поля паспорта",
+    shortTitle: "Passport fields",
+    description: "Экспериментальный детектор полей паспорта РФ. Возвращает области и вырезки без распознавания текста.",
+    endpoint: "/v1/ocr/crop/passport-fields",
+    responseKind: "json",
+    params: [
+      {
+        kind: "toggle",
+        key: "crop_document",
+        label: "Найти документ",
+        description: "Выровнять и обрезать документ перед поиском полей.",
+        defaultValue: true,
+      },
+      {
+        kind: "select",
+        key: "padding",
+        label: "Отступ вырезки",
+        description: "Добавить пиксели вокруг найденного поля.",
+        defaultValue: "4",
+        options: [0, 4, 8, 16, 32, 64].map((value) => ({ value: String(value), label: `${value} px` })),
+      },
+    ],
+    outputHint: "Ответ: документ с областями полей и отдельные вырезки в JSON",
+  },
+  {
     id: "best-frame",
     group: "Обрезка и качество",
     title: "Лучший кадр",

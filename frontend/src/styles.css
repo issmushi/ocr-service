@@ -246,6 +246,31 @@ code, pre { font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospac
 }
 
 .camera-modal { overflow-y: auto; }
+.passport-fields { display: grid; gap: 14px; }
+.passport-fields__summary { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 7px; color: #52656e; font-size: 11px; }
+.passport-fields__summary strong { color: #293c45; }
+.passport-fields__document { min-width: 0; margin: 0; }
+.passport-fields__document > svg { display: block; width: 100%; height: auto; max-height: 500px; border: 1px solid var(--line); border-radius: 8px; background: #edf1f0; }
+.passport-fields__box { fill: rgba(17, 123, 108, .08); stroke: #00796b; stroke-width: 2; }
+.passport-fields__badge { fill: #00665b; }
+.passport-fields__document text { fill: white; font-weight: 750; }
+.passport-fields__document figcaption { display: grid; gap: 4px; margin-top: 8px; color: #6c7b83; font-size: 9px; line-height: 1.5; }
+.passport-fields__note { margin: 0; color: #718087; font-size: 10px; line-height: 1.6; }
+.passport-fields__grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 190px), 1fr)); gap: 10px; }
+.passport-fields__empty { padding: 20px; border: 1px solid var(--line); border-radius: 8px; background: white; }
+.passport-fields__empty strong { color: #384950; font-size: 12px; }
+.passport-fields__empty p { margin: 6px 0 0; color: #718087; font-size: 10px; line-height: 1.6; }
+.passport-field { min-width: 0; overflow: hidden; border: 1px solid var(--line); border-radius: 8px; background: white; }
+.passport-field header { display: flex; align-items: center; gap: 8px; padding: 11px; }
+.passport-field header > span { display: grid; place-items: center; flex: 0 0 24px; height: 24px; border-radius: 5px; background: var(--teal-soft); color: var(--teal); font-size: 11px; font-weight: 700; }
+.passport-field h3 { margin: 0 0 3px; color: #293c45; font-size: 11px; overflow-wrap: anywhere; }
+.passport-field header code { color: #7a878d; font-size: 9px; overflow-wrap: anywhere; }
+.passport-field__image { display: grid; place-items: center; min-height: 70px; padding: 8px; background: #edf1f0; }
+.passport-field__image img { display: block; width: auto; height: auto; max-width: 100%; max-height: 180px; object-fit: contain; }
+.passport-field dl { display: grid; gap: 7px; margin: 0; padding: 11px; color: #52656e; font-size: 9px; line-height: 1.5; }
+.passport-field dl > div { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 3px 8px; }
+.passport-field dt { color: #7a878d; }
+.passport-field dd { margin: 0; overflow-wrap: anywhere; }
 .result-panel--best-frame .image-result .result-body { min-height: 0; }
 .camera-dialog { max-height: calc(100dvh - 44px); overflow-y: auto; }
 .camera-viewport video { object-fit: contain; }
