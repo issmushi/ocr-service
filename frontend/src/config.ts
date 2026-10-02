@@ -83,6 +83,17 @@ export const tools: ToolDefinition[] = [
     outputHint: "Ответ: номер СНИЛС, ФИО, дата и место рождения, пол, дата регистрации и meta",
   },
   {
+    id: "driver-license",
+    group: "Россия",
+    title: "Водительское удостоверение РФ",
+    shortTitle: "Driver license",
+    description: "Распознать российское водительское удостоверение по фото: Russian OCR читает поля, Paddle при необходимости уточняет даты.",
+    endpoint: "/v1/ocr/driver-license",
+    responseKind: "json",
+    params: [],
+    outputHint: "Ответ: ФИО, номер удостоверения, даты, категории и meta",
+  },
+  {
     id: "full-ocr",
     group: "Распознавание",
     title: "Весь текст",

@@ -186,6 +186,56 @@ test("SNILS sends one image, shows its fields, and documents the task route", as
   assert.match(fields, /Дата регистрации/);
 });
 
+test("Russian driver license sends one image and shows its fields", async (t) => {
+  const tool = toolById["driver-license"];
+  assert.equal(tool.endpoint, "/v1/ocr/driver-license");
+  assert.equal(tool.group, "Россия");
+  assert.match(tool.description, /Russian OCR/);
+  assert.deepEqual(tool.params, []);
+  assert.deepEqual(defaultParams(tool), {});
+
+  const file = new File(["synthetic"], "driver-license.jpg", { type: "image/jpeg" });
+  const originalFetch = globalThis.fetch;
+  t.after(() => { globalThis.fetch = originalFetch; });
+  globalThis.fetch = async (url, options) => {
+    assert.equal(url, "/v1/ocr/driver-license");
+    assert.equal(options.method, "POST");
+    assert.deepEqual([...options.body.keys()], ["image"]);
+    assert.equal(await options.body.get("image").text(), "synthetic");
+    return new Response(JSON.stringify({
+      success: true,
+      data: { license_series: "11 22", license_number: "345678", categories: ["B", "B1", "C"], meta: { engine: "russian-docs-ocr" } },
+      error: null,
+    }), { headers: { "content-type": "application/json" } });
+  };
+  const result = await runTool("", tool, [file], defaultParams(tool), new AbortController().signal);
+  assert.equal(result.ok, true);
+  assert.equal(result.json.data.license_number, "345678");
+
+  const curl = buildCurl("http://localhost:8000", tool, [file], {});
+  assert.match(curl, /\/v1\/ocr\/driver-license/);
+  assert.match(curl, /image=@/);
+  assert.doesNotMatch(curl, /-F '(?:model|crop)=/);
+
+  const docs = renderToStaticMarkup(createElement(DocsPage, { navigate() {} }));
+  assert.match(docs, /\/v1\/tasks\/driver-license/);
+  assert.match(docs, /license_series/);
+  assert.match(docs, /categories/);
+
+  const fields = renderToStaticMarkup(createElement(FieldsView, {
+    entries: [
+      ["license_series", "11 22"], ["license_number", "345678"],
+      ["issue_organization_ru", "ГИБДД"], ["residence_region_ru", "ПРИМЕРСКАЯ ОБЛ."],
+      ["categories", ["B", "B1", "C"]],
+    ],
+  }));
+  assert.match(fields, /Серия удостоверения/);
+  assert.match(fields, /Номер удостоверения/);
+  assert.match(fields, /Кем выдан/);
+  assert.match(fields, /Регион проживания/);
+  assert.match(fields, /B, B1, C/);
+});
+
 test("MRZ fields show the shared document names and all document types", () => {
   for (const [type, label] of [
     ["internal_passport", "Внутренний паспорт"],

@@ -16,8 +16,15 @@ const fieldLabels: Record<string, string> = {
   passport_series: "Серия паспорта",
   passport_number: "Номер паспорта",
   snils_number: "Номер СНИЛС",
+  license_series: "Серия удостоверения",
+  license_number: "Номер удостоверения",
   birth_place: "Место рождения",
   registration_date: "Дата регистрации",
+  issue_organization_ru: "Кем выдан",
+  issue_organization_en: "Кем выдан (латиницей)",
+  residence_region_ru: "Регион проживания",
+  residence_region_en: "Регион проживания (латиницей)",
+  categories: "Категории",
   document_series: "Серия документа",
   document_number: "Номер документа",
   nationality: "Гражданство",
@@ -37,6 +44,18 @@ const documentTypeLabels: Record<string, string> = {
   identity_card: "ID-карта",
 };
 
+function isMissing(value: unknown): boolean {
+  return value === null || value === "" || Array.isArray(value) && value.length === 0;
+}
+
+function formatFieldValue(key: string, value: unknown): string {
+  if (isMissing(value)) return "Не найдено";
+  if (typeof value === "boolean") return value ? "Да" : "Нет";
+  if (key === "document_type" && typeof value === "string") return documentTypeLabels[value] ?? value;
+  if (Array.isArray(value)) return value.join(", ");
+  return String(value);
+}
+
 export function FieldsView({ entries }: { entries: [string, unknown][] }) {
   if (!entries.length) return <div className="tab-empty">В ответе нет полей документа.</div>;
   return <div className="fields-grid">{entries.map(([key, value]) => (
@@ -48,7 +67,7 @@ export function FieldsView({ entries }: { entries: [string, unknown][] }) {
     ) :
     <div className={key === "mrz_valid" ? "field-item field-item--highlight" : "field-item"} key={key}>
       <span>{fieldLabels[key] ?? key.replaceAll("_", " ")}</span>
-      <strong className={value === null || value === "" ? "muted" : ""}>{value === null || value === "" ? "Не найдено" : typeof value === "boolean" ? value ? "Да" : "Нет" : key === "document_type" && typeof value === "string" ? documentTypeLabels[value] ?? value : String(value)}</strong>
+      <strong className={isMissing(value) ? "muted" : ""}>{formatFieldValue(key, value)}</strong>
     </div>
   ))}</div>;
 }
