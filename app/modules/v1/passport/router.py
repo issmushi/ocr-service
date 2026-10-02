@@ -15,7 +15,7 @@ from app.modules.v1.passport.schemas import (
 )
 from app.modules.v1.passport.service import recognize_passport_internal_upload
 
-router = APIRouter(tags=["OCR V1: Passport"])
+router = APIRouter(tags=["Russia"])
 
 
 @router.post(
