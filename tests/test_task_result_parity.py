@@ -203,6 +203,19 @@ def test_task_result_matches_direct_http_response(
                 "123456789" if idcard else "AA1234567"
             )
         if operation == "passport/internal":
-            assert completed.json()["data"]["Issue_organization_ru"] == (
-                "ГУ МВД ПО МОСКВЕ"
-            )
+            data = completed.json()["data"]
+            assert set(data) == {
+                "passport_type",
+                "surname",
+                "name",
+                "patronymic",
+                "sex",
+                "date_of_birth",
+                "passport_series",
+                "passport_number",
+                "issue_date",
+                "Issue_organization_ru",
+                "department_code",
+                "meta",
+            }
+            assert data["Issue_organization_ru"] == ("ГУ МВД ПО МОСКВЕ")

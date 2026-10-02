@@ -20,11 +20,7 @@ Image.new("RGB", (120, 60), "white").save(encoded, format="JPEG")
 IMAGE_BYTES = encoded.getvalue()
 FILES = {"image": ("passport.jpg", IMAGE_BYTES, "image/jpeg")}
 EMPTY_PASSPORT_DATA = {
-    "mrz": None,
-    "normalization": None,
     "passport_type": "internal",
-    "document_code": "PN",
-    "issuing_country": "RUS",
     "surname": None,
     "name": None,
     "patronymic": None,
@@ -32,13 +28,20 @@ EMPTY_PASSPORT_DATA = {
     "date_of_birth": None,
     "passport_series": None,
     "passport_number": None,
-    "nationality": "RUS",
     "issue_date": None,
     "Issue_organization_ru": None,
-    "expiry_date": None,
     "department_code": None,
-    "personal_number": None,
-    "mrz_valid": None,
+}
+INTERNAL_FIELDS = set(EMPTY_PASSPORT_DATA) | {"meta"}
+MRZ_ONLY_FIELDS = {
+    "mrz",
+    "normalization",
+    "mrz_valid",
+    "personal_number",
+    "expiry_date",
+    "document_code",
+    "issuing_country",
+    "nationality",
 }
 
 
@@ -142,6 +145,7 @@ class PassportV1InternalServiceTests(unittest.TestCase):
         self.assertIsNone(body["data"]["Issue_organization_ru"])
         self.assertIsNone(body["data"]["surname"])
         self.assertNotIn("items", body["data"])
+        self.assertEqual(set(body["data"]), INTERNAL_FIELDS)
         self.assertGreaterEqual(body["data"]["meta"]["duration_seconds"], 0)
 
     def test_blank_issue_organization_is_null(self) -> None:
@@ -292,6 +296,8 @@ class PassportV1InternalServiceTests(unittest.TestCase):
         data_schema = schema["components"]["schemas"][
             data_ref.rsplit("/", 1)[-1]
         ]
+        self.assertEqual(set(data_schema["properties"]), INTERNAL_FIELDS)
+        self.assertTrue(MRZ_ONLY_FIELDS.isdisjoint(data_schema["properties"]))
         self.assertIn("Issue_organization_ru", data_schema["properties"])
         self.assertIn("Issue_organization_ru", data_schema["required"])
         self.assertIn(

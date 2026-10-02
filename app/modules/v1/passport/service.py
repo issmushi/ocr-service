@@ -66,22 +66,22 @@ async def recognize_passport_internal_upload(
                 "OCR не смог получить пригодный результат",
             )
         passport_data = normalize_visual_passport_data(result.get("passport"))
-        passport_data.update(
-            {
-                "passport_type": "internal",
-                "document_code": "PN",
-                "issuing_country": "RUS",
-                "nationality": "RUS",
-                "expiry_date": None,
-                "personal_number": None,
-                "mrz_valid": None,
-            }
+        visual_fields = (
+            "surname",
+            "name",
+            "patronymic",
+            "sex",
+            "date_of_birth",
+            "passport_series",
+            "passport_number",
+            "issue_date",
+            "department_code",
+            "Issue_organization_ru",
         )
         data = PassportInternalDataSchema.model_validate(
             {
-                "mrz": None,
-                "normalization": None,
-                **passport_data,
+                "passport_type": "internal",
+                **{field: passport_data[field] for field in visual_fields},
                 "meta": _passport_ocr_meta("russian-ocr", duration_seconds),
             }
         )

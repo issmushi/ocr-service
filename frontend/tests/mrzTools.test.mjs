@@ -101,6 +101,7 @@ test("internal passport sends only image and uses Russian OCR", async (t) => {
   assert.match(docs, /\/v1\/tasks\/passport\/internal/);
   assert.match(docs, /Issue_organization_ru/);
   assert.match(docs, /Кем выдан/);
+  assert.match(docs, /Поля MRZ и журнал нормализации здесь отсутствуют/);
 });
 
 test("MRZ fields show the shared document names and all document types", () => {
