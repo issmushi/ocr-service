@@ -37,7 +37,7 @@ function getSection(): Section {
 
 function getInitialTool(): ToolId {
   const value = getRouteParts()[1];
-  return tools.some((tool) => tool.id === value) ? (value as ToolId) : "passport-mrz";
+  return tools.some((tool) => tool.id === value) ? (value as ToolId) : "mrz";
 }
 
 export function App() {

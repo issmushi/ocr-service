@@ -31,7 +31,7 @@ export function OverviewPage({ health, navigate }: Props) {
           <h1>Документация<br />и <em>проверка OCR</em></h1>
           <p>Здесь собраны эндпоинты, параметры и правила обработки. В разделе тестирования можно отправить фото, сравнить модели и посмотреть ответ API.</p>
           <div className="hero__actions">
-            <button className="button button--primary" onClick={() => navigate("playground", "passport-mrz")} type="button">
+            <button className="button button--primary" onClick={() => navigate("playground", "mrz")} type="button">
               <Icon name="play" size={18} />Открыть тестирование
             </button>
             <button className="button button--secondary" onClick={() => navigate("docs")} type="button">
@@ -42,7 +42,7 @@ export function OverviewPage({ health, navigate }: Props) {
         <div className="hero-console" aria-label="Пример запроса и отдельных полей ответа OCR API">
           <div className="hero-console__head">
             <span><i /><i /><i /></span>
-            <code>POST /v1/ocr/passport/mrz</code>
+            <code>POST /v1/ocr/mrz</code>
             <span className={`live-pill live-pill--${health.status}`}>
               {health.status === "online" ? "live" : health.status === "degraded" ? "degraded" : health.status === "checking" ? "checking" : "offline"}
             </span>

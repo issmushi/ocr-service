@@ -1,9 +1,8 @@
 export type Section = "overview" | "docs" | "playground";
 
 export type ToolId =
-  | "passport-mrz"
+  | "mrz"
   | "passport-internal"
-  | "idcard-mrz"
   | "full-ocr"
   | "crop-document"
   | "crop-mrz"
@@ -41,7 +40,7 @@ export type ParamDefinition = SelectParam | ToggleParam;
 
 export interface ToolDefinition {
   id: ToolId;
-  group: "Распознавание" | "Обрезка и качество";
+  group: "MRZ" | "Распознавание" | "Обрезка и качество";
   title: string;
   shortTitle: string;
   description: string;

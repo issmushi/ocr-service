@@ -73,9 +73,8 @@ const errors = [
 ];
 
 const taskOperations = [
-  ["/v1/ocr/passport/mrz", "/v1/tasks/passport/mrz"],
+  ["/v1/ocr/mrz", "/v1/tasks/mrz"],
   ["/v1/ocr/passport/internal", "/v1/tasks/passport/internal"],
-  ["/v1/ocr/idcard/mrz", "/v1/tasks/idcard/mrz"],
   ["/v1/ocr/full", "/v1/tasks/full"],
   ["/v1/ocr/crop/document", "/v1/tasks/crop/document"],
   ["/v1/ocr/crop/mrz", "/v1/tasks/crop/mrz"],
@@ -84,7 +83,7 @@ const taskOperations = [
 export function DocsPage({ navigate }: Props) {
   const [active, setActive] = useState("quickstart");
   const [copied, setCopied] = useState(false);
-  const curl = `BASE_URL=http://127.0.0.1:8000\ncurl -X POST "$BASE_URL/v1/ocr/passport/mrz" \\\n  -F 'image=@passport.jpg' \\\n  -F 'crop=true' \\\n  -F 'normalize=true' \\\n  -F 'normalization=true'`;
+  const curl = `BASE_URL=http://127.0.0.1:8000\ncurl -X POST "$BASE_URL/v1/ocr/mrz" \\\n  -F 'image=@passport.jpg' \\\n  -F 'crop=true' \\\n  -F 'normalize=true' \\\n  -F 'normalization=true'`;
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -121,7 +120,7 @@ export function DocsPage({ navigate }: Props) {
           <Icon name="play" size={18} />
           <strong>Запрос из браузера</strong>
           <p>В разделе тестирования можно загрузить изображение, задать параметры и посмотреть ответ.</p>
-          <button onClick={() => navigate("playground", "passport-mrz")} type="button">Открыть тестирование</button>
+          <button onClick={() => navigate("playground", "mrz")} type="button">Открыть тестирование</button>
         </div>
       </aside>
 
@@ -157,12 +156,13 @@ export function DocsPage({ navigate }: Props) {
                 </button>
               ))}
             </div>
+            <div className="callout callout--info"><Icon name="info" /><div><strong>Единый ответ MRZ</strong><p><code>/v1/ocr/mrz</code> распознаёт паспорт и ID-карту по строкам MRZ. Поля <code>document_type</code>, <code>document_series</code> и <code>document_number</code> имеют одинаковые имена для всех форматов. Значения <code>document_type</code>: <code>internal_passport</code>, <code>international_passport</code>, <code>identity_card</code>. У ID-карты <code>document_series</code> может быть <code>null</code>; в <code>mrz</code> возвращаются две или три строки.</p></div></div>
             <div className="callout callout--info"><Icon name="info" /><div><strong>Внутренний паспорт РФ</strong><p><code>/v1/ocr/passport/internal</code> принимает только фото в поле <code>image</code>. Russian OCR выбирается автоматически. В ответе поле <code>Issue_organization_ru</code> означает «Кем выдан».</p></div></div>
             <div className="parameter-grid">
               <div><strong><code>crop</code></strong><p>Для MRZ: при true выравнивает документ и вырезает MRZ перед OCR. При false движок получает исходное изображение.</p></div>
               <div><strong><code>normalize</code></strong><p>При true исправляет символы и дополняет MRZ по правилам страны. При false только удаляет пробелы, приводит текст к верхнему регистру и выбирает строки.</p></div>
               <div><strong><code>normalization</code></strong><p>При true возвращает журнал исправлений, при false — null в data.normalization. На исправление MRZ не влияет.</p></div>
-              <div><strong><code>model</code></strong><p>Выбирает модель для «Всего текста». Для запросов к Qwen она должна быть включена и запущена на сервере. Внутренний паспорт РФ всегда использует Russian OCR и не принимает параметр model. Оба MRZ-эндпоинта используют MRZ Scanner и не принимают параметр model.</p></div>
+              <div><strong><code>model</code></strong><p>Выбирает модель для «Всего текста». Для запросов к Qwen она должна быть включена и запущена на сервере. Внутренний паспорт РФ всегда использует Russian OCR и не принимает параметр model. Единый MRZ-эндпоинт использует MRZ Scanner и не принимает параметр model.</p></div>
               <div><strong><code>crop_document</code></strong><p>Для «Полей паспорта»: при true выравнивает и обрезает документ перед поиском полей. По умолчанию true.</p></div>
               <div><strong><code>padding</code></strong><p>Для «Полей паспорта»: отступ вокруг каждой вырезки в пикселях, от 0 до 64. По умолчанию 4.</p></div>
               <div><strong><code>ocr_model</code></strong><p>Для «Полей паспорта»: none — только вырезки; paddle — Paddle eslav v5, paddle-cyrillic — Paddle Cyrillic v5, russian-ocr-accurate — Russian OCR accurate. Эти три модели работают на CPU. qwen3-vl-4b и qwen3-vl-8b используют режим сервера. API по умолчанию не читает текст; в UI выбран Paddle eslav v5. Каждая вырезка распознаётся отдельно, без нормализации. Фото и подпись пропускаются.</p></div>
@@ -196,7 +196,7 @@ export function DocsPage({ navigate }: Props) {
               {[
                 ["01", "Проверка файла", "Сервис проверяет расширение, чтение изображения, количество страниц, размеры и число пикселей."],
                 ["02", "Подготовка", "При crop=true находит границы документа, исправляет перспективу и ориентацию, затем вырезает MRZ."],
-                ["03", "OCR", "MRZ Scanner распознаёт строки паспорта или ID-карты. Из строк удаляются пробелы, буквы переводятся в верхний регистр, для MRZ выбираются самые длинные строки."],
+                ["03", "OCR", "MRZ Scanner распознаёт строки паспорта или ID-карты. Из строк удаляются пробелы, буквы переводятся в верхний регистр, затем выбираются две или три строки по формату MRZ."],
                 ["04", "Определение формата", "По заголовку определяется страна и формат документа. Для неизвестного формата парсер не выбирается."],
                 ["05", "Нормализация", "При normalize=true символы исправляются по правилам страны с учётом позиции в строке. Каждая замена и вставка записывается в журнал."],
                 ["06", "Разбор полей", "Парсер выбранного формата извлекает поля документа и проверяет доступные контрольные цифры."],

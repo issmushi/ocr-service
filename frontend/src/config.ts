@@ -39,15 +39,15 @@ const mrzParams: ParamDefinition[] = [
 
 export const tools: ToolDefinition[] = [
   {
-    id: "passport-mrz",
-    group: "Распознавание",
-    title: "MRZ паспорта",
-    shortTitle: "Passport MRZ",
-    description: "Прочитать две строки через MRZ Scanner и разобрать их в поля паспорта.",
-    endpoint: "/v1/ocr/passport/mrz",
+    id: "mrz",
+    group: "MRZ",
+    title: "MRZ документа",
+    shortTitle: "Document MRZ",
+    description: "С помощью MRZ Scanner прочитать две или три строки и разобрать поля паспорта или ID-карты.",
+    endpoint: "/v1/ocr/mrz",
     responseKind: "json",
     params: mrzParams,
-    outputHint: "Ответ: MRZ, поля паспорта, normalization и meta",
+    outputHint: "Ответ: MRZ, поля документа, normalization и meta",
   },
   {
     id: "passport-internal",
@@ -59,17 +59,6 @@ export const tools: ToolDefinition[] = [
     responseKind: "json",
     params: [],
     outputHint: "Ответ: ФИО, даты, серия, номер, кем выдан и meta",
-  },
-  {
-    id: "idcard-mrz",
-    group: "Распознавание",
-    title: "MRZ ID-карты",
-    shortTitle: "ID-card MRZ",
-    description: "Прочитать MRZ ID-карты Казахстана или Кыргызстана через MRZ Scanner и разобрать поля.",
-    endpoint: "/v1/ocr/idcard/mrz",
-    responseKind: "json",
-    params: mrzParams,
-    outputHint: "Ответ: строки MRZ, поля ID-карты, normalization и meta",
   },
   {
     id: "full-ocr",

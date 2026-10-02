@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { buildCurl, runTool } from "../api";
 import { CameraCapture } from "../components/CameraCapture";
+import { FieldsView } from "../components/FieldsView";
 import { PassportFieldsView } from "../components/PassportFieldsView";
 import { acceptedFormats, defaultParams, toolById, tools } from "../config";
 import type { ParamValue, RequestResult, ToolDefinition, ToolId } from "../types";
@@ -13,30 +14,6 @@ interface Props {
 }
 
 type ResultTab = "fields" | "mrz" | "normalization" | "meta" | "json" | "curl";
-
-const fieldLabels: Record<string, string> = {
-  passport_type: "Тип паспорта",
-  document_type: "Тип документа",
-  document_code: "Код документа",
-  issuing_country: "Страна выдачи",
-  surname: "Фамилия",
-  name: "Имя",
-  patronymic: "Отчество",
-  sex: "Пол",
-  date_of_birth: "Дата рождения",
-  passport_series: "Серия паспорта",
-  passport_number: "Номер паспорта",
-  document_series: "Серия документа",
-  document_number: "Номер документа",
-  nationality: "Гражданство",
-  issue_date: "Дата выдачи",
-  Issue_organization_ru: "Кем выдан",
-  expiry_date: "Срок действия",
-  department_code: "Код подразделения",
-  personal_number: "Персональный номер",
-  mrz_valid: "MRZ валидна",
-  text: "Распознанный текст",
-};
 
 const excludedFields = new Set(["mrz", "normalization", "meta"]);
 
@@ -297,7 +274,7 @@ export function PlaygroundPage({ apiBaseUrl, initialTool, onToolChange }: Props)
 
       <div className="playground-layout">
         <aside className="tool-picker">
-          {(["Распознавание", "Обрезка и качество"] as const).map((group) => (
+          {(["MRZ", "Распознавание", "Обрезка и качество"] as const).map((group) => (
             <div key={group}>
               <span className="nav-kicker">{group}</span>
               {tools.filter((item) => item.group === group).map((item) => (
@@ -476,22 +453,6 @@ function SubmittedFrames({ files, selectedIndex }: { files: File[]; selectedInde
 
 function ResultTabButton({ active, count, disabled, id, label, onClick }: { active: boolean; count?: number; disabled?: boolean; id: string; label: string; onClick: () => void }) {
   return <button aria-controls={`result-panel-${id}`} aria-selected={active} className={active ? "active" : ""} disabled={disabled} id={`result-tab-${id}`} onClick={onClick} role="tab" tabIndex={active ? 0 : -1} type="button">{label}{count !== undefined && <span>{count}</span>}</button>;
-}
-
-function FieldsView({ entries }: { entries: [string, unknown][] }) {
-  if (!entries.length) return <div className="tab-empty">В ответе нет полей документа.</div>;
-  return <div className="fields-grid">{entries.map(([key, value]) => (
-    key === "text" ? (
-      <div className="field-item field-item--text" key={key}>
-        <span>{fieldLabels[key]}</span>
-        <pre>{String(value ?? "")}</pre>
-      </div>
-    ) :
-    <div className={key === "mrz_valid" ? "field-item field-item--highlight" : "field-item"} key={key}>
-      <span>{fieldLabels[key] ?? key.replaceAll("_", " ")}</span>
-      <strong className={value === null || value === "" ? "muted" : ""}>{value === null || value === "" ? "Не найдено" : typeof value === "boolean" ? value ? "Да" : "Нет" : String(value)}</strong>
-    </div>
-  ))}</div>;
 }
 
 function MrzView({ lines, copied, normalized, onCopy }: { lines: string[]; copied: string | null; normalized: boolean; onCopy: (key: string, value: string) => Promise<void> }) {
