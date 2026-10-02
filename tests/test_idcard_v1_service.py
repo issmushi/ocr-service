@@ -10,7 +10,7 @@ from fastapi.testclient import TestClient
 from app.core.config import settings
 from app.main import app
 
-PATH = "/v1/ocr/idcard/mrz"
+PATH = "/v1/ocr/mrz"
 
 KAZ_TD1 = [
     "IDKAZ1234567897900115300001<<<",
@@ -112,22 +112,22 @@ def _post_idcard(
     }
     with (
         patch(
-            "app.modules.v1.idcard.service.crop_mrz_bytes",
+            "app.modules.v1.mrz_api.service.crop_mrz_bytes",
             new=mocks["crop"],
         ),
         patch(
-            "app.modules.v1.idcard.service.mrz_scanner_runtime.run",
+            "app.modules.v1.mrz_api.service.mrz_scanner_runtime.run",
             new=mocks["mrz"],
         ),
         patch(
-            "app.modules.v1.idcard.service.settings",
+            "app.modules.v1.mrz_api.service.settings",
             new=replace(
                 settings,
                 mrz_scanner_document_hard_timeout_seconds=17.0,
             ),
         ),
         patch(
-            "app.modules.v1.idcard.service.perf_counter",
+            "app.modules.v1.mrz_api.service.perf_counter",
             side_effect=[10.0, 10.25],
         ),
     ):
@@ -401,7 +401,7 @@ def test_openapi_documents_mrz_scanner_flags_and_response_fields() -> None:
         assert properties[flag]["default"] is True
 
     response_properties = schema["components"]["schemas"][
-        "IdcardMrzDataSchema"
+        "UnifiedMrzDataSchema"
     ]["properties"]
     meta_component = response_properties["meta"]["$ref"].rsplit("/", 1)[-1]
     meta_properties = schema["components"]["schemas"][meta_component][

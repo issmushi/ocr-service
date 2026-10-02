@@ -12,40 +12,41 @@ from fastapi.testclient import TestClient
 from PIL import Image
 
 from app.main import app
-from app.modules.v1.passport.pipeline import (
-    normalize_passport_mrz_from_text_result,
-)
 from app.workers.ocr_worker import execute_ocr_job
 
 
 @pytest.mark.parametrize(
-    ("operation", "form"),
+    ("operation", "form", "idcard"),
     [
-        ("passport/mrz", {}),
+        ("mrz", {}, False),
         (
-            "passport/mrz",
+            "mrz",
             {
                 "crop": "false",
                 "normalize": "false",
                 "normalization": "false",
             },
+            False,
         ),
-        ("passport/internal", {}),
-        ("idcard/mrz", {}),
+        ("passport/internal", {}, False),
+        ("mrz", {}, True),
         (
-            "idcard/mrz",
+            "mrz",
             {
                 "crop": "false",
                 "normalize": "false",
                 "normalization": "false",
             },
+            True,
         ),
-        ("full", {"model": "paddle"}),
-        ("crop/document", {}),
-        ("crop/mrz", {}),
+        ("full", {"model": "paddle"}, False),
+        ("crop/document", {}, False),
+        ("crop/mrz", {}, False),
     ],
 )
-def test_task_result_matches_direct_http_response(tmp_path, operation, form):
+def test_task_result_matches_direct_http_response(
+    tmp_path, operation, form, idcard
+):
     """Exercise upload, options, worker dispatch, and result retrieval."""
     image_buffer = BytesIO()
     Image.new("RGB", (100, 50), "white").save(image_buffer, format="PNG")
@@ -67,20 +68,11 @@ def test_task_result_matches_direct_http_response(tmp_path, operation, form):
         "9001158M3501151KAZ<<<<<<<<<<<0",
         "TESTOV<<TEST<<<<<<<<<<<<<<<<<<",
     ]
-    raw_text = "\n".join(
-        idcard_rows if operation == "idcard/mrz" else passport_rows
-    )
+    raw_text = "\n".join(idcard_rows if idcard else passport_rows)
 
     async def recognize_mrz(scanner_operation, _content, **options):
-        raw_result = {"items": [{"text": raw_text}]}
-        if scanner_operation == "passport_v1":
-            return normalize_passport_mrz_from_text_result(
-                raw_result,
-                engine="mrz-scanner",
-                normalize=options.get("normalize", True),
-            )
         assert scanner_operation == "mrz_crop_text"
-        return raw_result
+        return {"items": [{"text": raw_text}]}
 
     with ExitStack() as stack:
         client = TestClient(app)
@@ -99,7 +91,7 @@ def test_task_result_matches_direct_http_response(tmp_path, operation, form):
                 new=AsyncMock(side_effect=persist_task),
             )
         )
-        for module in ("passport", "idcard", "full"):
+        for module in ("mrz_api", "passport", "full"):
             stack.enter_context(
                 patch(
                     f"app.modules.v1.{module}.service.perf_counter",
@@ -109,9 +101,7 @@ def test_task_result_matches_direct_http_response(tmp_path, operation, form):
         stack.enter_context(
             patch(
                 "app.modules.v1.full.service.recognize_vlm_image",
-                new=AsyncMock(
-                    return_value={"items": [{"text": raw_text}]}
-                ),
+                new=AsyncMock(return_value={"items": [{"text": raw_text}]}),
             )
         )
         scanner = stack.enter_context(
@@ -135,13 +125,12 @@ def test_task_result_matches_direct_http_response(tmp_path, operation, form):
                 ),
             )
         )
-        for module in ("passport", "idcard"):
-            stack.enter_context(
-                patch(
-                    f"app.modules.v1.{module}.service.crop_mrz_bytes",
-                    new=AsyncMock(return_value=content),
-                )
+        stack.enter_context(
+            patch(
+                "app.modules.v1.mrz_api.service.crop_mrz_bytes",
+                new=AsyncMock(return_value=content),
             )
+        )
         stack.enter_context(
             patch(
                 "app.modules.v1.full.service.paddle_runtime.run",
@@ -169,7 +158,7 @@ def test_task_result_matches_direct_http_response(tmp_path, operation, form):
         assert created.status_code == 202, created.text
         task_id = created.json()["data"]["task_id"]
         assert stored["job_id"] == task_id
-        if operation in {"passport/mrz", "idcard/mrz"}:
+        if operation == "mrz":
             assert stored["options"] == {
                 key: form.get(key, "true") == "true"
                 for key in ("crop", "normalize", "normalization")
@@ -194,7 +183,7 @@ def test_task_result_matches_direct_http_response(tmp_path, operation, form):
             )
         )
         completed = client.get(f"/v1/tasks/{task_id}/result")
-        if operation in {"passport/mrz", "idcard/mrz"}:
+        if operation == "mrz":
             assert scanner.await_count == 2
 
     assert completed.status_code == 200, completed.text
@@ -203,6 +192,16 @@ def test_task_result_matches_direct_http_response(tmp_path, operation, form):
         assert completed.content == direct.content
     else:
         assert completed.json() == direct.json()
+        if operation == "mrz":
+            data = completed.json()["data"]
+            assert data["document_type"] == (
+                "identity_card" if idcard else "international_passport"
+            )
+            assert "passport_type" not in data
+            assert "passport_number" not in data
+            assert data["document_number"] == (
+                "123456789" if idcard else "AA1234567"
+            )
         if operation == "passport/internal":
             assert completed.json()["data"]["Issue_organization_ru"] == (
                 "ГУ МВД ПО МОСКВЕ"

@@ -79,7 +79,7 @@ class TaskRepositoryTests(unittest.IsolatedAsyncioTestCase):
         await create_job(
             session_factory,
             job_id="v1-job",
-            mode=TaskOperation.PASSPORT_MRZ.value,
+            mode=TaskOperation.MRZ.value,
             filename="document.png",
             content_type="image/png",
             image_path="/tmp/document.png",
@@ -87,7 +87,7 @@ class TaskRepositoryTests(unittest.IsolatedAsyncioTestCase):
         )
 
         job, outbox = session.add_all.call_args.args[0]
-        self.assertEqual(job.mode, "passport_mrz")
+        self.assertEqual(job.mode, "mrz")
         self.assertEqual(job.options, options)
         self.assertIsNot(job.options, options)
         self.assertEqual(serialize_job(job)["options"], options)

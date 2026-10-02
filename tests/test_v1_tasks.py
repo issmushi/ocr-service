@@ -25,8 +25,8 @@ ROUTER = "app.modules.tasks.router"
 CREATION = "app.modules.tasks.creation"
 CASES = [
     (
-        "passport/mrz",
-        "passport_mrz",
+        "mrz",
+        "mrz",
         {},
         {
             "crop": True,
@@ -39,16 +39,6 @@ CASES = [
         "passport_page",
         {},
         {},
-    ),
-    (
-        "idcard/mrz",
-        "idcard_mrz",
-        {},
-        {
-            "crop": True,
-            "normalize": True,
-            "normalization": True,
-        },
     ),
     ("full", "full_v1", {}, {"model": "paddle"}),
     ("crop/document", "crop_document", {}, {}),
@@ -144,14 +134,13 @@ def test_create_each_operation_persists_one_image_and_exact_sync_defaults(
     assert len(list(directory.iterdir())) == 1
 
 
-@pytest.mark.parametrize("path", ["passport/mrz", "idcard/mrz"])
 def test_mrz_custom_flags_are_saved_as_booleans(
-    client, image_content, persistence, path
+    client, image_content, persistence
 ):
     create, _ = persistence
     response = post_task(
         client,
-        path,
+        "mrz",
         image_content,
         {
             "crop": "false",
@@ -168,10 +157,9 @@ def test_mrz_custom_flags_are_saved_as_booleans(
     }
 
 
-@pytest.mark.parametrize("path", ["passport/mrz", "idcard/mrz"])
-def test_mrz_task_schema_has_no_model_choice(client, path):
+def test_mrz_task_schema_has_no_model_choice(client):
     schema = client.get("/openapi.json").json()
-    request = schema["paths"][f"/v1/tasks/{path}"]["post"]["requestBody"]
+    request = schema["paths"]["/v1/tasks/mrz"]["post"]["requestBody"]
     body = request["content"]["multipart/form-data"]["schema"]
     fields = schema["components"]["schemas"][body["$ref"].split("/")[-1]][
         "properties"
@@ -180,12 +168,13 @@ def test_mrz_task_schema_has_no_model_choice(client, path):
     assert set(fields) == {"image", "crop", "normalize", "normalization"}
 
 
-@pytest.mark.parametrize("path", ["passport/mrz", "idcard/mrz"])
 def test_obsolete_mrz_model_form_is_not_persisted(
-    client, image_content, persistence, path
+    client, image_content, persistence
 ):
     create, _ = persistence
-    response = post_task(client, path, image_content, {"model": "qwen3-vl-8b"})
+    response = post_task(
+        client, "mrz", image_content, {"model": "qwen3-vl-8b"}
+    )
 
     assert response.status_code == 202
     assert create.await_args.kwargs["options"] == {
@@ -238,11 +227,22 @@ def test_old_passport_page_task_route_is_removed(
     assert list(directory.iterdir()) == []
 
 
+@pytest.mark.parametrize("path", ["passport/mrz", "idcard/mrz"])
+def test_old_mrz_task_routes_are_removed(
+    client, image_content, persistence, path
+):
+    create, directory = persistence
+    response = post_task(client, path, image_content)
+    assert response.status_code == 404
+    create.assert_not_awaited()
+    assert list(directory.iterdir()) == []
+
+
 @pytest.mark.parametrize(
     ("path", "form"),
     [
-        ("passport/mrz", {"crop": "sometimes"}),
-        ("idcard/mrz", {"normalize": "sometimes"}),
+        ("mrz", {"crop": "sometimes"}),
+        ("mrz", {"normalize": "sometimes"}),
         ("full", {"model": "mrz"}),
     ],
 )

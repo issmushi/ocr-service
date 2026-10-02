@@ -13,6 +13,7 @@ class JobStatus(StrEnum):
 
 
 class TaskOperation(StrEnum):
+    MRZ = "mrz"
     PASSPORT_MRZ = "passport_mrz"
     PASSPORT_PAGE = "passport_page"
     IDCARD_MRZ = "idcard_mrz"

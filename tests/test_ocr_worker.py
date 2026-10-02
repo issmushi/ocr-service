@@ -20,7 +20,7 @@ from app.workers.ocr_worker import (
 def processing_job() -> dict[str, object]:
     return {
         "id": "job-1",
-        "mode": "passport_mrz",
+        "mode": "mrz",
         "status": "processing",
         "filename": "document.jpg",
         "content_type": "image/jpeg",

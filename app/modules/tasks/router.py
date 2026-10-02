@@ -72,13 +72,13 @@ TASK_ERRORS = {
 
 
 @router.post(
-    "/passport/mrz",
+    "/mrz",
     status_code=202,
     response_model=TaskCreatedResponseSchema,
-    summary="Создать задачу распознавания MRZ паспорта",
+    summary="Создать задачу распознавания MRZ документа",
     responses=CREATION_ERRORS,
 )
-async def create_passport_mrz_task(
+async def create_mrz_task(
     image: UploadFile = File(...),
     crop: bool = Form(True),
     normalize: bool = Form(True),
@@ -87,7 +87,7 @@ async def create_passport_mrz_task(
     ensure_ocr_model_enabled("mrz")
     return await create_image_task(
         image,
-        operation=TaskOperation.PASSPORT_MRZ,
+        operation=TaskOperation.MRZ,
         options={
             "crop": crop,
             "normalize": normalize,
@@ -111,31 +111,6 @@ async def create_passport_internal_task(
         image,
         operation=TaskOperation.PASSPORT_PAGE,
         options={},
-    )
-
-
-@router.post(
-    "/idcard/mrz",
-    status_code=202,
-    response_model=TaskCreatedResponseSchema,
-    summary="Создать задачу распознавания MRZ ID-карты",
-    responses=CREATION_ERRORS,
-)
-async def create_idcard_mrz_task(
-    image: UploadFile = File(...),
-    crop: bool = Form(True),
-    normalize: bool = Form(True),
-    normalization: bool = Form(True),
-) -> dict[str, Any]:
-    ensure_ocr_model_enabled("mrz")
-    return await create_image_task(
-        image,
-        operation=TaskOperation.IDCARD_MRZ,
-        options={
-            "crop": crop,
-            "normalize": normalize,
-            "normalization": normalization,
-        },
     )
 
 

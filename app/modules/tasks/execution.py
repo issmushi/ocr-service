@@ -14,16 +14,10 @@ from app.modules.v1.crop.service import (
 )
 from app.modules.v1.full.schemas import FullOcrModel, FullOcrResponseSchema
 from app.modules.v1.full.service import recognize_full_upload
-from app.modules.v1.idcard.schemas import IdcardMrzResponseSchema
-from app.modules.v1.idcard.service import recognize_idcard_upload
-from app.modules.v1.passport.schemas import (
-    PassportInternalResponseSchema,
-    PassportMrzResponseSchema,
-)
-from app.modules.v1.passport.service import (
-    recognize_passport_internal_upload,
-    recognize_passport_upload,
-)
+from app.modules.v1.mrz_api.schemas import UnifiedMrzResponseSchema
+from app.modules.v1.mrz_api.service import recognize_mrz_upload
+from app.modules.v1.passport.schemas import PassportInternalResponseSchema
+from app.modules.v1.passport.service import recognize_passport_internal_upload
 
 
 async def execute_task_operation(
@@ -56,21 +50,20 @@ async def execute_task_operation(
         headers=Headers({"content-type": job["content_type"]}),
     )
     try:
-        if operation == TaskOperation.PASSPORT_MRZ:
-            # Previously queued MRZ tasks may still store a model choice.
-            # Both MRZ services now always use the MRZ scanner.
+        if operation in {
+            TaskOperation.MRZ,
+            TaskOperation.PASSPORT_MRZ,
+            TaskOperation.IDCARD_MRZ,
+        }:
+            # Previously queued tasks may still store a model choice.
             options.pop("model", None)
-            response = await recognize_passport_upload(upload, **options)
-            schema = PassportMrzResponseSchema
+            response = await recognize_mrz_upload(upload, **options)
+            schema = UnifiedMrzResponseSchema
         elif operation == TaskOperation.PASSPORT_PAGE:
             # Old queued jobs may contain page/model/crop options. The internal
             # passport endpoint now always runs RussianDocsOCR on the image.
             response = await recognize_passport_internal_upload(upload)
             schema = PassportInternalResponseSchema
-        elif operation == TaskOperation.IDCARD_MRZ:
-            options.pop("model", None)
-            response = await recognize_idcard_upload(upload, **options)
-            schema = IdcardMrzResponseSchema
         elif operation == TaskOperation.FULL_V1:
             if "model" in options:
                 options["model"] = FullOcrModel(options["model"])

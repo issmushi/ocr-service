@@ -72,21 +72,19 @@ def test_disabled_model_returns_engine_unavailable() -> None:
 @pytest.mark.parametrize(
     ("path", "form", "disabled_model"),
     [
-        ("/v1/ocr/passport/mrz", {}, "mrz"),
+        ("/v1/ocr/mrz", {}, "mrz"),
         (
             "/v1/ocr/passport/internal",
             {},
             "russian-ocr",
         ),
-        ("/v1/ocr/idcard/mrz", {}, "mrz"),
         ("/v1/ocr/full", {"model": "qwen3-vl-4b"}, "qwen3-vl-4b"),
-        ("/v1/tasks/passport/mrz", {}, "mrz"),
+        ("/v1/tasks/mrz", {}, "mrz"),
         (
             "/v1/tasks/passport/internal",
             {},
             "russian-ocr",
         ),
-        ("/v1/tasks/idcard/mrz", {}, "mrz"),
         ("/v1/tasks/full", {"model": "qwen3-vl-4b"}, "qwen3-vl-4b"),
     ],
 )

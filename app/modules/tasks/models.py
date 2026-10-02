@@ -33,7 +33,7 @@ class OCRJob(Base):
             "lease_expires_at",
         ),
         CheckConstraint(
-            "mode IN ('passport_mrz', 'passport_page', 'idcard_mrz', "
+            "mode IN ('mrz', 'passport_mrz', 'passport_page', 'idcard_mrz', "
             "'full_v1', 'crop_document', 'crop_mrz')",
             name="ck_ocr_jobs_mode",
         ),

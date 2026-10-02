@@ -8,9 +8,43 @@ from fastapi.testclient import TestClient
 
 from app.main import app
 from app.modules.tasks.enums import JobStatus, TaskOperation
-from app.modules.v1.passport.parsing import empty_passport_mrz_data
 
 JOB_ID = "757c8c4a-e1a5-4ff4-9855-2aa9df95397d"
+
+
+def sample_mrz_response() -> dict:
+    return {
+        "success": True,
+        "data": {
+            "mrz": [
+                "P<ARMTESTOV<<TEST".ljust(44, "<"),
+                "AA12345678ARM9001158M3001156<<<<<<<<<<<<<<06",
+            ],
+            "normalization": None,
+            "document_type": "international_passport",
+            "document_code": "P",
+            "issuing_country": "ARM",
+            "surname": "TESTOV",
+            "name": "TEST",
+            "patronymic": None,
+            "sex": "МУЖ.",
+            "date_of_birth": "15.01.1990",
+            "document_series": None,
+            "document_number": "AA1234567",
+            "nationality": "ARM",
+            "issue_date": None,
+            "expiry_date": "15.01.2030",
+            "department_code": None,
+            "personal_number": None,
+            "mrz_valid": True,
+            "meta": {
+                "engine": "mrz-scanner",
+                "model": "mrz",
+                "duration_seconds": 0.25,
+            },
+        },
+        "error": None,
+    }
 
 
 class RouteTests(unittest.TestCase):
@@ -65,42 +99,45 @@ class RouteTests(unittest.TestCase):
             response_example["data"]["passport"], synthetic_passport
         )
 
-    def test_v1_passport_documents_binary_file_and_fixed_scanner(
-        self,
-    ) -> None:
+    def test_unified_mrz_openapi_documents_route_and_fields(self) -> None:
         schema = app.openapi()
-        request_schema = schema["paths"]["/v1/ocr/passport/mrz"]["post"][
-            "requestBody"
-        ]["content"]["multipart/form-data"]["schema"]
-        component_name = request_schema["$ref"].rsplit("/", 1)[-1]
-        body_schema = schema["components"]["schemas"][component_name]
-        image_schema = body_schema["properties"]["image"]
-        crop_schema = body_schema["properties"]["crop"]
-        normalize_schema = body_schema["properties"]["normalize"]
-        normalization_schema = body_schema["properties"]["normalization"]
-
-        self.assertEqual(image_schema["type"], "string")
-        self.assertEqual(image_schema["format"], "binary")
-        self.assertIn("image", body_schema["required"])
-        self.assertNotIn("model", body_schema["properties"])
-        self.assertNotIn("crop", body_schema["required"])
-        self.assertNotIn("normalize", body_schema["required"])
-        self.assertNotIn("normalization", body_schema["required"])
-        self.assertEqual(crop_schema["type"], "boolean")
-        self.assertIs(crop_schema["default"], True)
-        self.assertEqual(normalize_schema["type"], "boolean")
-        self.assertIs(normalize_schema["default"], True)
-        self.assertEqual(normalization_schema["type"], "boolean")
-        self.assertIs(normalization_schema["default"], True)
-
-        response_schema = schema["components"]["schemas"][
-            "PassportMrzDataSchema"
+        endpoint = schema["paths"]["/v1/ocr/mrz"]["post"]
+        self.assertEqual(endpoint["tags"], ["MRZ"])
+        for old in ("/v1/ocr/passport/mrz", "/v1/ocr/idcard/mrz"):
+            self.assertNotIn(old, schema["paths"])
+        request = endpoint["requestBody"]["content"]["multipart/form-data"][
+            "schema"
         ]
+        body_name = request["$ref"].rsplit("/", 1)[-1]
+        body = schema["components"]["schemas"][body_name]
+        self.assertEqual(
+            set(body["properties"]),
+            {"image", "crop", "normalize", "normalization"},
+        )
+        self.assertEqual(body["required"], ["image"])
+        image = body["properties"]["image"]
+        self.assertEqual(image["type"], "string")
+        self.assertEqual(image["format"], "binary")
+        for flag in ("crop", "normalize", "normalization"):
+            self.assertEqual(body["properties"][flag]["type"], "boolean")
+            self.assertIs(body["properties"][flag]["default"], True)
+        data = schema["components"]["schemas"]["UnifiedMrzDataSchema"]
+        fields = data["properties"]
+        self.assertEqual(fields["mrz"]["minItems"], 2)
+        self.assertEqual(fields["mrz"]["maxItems"], 3)
+        self.assertEqual(
+            set(fields["document_type"]["enum"]),
+            {
+                "internal_passport",
+                "international_passport",
+                "identity_card",
+            },
+        )
         self.assertTrue(
             {
                 "mrz",
                 "normalization",
-                "passport_type",
+                "document_type",
                 "document_code",
                 "issuing_country",
                 "surname",
@@ -108,8 +145,8 @@ class RouteTests(unittest.TestCase):
                 "patronymic",
                 "sex",
                 "date_of_birth",
-                "passport_series",
-                "passport_number",
+                "document_series",
+                "document_number",
                 "nationality",
                 "issue_date",
                 "expiry_date",
@@ -117,140 +154,108 @@ class RouteTests(unittest.TestCase):
                 "personal_number",
                 "mrz_valid",
                 "meta",
-            }.issubset(response_schema["properties"])
+            }.issubset(fields)
         )
-        meta_schema = schema["components"]["schemas"][
-            "PassportMrzOcrMetaSchema"
+        for old in ("passport_type", "passport_series", "passport_number"):
+            self.assertNotIn(old, fields)
+        normalization_ref = next(
+            candidate["$ref"]
+            for candidate in fields["normalization"]["anyOf"]
+            if "$ref" in candidate
+        )
+        normalization_name = normalization_ref.rsplit("/", 1)[-1]
+        normalization_fields = schema["components"]["schemas"][
+            normalization_name
+        ]["properties"]
+        correction_ref = normalization_fields["corrections"]["items"]["$ref"]
+        correction_name = correction_ref.rsplit("/", 1)[-1]
+        correction_fields = schema["components"]["schemas"][correction_name][
+            "properties"
         ]
-        self.assertEqual(
-            set(meta_schema["properties"]),
-            {"engine", "model", "duration_seconds"},
-        )
-        self.assertEqual(
-            meta_schema["properties"]["engine"]["const"], "mrz-scanner"
-        )
-        self.assertEqual(meta_schema["properties"]["model"]["const"], "mrz")
+        self.assertEqual(correction_fields["line"]["enum"], [1, 2, 3])
+        meta_name = fields["meta"]["$ref"].rsplit("/", 1)[-1]
+        meta = schema["components"]["schemas"][meta_name]["properties"]
+        self.assertEqual(meta["engine"]["const"], "mrz-scanner")
+        self.assertEqual(meta["model"]["const"], "mrz")
 
-    def test_recognize_v1_passport_raw_mrz(self) -> None:
-        expected = {
-            "success": True,
-            "data": {
-                "mrz": [
-                    "P<UTOTESTOV<<TEST<<<<<<<<<<<<<<<<<<<<<<<<<<<",
-                    "A123456780UTO9001011M3001019<<<<<<<<<<<<<<",
-                ],
-                "normalization": None,
-                **empty_passport_mrz_data(),
-                "meta": {
-                    "engine": "mrz-scanner",
-                    "model": "mrz",
-                    "duration_seconds": 0.25,
-                },
-            },
-            "error": None,
-        }
-        recognize_passport_upload = AsyncMock(return_value=expected)
+    def test_unified_mrz_forwards_default_flags(self) -> None:
+        expected = sample_mrz_response()
+        recognize = AsyncMock(return_value=expected)
         with patch(
-            "app.modules.v1.passport.router.recognize_passport_upload",
-            new=recognize_passport_upload,
+            "app.modules.v1.mrz_api.router.recognize_mrz_upload", recognize
         ):
             response = self.client.post(
-                "/v1/ocr/passport/mrz",
-                files={
-                    "image": (
-                        "passport.jpg",
-                        b"fake-image",
-                        "image/jpeg",
-                    )
-                },
+                "/v1/ocr/mrz",
+                files={"image": ("passport.jpg", b"fake-image", "image/jpeg")},
             )
-
-        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.status_code, 200, response.text)
         self.assertEqual(response.json(), expected)
-        recognize_passport_upload.assert_awaited_once()
+        recognize.assert_awaited_once()
         self.assertEqual(
-            recognize_passport_upload.await_args.kwargs,
-            {
-                "crop": True,
-                "normalization": True,
-            },
+            recognize.await_args.kwargs,
+            {"crop": True, "normalize": True, "normalization": True},
         )
 
-    def test_v1_passport_forwards_disabled_crop(self) -> None:
-        expected = {
-            "success": True,
-            "data": {
-                "mrz": ["line-1", "line-2"],
-                "normalization": None,
-                **empty_passport_mrz_data(),
-                "meta": {
-                    "engine": "mrz-scanner",
-                    "model": "mrz",
-                    "duration_seconds": 0.5,
-                },
-            },
-            "error": None,
-        }
-        recognize_passport_upload = AsyncMock(return_value=expected)
+    def test_unified_mrz_forwards_disabled_flags(self) -> None:
+        expected = sample_mrz_response()
+        recognize = AsyncMock(return_value=expected)
         with patch(
-            "app.modules.v1.passport.router.recognize_passport_upload",
-            new=recognize_passport_upload,
+            "app.modules.v1.mrz_api.router.recognize_mrz_upload", recognize
         ):
             response = self.client.post(
-                "/v1/ocr/passport/mrz",
+                "/v1/ocr/mrz",
                 data={
                     "crop": "false",
+                    "normalize": "false",
                     "normalization": "false",
                 },
                 files={"image": ("passport.jpg", b"fake-image", "image/jpeg")},
             )
-
-        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.status_code, 200, response.text)
         self.assertEqual(response.json(), expected)
         self.assertEqual(
-            recognize_passport_upload.await_args.kwargs,
-            {
-                "crop": False,
-                "normalization": False,
-            },
+            recognize.await_args.kwargs,
+            {"crop": False, "normalize": False, "normalization": False},
         )
 
-    def test_v1_passport_rejects_invalid_crop_flag(self) -> None:
-        recognize_passport_upload = AsyncMock()
-        with patch(
-            "app.modules.v1.passport.router.recognize_passport_upload",
-            new=recognize_passport_upload,
-        ):
-            response = self.client.post(
-                "/v1/ocr/passport/mrz",
-                data={"crop": "sometimes"},
-                files={"image": ("passport.jpg", b"fake-image", "image/jpeg")},
-            )
+    def test_unified_mrz_rejects_invalid_flags_before_ocr(self) -> None:
+        for flag in ("crop", "normalize", "normalization"):
+            with self.subTest(flag=flag):
+                recognize = AsyncMock()
+                with patch(
+                    "app.modules.v1.mrz_api.router.recognize_mrz_upload",
+                    recognize,
+                ):
+                    response = self.client.post(
+                        "/v1/ocr/mrz",
+                        data={flag: "sometimes"},
+                        files={
+                            "image": (
+                                "passport.jpg",
+                                b"fake-image",
+                                "image/jpeg",
+                            )
+                        },
+                    )
+                self.assertEqual(response.status_code, 422)
+                self.assertEqual(
+                    response.json()["error"]["code"], "VALIDATION_ERROR"
+                )
+                recognize.assert_not_awaited()
 
-        self.assertEqual(response.status_code, 422)
-        self.assertEqual(response.json()["error"]["code"], "VALIDATION_ERROR")
-        recognize_passport_upload.assert_not_awaited()
-
-    def test_v1_passport_rejects_invalid_normalization_flag(self) -> None:
-        recognize_passport_upload = AsyncMock()
-        with patch(
-            "app.modules.v1.passport.router.recognize_passport_upload",
-            new=recognize_passport_upload,
-        ):
-            response = self.client.post(
-                "/v1/ocr/passport/mrz",
-                data={"normalization": "sometimes"},
-                files={"image": ("passport.jpg", b"fake-image", "image/jpeg")},
-            )
-
-        self.assertEqual(response.status_code, 422)
-        self.assertEqual(response.json()["error"]["code"], "VALIDATION_ERROR")
-        recognize_passport_upload.assert_not_awaited()
+    def test_old_mrz_ocr_routes_are_removed(self) -> None:
+        for path in ("/v1/ocr/passport/mrz", "/v1/ocr/idcard/mrz"):
+            with self.subTest(path=path):
+                response = self.client.post(
+                    path,
+                    files={"image": ("scan.jpg", b"fake-image", "image/jpeg")},
+                )
+                self.assertEqual(response.status_code, 404)
 
     def test_get_task_status(self) -> None:
         job = {
             "id": JOB_ID,
-            "mode": TaskOperation.PASSPORT_MRZ.value,
+            "mode": TaskOperation.MRZ.value,
             "status": JobStatus.QUEUED.value,
             "filename": "document.jpg",
             "content_type": "image/jpeg",
@@ -275,7 +280,7 @@ class RouteTests(unittest.TestCase):
         self.assertTrue(body["success"])
         self.assertEqual(body["data"]["task_id"], JOB_ID)
         self.assertEqual(body["data"]["status"], "queued")
-        self.assertEqual(body["data"]["operation"], "passport_mrz")
+        self.assertEqual(body["data"]["operation"], "mrz")
 
     def test_get_task_status_invalid_uuid_error(self) -> None:
         response = self.client.get("/v1/tasks/not-a-uuid")
@@ -288,7 +293,7 @@ class RouteTests(unittest.TestCase):
     def test_cancel_task(self) -> None:
         job = {
             "id": JOB_ID,
-            "mode": TaskOperation.PASSPORT_MRZ.value,
+            "mode": TaskOperation.MRZ.value,
             "status": JobStatus.QUEUED.value,
             "image_path": "/tmp/document.jpg",
         }

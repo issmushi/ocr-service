@@ -28,8 +28,22 @@ class TaskExecutionTests(unittest.IsolatedAsyncioTestCase):
     ) -> None:
         cases = (
             (
+                TaskOperation.MRZ,
+                "recognize_mrz_upload",
+                {
+                    "crop": False,
+                    "normalize": False,
+                    "normalization": True,
+                },
+                {
+                    "crop": False,
+                    "normalize": False,
+                    "normalization": True,
+                },
+            ),
+            (
                 TaskOperation.PASSPORT_MRZ,
-                "recognize_passport_upload",
+                "recognize_mrz_upload",
                 {
                     "crop": False,
                     "normalize": False,
@@ -49,7 +63,7 @@ class TaskExecutionTests(unittest.IsolatedAsyncioTestCase):
             ),
             (
                 TaskOperation.IDCARD_MRZ,
-                "recognize_idcard_upload",
+                "recognize_mrz_upload",
                 {
                     "crop": True,
                     "normalize": True,
@@ -103,8 +117,8 @@ class TaskExecutionTests(unittest.IsolatedAsyncioTestCase):
         response = {"success": True, "data": None, "error": None}
         flags = {"crop": False, "normalize": False, "normalization": True}
         for operation, handler_name in (
-            (TaskOperation.PASSPORT_MRZ, "recognize_passport_upload"),
-            (TaskOperation.IDCARD_MRZ, "recognize_idcard_upload"),
+            (TaskOperation.PASSPORT_MRZ, "recognize_mrz_upload"),
+            (TaskOperation.IDCARD_MRZ, "recognize_mrz_upload"),
         ):
             for model in ("mrz", "paddle", "qwen3-vl-8b", "removed-model"):
                 with self.subTest(operation=operation, stored_model=model):

@@ -224,39 +224,6 @@ class PassportDataSchema(BaseModel):
     )
 
 
-class PassportMrzDataSchema(PassportDataSchema):
-    mrz: list[str] = Field(
-        ...,
-        min_length=2,
-        max_length=2,
-        description=(
-            "Две MRZ-строки. При normalize=true применены исправления типа "
-            "документа, страны и остальных полей; при normalize=false "
-            "выполнены только удаление пробелов и перевод в верхний регистр."
-        ),
-    )
-    normalization: PassportMrzNormalizationSchema | None = Field(
-        default=None,
-        description=(
-            "Журнал исправлений MRZ, их количество и обнаруженные проблемы. "
-            "Пустой журнал означает, что исправлений не было или они "
-            "отключены параметром normalize=false; "
-            "null — отчёт отключён параметром normalization=false или не "
-            "получен от OCR."
-        ),
-    )
-    meta: PassportMrzOcrMetaSchema = Field(
-        ...,
-        description="Движок, модель и время распознавания.",
-    )
-
-
-class PassportMrzResponseSchema(BaseModel):
-    success: bool
-    data: PassportMrzDataSchema | None
-    error: ErrorSchema | None
-
-
 class PassportInternalDataSchema(PassportDataSchema):
     mrz: None = Field(
         ...,

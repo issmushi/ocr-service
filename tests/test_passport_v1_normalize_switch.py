@@ -17,7 +17,7 @@ from app.modules.v1.passport.pipeline import (
     process_passport_bytes_with_mrz_scanner,
 )
 
-PATH = "/v1/ocr/passport/mrz"
+PATH = "/v1/ocr/mrz"
 RAW_MRZ = [
     "P<ARMHAYRAPETYAN<<AR4M<<",
     "44123456784RM9001158N3001156<<<<<<<<<<<<<<",
@@ -52,7 +52,7 @@ def test_openapi_exposes_normalization_switches_without_model_selection():
 
 def test_invalid_normalize_flag_is_rejected_before_ocr():
     with patch(
-        "app.modules.v1.passport.router.recognize_passport_upload",
+        "app.modules.v1.mrz_api.router.recognize_mrz_upload",
         AsyncMock(),
     ) as recognize:
         response = TestClient(app).post(
@@ -153,22 +153,17 @@ def test_scanner_normalization_and_report_switches_are_independent(
     raw_text = {"items": [{"text": "\n".join(RAW_MRZ)}]}
 
     async def run(operation, content, **kwargs):
-        if operation == "mrz_crop_text":
-            assert "normalize" not in kwargs
-            return raw_text
-        assert operation == "passport_v1"
-        assert kwargs.get("normalize", True) == normalize
-        return normalize_passport_mrz(
-            RAW_MRZ, normalize=kwargs.get("normalize", True)
-        )
+        assert operation == "mrz_crop_text"
+        assert "normalize" not in kwargs
+        return raw_text
 
     with (
         patch(
-            "app.modules.v1.passport.service.crop_mrz_bytes",
+            "app.modules.v1.mrz_api.service.crop_mrz_bytes",
             AsyncMock(return_value=b"crop"),
         ) as crop_mrz,
         patch(
-            "app.modules.v1.passport.service.mrz_scanner_runtime.run",
+            "app.modules.v1.mrz_api.service.mrz_scanner_runtime.run",
             AsyncMock(side_effect=run),
         ) as mrz_run,
     ):
@@ -183,12 +178,10 @@ def test_scanner_normalization_and_report_switches_are_independent(
         )
 
     assert response.status_code == 200, response.text
-    options = {} if crop or normalize else {"normalize": False}
     mrz_run.assert_awaited_once_with(
-        "mrz_crop_text" if crop else "passport_v1",
+        "mrz_crop_text",
         b"crop" if crop else b"image",
         timeout_seconds=settings.mrz_scanner_document_hard_timeout_seconds,
-        **options,
     )
     if crop:
         crop_mrz.assert_awaited_once_with(b"image")
@@ -202,13 +195,13 @@ def test_scanner_normalization_and_report_switches_are_independent(
             "P<ARMHAYRAPETYAN<<ARAM".ljust(44, "<"),
             "AA12345678ARM9001158M3001156<<<<<<<<<<<<<<06",
         ]
-        assert data["passport_number"] == "AA1234567"
+        assert data["document_number"] == "AA1234567"
         if normalization:
             assert data["normalization"]["corrections_count"] > 0
     else:
         assert data["mrz"] == RAW_MRZ
         assert data["name"] is None
-        assert data["passport_number"] is None
+        assert data["document_number"] is None
         assert data["mrz_valid"] is None
         if normalization:
             assert data["normalization"] == EMPTY_REPORT
@@ -222,19 +215,16 @@ def test_disabled_normalization_does_not_repair_unknown_header(crop):
     raw_text = {"items": [{"text": "\n".join(raw)}]}
 
     async def run(operation, content, **kwargs):
-        if operation == "mrz_crop_text":
-            return raw_text
-        return normalize_passport_mrz(
-            raw, normalize=kwargs.get("normalize", True)
-        )
+        assert operation == "mrz_crop_text"
+        return raw_text
 
     with (
         patch(
-            "app.modules.v1.passport.service.crop_mrz_bytes",
+            "app.modules.v1.mrz_api.service.crop_mrz_bytes",
             AsyncMock(return_value=b"crop"),
         ),
         patch(
-            "app.modules.v1.passport.service.mrz_scanner_runtime.run",
+            "app.modules.v1.mrz_api.service.mrz_scanner_runtime.run",
             AsyncMock(side_effect=run),
         ),
     ):
