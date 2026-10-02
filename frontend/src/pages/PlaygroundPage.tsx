@@ -274,12 +274,12 @@ export function PlaygroundPage({ apiBaseUrl, initialTool, onToolChange }: Props)
 
       <div className="playground-layout">
         <aside className="tool-picker">
-          {(["MRZ", "Распознавание", "Обрезка и качество"] as const).map((group) => (
+          {(["MRZ", "Россия", "Распознавание", "Обрезка и качество"] as const).map((group) => (
             <div key={group}>
               <span className="nav-kicker">{group}</span>
               {tools.filter((item) => item.group === group).map((item) => (
                 <button className={item.id === toolId ? "active" : ""} key={item.id} onClick={() => chooseTool(item.id)} type="button">
-                  <span><Icon name={item.id.includes("crop") ? "crop" : item.id === "best-frame" ? "frame" : item.id === "passport-internal" ? "passport" : item.id === "full-ocr" ? "file" : "scan"} /></span>
+                  <span><Icon name={item.id.includes("crop") ? "crop" : item.id === "best-frame" ? "frame" : item.id.startsWith("passport-") ? "passport" : item.id === "full-ocr" ? "file" : "scan"} /></span>
                   <div><strong>{item.title}</strong><small>{item.shortTitle}</small></div>
                   <Icon name="chevron" size={15} />
                 </button>

@@ -51,7 +51,7 @@ export const tools: ToolDefinition[] = [
   },
   {
     id: "passport-internal",
-    group: "Распознавание",
+    group: "Россия",
     title: "Внутренний паспорт РФ",
     shortTitle: "Internal passport",
     description: "Распознать поля внутреннего паспорта РФ на фото с помощью Russian OCR.",
@@ -59,6 +59,17 @@ export const tools: ToolDefinition[] = [
     responseKind: "json",
     params: [],
     outputHint: "Ответ: поля паспорта, MRZ при наличии и meta",
+  },
+  {
+    id: "passport-international",
+    group: "Россия",
+    title: "Загранпаспорт РФ",
+    shortTitle: "International passport",
+    description: "Распознать визуальные поля загранпаспорта РФ на фото с помощью Russian OCR.",
+    endpoint: "/v1/ocr/passport/international",
+    responseKind: "json",
+    params: [],
+    outputHint: "Ответ: поля загранпаспорта, MRZ при наличии и meta",
   },
   {
     id: "full-ocr",

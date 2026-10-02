@@ -104,6 +104,45 @@ test("internal passport sends only image and uses Russian OCR", async (t) => {
   assert.match(docs, /Поле.*mrz.*содержит две строки.*иначе.*null/);
 });
 
+test("Russian international passport sends only image and exposes its own task route", async (t) => {
+  const tool = toolById["passport-international"];
+  assert.equal(tool.endpoint, "/v1/ocr/passport/international");
+  assert.equal(tool.group, "Россия");
+  assert.match(tool.description, /Russian OCR/);
+  assert.deepEqual(tool.params, []);
+  assert.deepEqual(defaultParams(tool), {});
+
+  const file = new File(["synthetic"], "passport.jpg", { type: "image/jpeg" });
+  const originalFetch = globalThis.fetch;
+  t.after(() => { globalThis.fetch = originalFetch; });
+  globalThis.fetch = async (url, options) => {
+    assert.equal(url, "/v1/ocr/passport/international");
+    assert.equal(options.method, "POST");
+    assert.deepEqual([...options.body.keys()], ["image"]);
+    return new Response(JSON.stringify({ success: true, data: { passport_type: "international", mrz: null }, error: null }), { headers: { "content-type": "application/json" } });
+  };
+  assert.equal((await runTool("", tool, [file], {}, new AbortController().signal)).ok, true);
+
+  const curl = buildCurl("http://localhost:8000", tool, [file], {});
+  assert.match(curl, /\/v1\/ocr\/passport\/international/);
+  assert.doesNotMatch(curl, /-F '(?:page|model|crop)=/);
+
+  const docs = renderToStaticMarkup(createElement(DocsPage, { navigate() {} }));
+  assert.match(docs, /\/v1\/tasks\/passport\/international/);
+  assert.match(docs, /issue_organization_code/);
+  assert.match(docs, /surname_latin/);
+  assert.match(docs, /девятизначный/);
+  assert.match(docs, /Отдельной серии паспорта здесь нет/);
+  assert.match(docs, /Загранпаспорт РФ/);
+
+  const fields = renderToStaticMarkup(createElement(FieldsView, {
+    entries: [["surname_latin", "IVANOV"], ["birth_place_ru", "МОСКВА"], ["issue_organization_code", "77001"]],
+  }));
+  assert.match(fields, /Фамилия \(латиницей\)/);
+  assert.match(fields, /Место рождения \(RU\)/);
+  assert.match(fields, /Код органа выдачи/);
+});
+
 test("MRZ fields show the shared document names and all document types", () => {
   for (const [type, label] of [
     ["internal_passport", "Внутренний паспорт"],
