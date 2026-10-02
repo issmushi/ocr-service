@@ -83,6 +83,7 @@ class PassportTests(unittest.TestCase):
                 ],
                 "image_width": 48,
                 "image_height": 32,
+                "mrz": None,
                 "passport": {
                     "passport_type": "internal",
                     "document_code": "PN",
@@ -104,6 +105,25 @@ class PassportTests(unittest.TestCase):
                 },
             },
         )
+
+    def test_text_adapter_preserves_russian_ocr_mrz_rows(self) -> None:
+        lines = [
+            "PNRUSTESTOV<<TEST".ljust(44, "<"),
+            "4511234569RUS9001158M<<<<<<<5150620770001<88",
+        ]
+        result = recognize_passport_text_bytes(
+            image_bytes(),
+            Mock(
+                process_img=Mock(
+                    return_value=SimpleNamespace(
+                        ocr={"MRZ": "\n".join(lines)},
+                        doctype="INTPassport_2011",
+                    )
+                )
+            ),
+        )
+
+        self.assertEqual(result["mrz"], lines)
 
     def test_text_adapter_maps_external_passport_fields_without_inventing_mrz(
         self,

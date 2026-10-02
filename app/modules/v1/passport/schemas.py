@@ -148,6 +148,14 @@ class PassportInternalDataSchema(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
+    mrz: list[str] | None = Field(
+        ...,
+        min_length=2,
+        max_length=2,
+        description=(
+            "Две MRZ-строки, если RussianDocsOCR распознал их; иначе null."
+        ),
+    )
     passport_type: Literal["internal"] = Field(
         ..., description="Внутренний паспорт РФ."
     )

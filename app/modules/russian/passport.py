@@ -63,6 +63,21 @@ def normalize_text(value: Any) -> str | None:
     return text or None
 
 
+def passport_mrz_lines(value: Any) -> list[str] | None:
+    """Split the two MRZ rows returned by RussianDocsOCR, if both exist."""
+    if isinstance(value, str):
+        rows = value.splitlines()
+    elif isinstance(value, (list, tuple)):
+        rows = value
+    else:
+        return None
+    if len(rows) != 2 or any(
+        not isinstance(row, str) or not row.strip() for row in rows
+    ):
+        return None
+    return [row.strip() for row in rows]
+
+
 def first_text_field(ocr_result: dict[str, Any], *names: str) -> str | None:
     for name in names:
         value = normalize_text(ocr_result.get(name))
@@ -207,5 +222,6 @@ def recognize_passport_text_bytes(
         "items": items,
         "image_width": width,
         "image_height": height,
+        "mrz": passport_mrz_lines(raw_ocr.get("MRZ")),
         "passport": passport,
     }

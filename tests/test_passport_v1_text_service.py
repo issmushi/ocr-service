@@ -20,6 +20,7 @@ Image.new("RGB", (120, 60), "white").save(encoded, format="JPEG")
 IMAGE_BYTES = encoded.getvalue()
 FILES = {"image": ("passport.jpg", IMAGE_BYTES, "image/jpeg")}
 EMPTY_PASSPORT_DATA = {
+    "mrz": None,
     "passport_type": "internal",
     "surname": None,
     "name": None,
@@ -34,7 +35,6 @@ EMPTY_PASSPORT_DATA = {
 }
 INTERNAL_FIELDS = set(EMPTY_PASSPORT_DATA) | {"meta"}
 MRZ_ONLY_FIELDS = {
-    "mrz",
     "normalization",
     "mrz_valid",
     "personal_number",
@@ -147,6 +147,22 @@ class PassportV1InternalServiceTests(unittest.TestCase):
         self.assertNotIn("items", body["data"])
         self.assertEqual(set(body["data"]), INTERNAL_FIELDS)
         self.assertGreaterEqual(body["data"]["meta"]["duration_seconds"], 0)
+
+    def test_russian_ocr_mrz_rows_are_returned_without_mrz_scanner(
+        self,
+    ) -> None:
+        lines = [
+            "PNRUSTESTOV<<TEST".ljust(44, "<"),
+            "4511234569RUS9001158M<<<<<<<5150620770001<88",
+        ]
+        with patch(
+            f"{SERVICE}.russian_runtime.run",
+            new=AsyncMock(return_value={"mrz": lines, "passport": {}}),
+        ):
+            response = self.client.post(PATH, files=FILES)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["data"]["mrz"], lines)
 
     def test_blank_issue_organization_is_null(self) -> None:
         with patch(

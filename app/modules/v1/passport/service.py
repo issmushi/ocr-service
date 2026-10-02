@@ -15,6 +15,7 @@ from app.core.images.validation import (
     validate_image_extension,
 )
 from app.core.model_availability import ensure_ocr_model_enabled
+from app.modules.russian.passport import passport_mrz_lines
 from app.modules.russian.runtime import russian_runtime
 from app.modules.v1.passport.parsing import (
     normalize_visual_passport_data,
@@ -80,6 +81,7 @@ async def recognize_passport_internal_upload(
         )
         data = PassportInternalDataSchema.model_validate(
             {
+                "mrz": passport_mrz_lines(result.get("mrz")),
                 "passport_type": "internal",
                 **{field: passport_data[field] for field in visual_fields},
                 "meta": _passport_ocr_meta("russian-ocr", duration_seconds),

@@ -58,7 +58,7 @@ export const tools: ToolDefinition[] = [
     endpoint: "/v1/ocr/passport/internal",
     responseKind: "json",
     params: [],
-    outputHint: "Ответ: ФИО, даты, серия, номер, кем выдан и meta",
+    outputHint: "Ответ: поля паспорта, MRZ при наличии и meta",
   },
   {
     id: "full-ocr",

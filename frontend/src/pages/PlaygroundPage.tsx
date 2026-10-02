@@ -392,7 +392,7 @@ export function PlaygroundPage({ apiBaseUrl, initialTool, onToolChange }: Props)
             <div className="structured-result">
               <div className="result-tabs" onKeyDown={handleTabListKeyDown} role="tablist">
                 <ResultTabButton active={activeTab === "fields"} id="fields" label={toolId === "crop-passport-fields" ? "Вырезки" : "Поля"} onClick={() => setActiveTab("fields")} />
-                {toolId === "mrz" && <ResultTabButton active={activeTab === "mrz"} count={mrz.length || undefined} disabled={!mrz.length} id="mrz" label="MRZ" onClick={() => setActiveTab("mrz")} />}
+                {(toolId === "mrz" || mrz.length > 0) && <ResultTabButton active={activeTab === "mrz"} count={mrz.length || undefined} disabled={!mrz.length} id="mrz" label="MRZ" onClick={() => setActiveTab("mrz")} />}
                 {toolId === "mrz" && <ResultTabButton active={activeTab === "normalization"} count={typeof normalization?.corrections_count === "number" ? normalization.corrections_count : undefined} disabled={!normalization} id="normalization" label="Нормализация" onClick={() => setActiveTab("normalization")} />}
                 <ResultTabButton active={activeTab === "meta"} disabled={!meta} id="meta" label="Meta" onClick={() => setActiveTab("meta")} />
                 <ResultTabButton active={activeTab === "json"} id="json" label="JSON" onClick={() => setActiveTab("json")} />

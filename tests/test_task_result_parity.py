@@ -205,6 +205,7 @@ def test_task_result_matches_direct_http_response(
         if operation == "passport/internal":
             data = completed.json()["data"]
             assert set(data) == {
+                "mrz",
                 "passport_type",
                 "surname",
                 "name",
@@ -218,4 +219,5 @@ def test_task_result_matches_direct_http_response(
                 "department_code",
                 "meta",
             }
+            assert data["mrz"] is None
             assert data["Issue_organization_ru"] == ("ГУ МВД ПО МОСКВЕ")
