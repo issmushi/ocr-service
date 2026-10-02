@@ -10,6 +10,38 @@ from tests.russian.test_engine_adapter import image_bytes
 
 
 class InferenceWorkerTests(unittest.TestCase):
+    def test_full_text_reuses_pipeline_without_passport_processing(
+        self,
+    ) -> None:
+        pipeline = Mock()
+        pipeline.words_detector.predict.return_value = {
+            "WordsDetector": {"bbox": [[2, 2, 15, 10, 0.9, 0, "Word"]]}
+        }
+        pipeline.ocr_cyr.predict.return_value = {
+            "OCRCyrillic": {"ocr_output": "ПРИМЕР"}
+        }
+        with (
+            patch(
+                "app.ocr_engine.russian.factory.create_pipeline",
+                return_value=pipeline,
+            ) as factory,
+            patch(
+                "app.modules.russian.inference_worker.serve_inference_worker"
+            ) as serve,
+        ):
+            russian_inference_worker(Mock(), "cpu")
+            _, initialize, dispatch = serve.call_args.args
+            reader = initialize()
+            for _ in range(2):
+                result = dispatch(reader, "full_text", (image_bytes(),), {})
+                self.assertEqual(result, {"text": "ПРИМЕР"})
+
+        factory.assert_called_once_with(device="cpu")
+        self.assertEqual(pipeline.words_detector.predict.call_count, 2)
+        self.assertEqual(pipeline.ocr_cyr.predict.call_count, 2)
+        pipeline.process_img.assert_not_called()
+        pipeline.ocr_cyr.fix_errors.assert_not_called()
+
     def test_dispatch_reuses_one_pipeline_for_passport_page(self) -> None:
         result = SimpleNamespace(
             ocr={
