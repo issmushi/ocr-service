@@ -115,6 +115,24 @@ async def create_passport_internal_task(
 
 
 @router.post(
+    "/passport/international",
+    status_code=202,
+    response_model=TaskCreatedResponseSchema,
+    summary="Создать задачу распознавания загранпаспорта РФ",
+    responses=CREATION_ERRORS,
+)
+async def create_passport_international_task(
+    image: UploadFile = File(...),
+) -> dict[str, Any]:
+    ensure_ocr_model_enabled("russian-ocr")
+    return await create_image_task(
+        image,
+        operation=TaskOperation.PASSPORT_INTERNATIONAL,
+        options={},
+    )
+
+
+@router.post(
     "/full",
     status_code=202,
     response_model=TaskCreatedResponseSchema,

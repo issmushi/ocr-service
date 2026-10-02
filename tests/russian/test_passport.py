@@ -125,6 +125,61 @@ class PassportTests(unittest.TestCase):
 
         self.assertEqual(result["mrz"], lines)
 
+    def test_international_adapter_keeps_full_number_and_both_scripts(
+        self,
+    ) -> None:
+        lines = [
+            "P<RUSTESTOV<<IVAN<IVANOVICH".ljust(44, "<"),
+            "1234567890RUS9001158M3001156".ljust(44, "<"),
+        ]
+        raw = {
+            "Last_name_ru": " ТЕСТОВ ",
+            "First_name_ru": " ИВАН ",
+            "Middle_name_ru": " ИВАНОВИЧ ",
+            "Last_name_en": " TESTOV ",
+            "First_name_en": " IVAN ",
+            "Middle_name_en": " IVANOVICH ",
+            "Birth_place_ru": " Г. ПРИМЕРСК ",
+            "Birth_place_en": " PRIMERSK ",
+            "Licence_number": "12 3456789",
+            "Birth_date": "15.01.1990",
+            "Issue_date": "05.04.2020",
+            "Expiration_date": "05.04.2030",
+            "Issue_organisation_code": "TEST001",
+            "MRZ": "\n".join(lines),
+        }
+        pipeline = Mock(
+            process_img=Mock(
+                return_value=SimpleNamespace(
+                    ocr=raw,
+                    doctype="EXTPassport_2013",
+                )
+            )
+        )
+
+        result = recognize_passport_text_bytes(
+            image_bytes(), pipeline, passport_kind="international"
+        )
+
+        passport = result["passport"]
+        self.assertEqual(passport["passport_type"], "international")
+        self.assertEqual(passport["passport_number"], "123456789")
+        self.assertIsNone(passport["passport_series"])
+        self.assertEqual(passport["surname"], "ТЕСТОВ")
+        self.assertEqual(passport["surname_latin"], "TESTOV")
+        self.assertEqual(passport["name"], "ИВАН")
+        self.assertEqual(passport["name_latin"], "IVAN")
+        self.assertEqual(passport["patronymic"], "ИВАНОВИЧ")
+        self.assertEqual(passport["patronymic_latin"], "IVANOVICH")
+        self.assertEqual(passport["birth_place_ru"], "Г. ПРИМЕРСК")
+        self.assertEqual(passport["birth_place_en"], "PRIMERSK")
+        self.assertEqual(passport["issue_organization_code"], "TEST001")
+        self.assertEqual(passport["date_of_birth"], "1990-01-15")
+        self.assertEqual(passport["issue_date"], "2020-04-05")
+        self.assertEqual(passport["expiry_date"], "2030-04-05")
+        self.assertEqual(result["mrz"], lines)
+        pipeline.process_img.assert_called_once()
+
     def test_text_adapter_maps_external_passport_fields_without_inventing_mrz(
         self,
     ) -> None:

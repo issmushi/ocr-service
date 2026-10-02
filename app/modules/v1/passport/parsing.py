@@ -238,6 +238,44 @@ def normalize_visual_passport_data(values: Any) -> dict[str, Any]:
     return data
 
 
+def normalize_visual_international_passport_data(
+    values: Any,
+) -> dict[str, Any]:
+    """Map visual foreign-passport fields without an internal number split."""
+    if not isinstance(values, dict):
+        values = {}
+
+    sex = normalize_sex(values.get("sex"))
+    if sex not in {"МУЖ.", "ЖЕН."}:
+        sex = None
+
+    return {
+        "passport_type": "international",
+        "document_code": "P",
+        "issuing_country": "RUS",
+        "surname": _text_or_none(values.get("surname")),
+        "name": _text_or_none(values.get("name")),
+        "patronymic": _text_or_none(values.get("patronymic")),
+        "surname_latin": _text_or_none(values.get("surname_latin")),
+        "name_latin": _text_or_none(values.get("name_latin")),
+        "patronymic_latin": _text_or_none(values.get("patronymic_latin")),
+        "sex": sex,
+        "date_of_birth": _public_date(values.get("date_of_birth")),
+        "birth_place_ru": _text_or_none(values.get("birth_place_ru")),
+        "birth_place_en": _text_or_none(values.get("birth_place_en")),
+        "passport_number": normalize_number(values.get("passport_number")),
+        "nationality": "RUS",
+        "issue_date": _public_date(values.get("issue_date")),
+        "expiry_date": _public_date(values.get("expiry_date")),
+        "Issue_organization_ru": _text_or_none(
+            values.get("Issue_organization_ru")
+        ),
+        "issue_organization_code": _text_or_none(
+            values.get("issue_organization_code")
+        ),
+    }
+
+
 def passport_data_from_vlm_result(result: Any) -> dict[str, Any]:
     """Select the most useful passport-shaped JSON object from
     a Qwen result.

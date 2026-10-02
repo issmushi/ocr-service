@@ -16,6 +16,7 @@ class TaskOperation(StrEnum):
     MRZ = "mrz"
     PASSPORT_MRZ = "passport_mrz"
     PASSPORT_PAGE = "passport_page"
+    PASSPORT_INTERNATIONAL = "passport_international"
     IDCARD_MRZ = "idcard_mrz"
     FULL_V1 = "full_v1"
     CROP_DOCUMENT = "crop_document"

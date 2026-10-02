@@ -16,8 +16,14 @@ from app.modules.v1.full.schemas import FullOcrModel, FullOcrResponseSchema
 from app.modules.v1.full.service import recognize_full_upload
 from app.modules.v1.mrz_api.schemas import UnifiedMrzResponseSchema
 from app.modules.v1.mrz_api.service import recognize_mrz_upload
-from app.modules.v1.passport.schemas import PassportInternalResponseSchema
-from app.modules.v1.passport.service import recognize_passport_internal_upload
+from app.modules.v1.passport.schemas import (
+    PassportInternalResponseSchema,
+    PassportInternationalResponseSchema,
+)
+from app.modules.v1.passport.service import (
+    recognize_passport_internal_upload,
+    recognize_passport_international_upload,
+)
 
 
 async def execute_task_operation(
@@ -64,6 +70,9 @@ async def execute_task_operation(
             # passport endpoint now always runs RussianDocsOCR on the image.
             response = await recognize_passport_internal_upload(upload)
             schema = PassportInternalResponseSchema
+        elif operation == TaskOperation.PASSPORT_INTERNATIONAL:
+            response = await recognize_passport_international_upload(upload)
+            schema = PassportInternationalResponseSchema
         elif operation == TaskOperation.FULL_V1:
             if "model" in options:
                 options["model"] = FullOcrModel(options["model"])

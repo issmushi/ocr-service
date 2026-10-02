@@ -39,7 +39,7 @@ def russian_inference_worker(
             return detect_passport_fields_bytes(
                 *args, pipeline=pipeline, **kwargs
             )
-        if operation != "passport_text":
+        if operation not in {"passport_text", "passport_international"}:
             raise ValueError(
                 f"Unsupported RussianDocsOCR operation: {operation}"
             )
@@ -47,7 +47,14 @@ def russian_inference_worker(
         # exact bytes in memory uses the same RGB pixels without a temp file.
         kwargs.pop("suffix", None)
         return recognize_passport_text_bytes(
-            *args, pipeline=pipeline, **kwargs
+            *args,
+            pipeline=pipeline,
+            passport_kind=(
+                "international"
+                if operation == "passport_international"
+                else "internal"
+            ),
+            **kwargs,
         )
 
     serve_inference_worker(connection, initialize, dispatch)

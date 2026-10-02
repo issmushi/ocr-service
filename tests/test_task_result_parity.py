@@ -29,6 +29,7 @@ from app.workers.ocr_worker import execute_ocr_job
             False,
         ),
         ("passport/internal", {}, False),
+        ("passport/international", {}, False),
         ("mrz", {}, True),
         (
             "mrz",

@@ -62,6 +62,12 @@ class TaskExecutionTests(unittest.IsolatedAsyncioTestCase):
                 {},
             ),
             (
+                TaskOperation.PASSPORT_INTERNATIONAL,
+                "recognize_passport_international_upload",
+                {},
+                {},
+            ),
+            (
                 TaskOperation.IDCARD_MRZ,
                 "recognize_mrz_upload",
                 {

@@ -48,6 +48,22 @@ class InferenceWorkerTests(unittest.TestCase):
                 ),
                 recognize_passport_text_bytes(content, pipeline=pipeline),
             )
+            international = dispatch(
+                pipeline,
+                "passport_international",
+                (content,),
+                {"suffix": ".png"},
+            )
+            self.assertEqual(
+                international,
+                recognize_passport_text_bytes(
+                    content, pipeline=pipeline, passport_kind="international"
+                ),
+            )
+            self.assertEqual(
+                international["passport"]["passport_type"],
+                "international",
+            )
             with self.assertRaisesRegex(
                 ValueError, "Unsupported RussianDocsOCR operation"
             ):

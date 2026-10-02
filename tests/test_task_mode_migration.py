@@ -17,6 +17,12 @@ UNIFIED_MRZ_MIGRATION_PATH = (
     / "versions"
     / "20261002_0008_unified_mrz_task_mode.py"
 )
+INTERNATIONAL_MIGRATION_PATH = (
+    Path(__file__).resolve().parents[1]
+    / "alembic"
+    / "versions"
+    / "20261002_0009_russian_international_task_mode.py"
+)
 
 
 def load_migration(path=MIGRATION_PATH):
@@ -119,6 +125,51 @@ class UnifiedMrzTaskModeMigrationTests(unittest.TestCase):
             postgresql_not_valid=True,
         )
         self.assertNotIn("'mrz'", migration.PREVIOUS_TASK_MODE_CHECK)
+
+
+class InternationalPassportTaskModeMigrationTests(unittest.TestCase):
+    def test_upgrade_adds_international_mode_without_dropping_old_modes(self):
+        migration = load_migration(INTERNATIONAL_MIGRATION_PATH)
+        self.assertEqual(migration.down_revision, "20261002_0008")
+        with (
+            patch.object(migration.op, "drop_constraint") as drop_constraint,
+            patch.object(
+                migration.op, "create_check_constraint"
+            ) as create_constraint,
+        ):
+            migration.upgrade()
+
+        drop_constraint.assert_called_once_with(
+            "ck_ocr_jobs_mode", "ocr_jobs", type_="check"
+        )
+        create_constraint.assert_called_once_with(
+            "ck_ocr_jobs_mode",
+            "ocr_jobs",
+            migration.INTERNATIONAL_TASK_MODE_CHECK,
+            postgresql_not_valid=True,
+        )
+        for mode in ("passport_international", "mrz", "passport_page"):
+            self.assertIn(f"'{mode}'", migration.INTERNATIONAL_TASK_MODE_CHECK)
+
+    def test_downgrade_restores_previous_constraint(self):
+        migration = load_migration(INTERNATIONAL_MIGRATION_PATH)
+        with (
+            patch.object(migration.op, "drop_constraint"),
+            patch.object(
+                migration.op, "create_check_constraint"
+            ) as create_constraint,
+        ):
+            migration.downgrade()
+
+        create_constraint.assert_called_once_with(
+            "ck_ocr_jobs_mode",
+            "ocr_jobs",
+            migration.PREVIOUS_TASK_MODE_CHECK,
+            postgresql_not_valid=True,
+        )
+        self.assertNotIn(
+            "'passport_international'", migration.PREVIOUS_TASK_MODE_CHECK
+        )
 
 
 if __name__ == "__main__":

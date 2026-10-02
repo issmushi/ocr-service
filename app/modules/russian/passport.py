@@ -176,9 +176,13 @@ def normalize_passport_text_result(
 def recognize_passport_text_bytes(
     content: bytes,
     pipeline: Any | None = None,
+    *,
+    passport_kind: str = "internal",
     **kwargs: Any,
 ) -> dict[str, Any]:
-    """Return RussianDocsOCR fields through the common text contract."""
+    """Return RussianDocsOCR fields for the requested Russian passport type."""
+    if passport_kind not in {"internal", "international"}:
+        raise ValueError(f"Unsupported passport kind: {passport_kind}")
     image = decode_image_bytes(content)
     height, width = image.shape[:2]
     result = recognize_image(image, pipeline=pipeline, **kwargs)
@@ -202,22 +206,55 @@ def recognize_passport_text_bytes(
         raw_ocr,
         doctype=getattr(result, "doctype", None),
     )
-    passport_series, passport_number = parse_internal_passport_number(
-        raw_ocr.get("Licence_number")
-    )
-    passport.update(
-        {
-            "passport_type": "internal",
-            "document_code": "PN",
-            "issuing_country": "RUS",
-            "passport_series": passport_series,
-            "passport_number": passport_number,
-            "nationality": "RUS",
-            "expiry_date": None,
-            "personal_number": None,
-            "mrz_valid": None,
-        }
-    )
+    if passport_kind == "internal":
+        passport_series, passport_number = parse_internal_passport_number(
+            raw_ocr.get("Licence_number")
+        )
+        passport.update(
+            {
+                "passport_type": "internal",
+                "document_code": "PN",
+                "issuing_country": "RUS",
+                "passport_series": passport_series,
+                "passport_number": passport_number,
+                "nationality": "RUS",
+                "expiry_date": None,
+                "personal_number": None,
+                "mrz_valid": None,
+            }
+        )
+    else:
+        passport.update(
+            {
+                "passport_type": "international",
+                "document_code": "P",
+                "issuing_country": "RUS",
+                "passport_series": None,
+                "passport_number": (
+                    re.sub(
+                        r"\s+",
+                        "",
+                        normalize_text(raw_ocr.get("Licence_number")) or "",
+                    ).upper()
+                    or None
+                ),
+                "nationality": "RUS",
+                "surname_latin": normalize_text(raw_ocr.get("Last_name_en")),
+                "name_latin": normalize_text(raw_ocr.get("First_name_en")),
+                "patronymic_latin": normalize_text(
+                    raw_ocr.get("Middle_name_en")
+                ),
+                "birth_place_ru": normalize_text(
+                    raw_ocr.get("Birth_place_ru")
+                ),
+                "birth_place_en": normalize_text(
+                    raw_ocr.get("Birth_place_en")
+                ),
+                "issue_organization_code": normalize_text(
+                    raw_ocr.get("Issue_organisation_code")
+                ),
+            }
+        )
     return {
         "items": items,
         "image_width": width,
