@@ -14,7 +14,9 @@ from app.bootstrap.lifecycle import lifespan
 from app.core.config import settings
 from app.core.logging_config import configure_logging
 from app.core.openapi import normalize_binary_file_schemas
+from app.modules.changelog import router as changelog_router
 from app.modules.health.router import router as health_router
+from app.modules.health.service import get_app_version
 from app.modules.qr.router import router as qr_router
 from app.modules.tasks.router import router as tasks_router
 from app.modules.v1.router import router as v1_router
@@ -49,12 +51,17 @@ def create_app(*, frontend_dist_dir: str | Path | None = None) -> FastAPI:
         max_bytes=settings.log_max_bytes,
         backup_count=settings.log_backup_count,
     )
-    app = FastAPI(title="OCR Service", lifespan=lifespan)
+    app = FastAPI(
+        title="OCR Service",
+        version=get_app_version(),
+        lifespan=lifespan,
+    )
     configure_http(app)
     app.include_router(qr_router)
     app.include_router(v1_router)
     app.include_router(tasks_router)
     app.include_router(health_router)
+    app.include_router(changelog_router)
     configure_frontend(app, frontend_dist_dir)
     configure_openapi(app)
     return app

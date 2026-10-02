@@ -1,4 +1,4 @@
-export type Section = "overview" | "docs" | "playground";
+export type Section = "overview" | "docs" | "playground" | "changelog";
 
 export type ToolId =
   | "mrz"

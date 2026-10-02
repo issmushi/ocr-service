@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { resolveApiUrl } from "./api";
 import { tools } from "./config";
 import { DocsPage } from "./pages/DocsPage";
+import { ChangelogPage } from "./pages/ChangelogPage";
 import { OverviewPage } from "./pages/OverviewPage";
 import { PlaygroundPage } from "./pages/PlaygroundPage";
 import type { HealthState, Section, ToolId } from "./types";
@@ -11,7 +12,15 @@ const sections: { id: Section; label: string; description: string }[] = [
   { id: "overview", label: "Обзор", description: "Эндпоинты и обработка" },
   { id: "docs", label: "Документация", description: "Параметры и примеры" },
   { id: "playground", label: "Тестирование", description: "Запросы к API" },
+  { id: "changelog", label: "История изменений", description: "Обновления по версиям" },
 ];
+
+const sectionIcons = {
+  overview: "layers",
+  docs: "book",
+  playground: "play",
+  changelog: "clock",
+} as const;
 
 const uiBasePath = import.meta.env.BASE_URL.replace(/\/+$/, "");
 
@@ -152,7 +161,7 @@ export function App() {
               onClick={() => navigate(item.id)}
               type="button"
             >
-              <Icon name={item.id === "overview" ? "layers" : item.id === "docs" ? "book" : "play"} />
+              <Icon name={sectionIcons[item.id]} />
               <span><strong>{item.label}</strong><small>{item.description}</small></span>
             </button>
           ))}
@@ -190,6 +199,7 @@ export function App() {
         <main>
           {section === "overview" && <OverviewPage health={health} navigate={navigate} />}
           {section === "docs" && <DocsPage navigate={navigate} />}
+          {section === "changelog" && <ChangelogPage />}
           {section === "playground" && (
             <PlaygroundPage
               apiBaseUrl={apiBaseUrl}
