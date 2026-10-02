@@ -14,14 +14,10 @@ from app.modules.v1.crop.service import (
 )
 from app.modules.v1.full.schemas import FullOcrModel, FullOcrResponseSchema
 from app.modules.v1.full.service import recognize_full_upload
-from app.modules.v1.idcard.schemas import (
-    IdcardMrzResponseSchema,
-    IdcardOcrModel,
-)
+from app.modules.v1.idcard.schemas import IdcardMrzResponseSchema
 from app.modules.v1.idcard.service import recognize_idcard_upload
 from app.modules.v1.passport.schemas import (
     PassportMrzResponseSchema,
-    PassportOcrModel,
     PassportPage,
     PassportPageOcrModel,
     PassportPageResponseSchema,
@@ -63,8 +59,9 @@ async def execute_task_operation(
     )
     try:
         if operation == TaskOperation.PASSPORT_MRZ:
-            if "model" in options:
-                options["model"] = PassportOcrModel(options["model"])
+            # Previously queued MRZ tasks may still store a model choice.
+            # Both MRZ services now always use the MRZ scanner.
+            options.pop("model", None)
             response = await recognize_passport_upload(upload, **options)
             schema = PassportMrzResponseSchema
         elif operation == TaskOperation.PASSPORT_PAGE:
@@ -75,8 +72,7 @@ async def execute_task_operation(
             response = await recognize_passport_page_upload(upload, **options)
             schema = PassportPageResponseSchema
         elif operation == TaskOperation.IDCARD_MRZ:
-            if "model" in options:
-                options["model"] = IdcardOcrModel(options["model"])
+            options.pop("model", None)
             response = await recognize_idcard_upload(upload, **options)
             schema = IdcardMrzResponseSchema
         elif operation == TaskOperation.FULL_V1:

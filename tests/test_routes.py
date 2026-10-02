@@ -9,7 +9,6 @@ from fastapi.testclient import TestClient
 from app.main import app
 from app.modules.tasks.enums import JobStatus, TaskOperation
 from app.modules.v1.passport.parsing import empty_passport_mrz_data
-from app.modules.v1.passport.schemas import PassportOcrModel
 
 JOB_ID = "757c8c4a-e1a5-4ff4-9855-2aa9df95397d"
 
@@ -66,7 +65,7 @@ class RouteTests(unittest.TestCase):
             response_example["data"]["passport"], synthetic_passport
         )
 
-    def test_v1_passport_documents_binary_file_and_model_selection(
+    def test_v1_passport_documents_binary_file_and_fixed_scanner(
         self,
     ) -> None:
         schema = app.openapi()
@@ -76,28 +75,23 @@ class RouteTests(unittest.TestCase):
         component_name = request_schema["$ref"].rsplit("/", 1)[-1]
         body_schema = schema["components"]["schemas"][component_name]
         image_schema = body_schema["properties"]["image"]
-        model_schema = body_schema["properties"]["model"]
         crop_schema = body_schema["properties"]["crop"]
+        normalize_schema = body_schema["properties"]["normalize"]
         normalization_schema = body_schema["properties"]["normalization"]
-        model_component = model_schema["$ref"].rsplit("/", 1)[-1]
-        model_enum = schema["components"]["schemas"][model_component]
 
         self.assertEqual(image_schema["type"], "string")
         self.assertEqual(image_schema["format"], "binary")
         self.assertIn("image", body_schema["required"])
-        self.assertNotIn("model", body_schema["required"])
+        self.assertNotIn("model", body_schema["properties"])
         self.assertNotIn("crop", body_schema["required"])
+        self.assertNotIn("normalize", body_schema["required"])
         self.assertNotIn("normalization", body_schema["required"])
-        self.assertEqual(model_schema["default"], "mrz")
         self.assertEqual(crop_schema["type"], "boolean")
         self.assertIs(crop_schema["default"], True)
+        self.assertEqual(normalize_schema["type"], "boolean")
+        self.assertIs(normalize_schema["default"], True)
         self.assertEqual(normalization_schema["type"], "boolean")
         self.assertIs(normalization_schema["default"], True)
-        self.assertEqual(model_enum["type"], "string")
-        self.assertEqual(
-            model_enum["enum"],
-            ["paddle", "mrz", "qwen3-vl-4b", "qwen3-vl-8b"],
-        )
 
         response_schema = schema["components"]["schemas"][
             "PassportMrzDataSchema"
@@ -125,11 +119,17 @@ class RouteTests(unittest.TestCase):
                 "meta",
             }.issubset(response_schema["properties"])
         )
-        meta_schema = schema["components"]["schemas"]["PassportOcrMetaSchema"]
+        meta_schema = schema["components"]["schemas"][
+            "PassportMrzOcrMetaSchema"
+        ]
         self.assertEqual(
             set(meta_schema["properties"]),
             {"engine", "model", "duration_seconds"},
         )
+        self.assertEqual(
+            meta_schema["properties"]["engine"]["const"], "mrz-scanner"
+        )
+        self.assertEqual(meta_schema["properties"]["model"]["const"], "mrz")
 
     def test_recognize_v1_passport_raw_mrz(self) -> None:
         expected = {
@@ -171,7 +171,6 @@ class RouteTests(unittest.TestCase):
         self.assertEqual(
             recognize_passport_upload.await_args.kwargs,
             {
-                "model": PassportOcrModel.MRZ,
                 "crop": True,
                 "normalization": True,
             },
@@ -185,8 +184,8 @@ class RouteTests(unittest.TestCase):
                 "normalization": None,
                 **empty_passport_mrz_data(),
                 "meta": {
-                    "engine": "qwen3-vl",
-                    "model": "qwen3-vl-8b",
+                    "engine": "mrz-scanner",
+                    "model": "mrz",
                     "duration_seconds": 0.5,
                 },
             },
@@ -200,7 +199,6 @@ class RouteTests(unittest.TestCase):
             response = self.client.post(
                 "/v1/ocr/passport/mrz",
                 data={
-                    "model": "qwen3-vl-8b",
                     "crop": "false",
                     "normalization": "false",
                 },
@@ -212,7 +210,6 @@ class RouteTests(unittest.TestCase):
         self.assertEqual(
             recognize_passport_upload.await_args.kwargs,
             {
-                "model": PassportOcrModel.QWEN3_VL_8B,
                 "crop": False,
                 "normalization": False,
             },

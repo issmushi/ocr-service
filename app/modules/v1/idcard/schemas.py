@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from enum import Enum
 from typing import Literal
 
 from pydantic import BaseModel, Field
@@ -10,15 +9,8 @@ from app.modules.v1.passport.schemas import (
     PassportMrzCorrectionSchema,
     PassportMrzNormalizationIssueSchema,
     PassportMrzNormalizationSchema,
-    PassportOcrMetaSchema,
+    PassportMrzOcrMetaSchema,
 )
-
-
-class IdcardOcrModel(str, Enum):
-    PADDLE = "paddle"
-    MRZ = "mrz"
-    QWEN3_VL_4B = "qwen3-vl-4b"
-    QWEN3_VL_8B = "qwen3-vl-8b"
 
 
 class IdcardMrzCorrectionSchema(PassportMrzCorrectionSchema):
@@ -112,8 +104,8 @@ class IdcardMrzDataSchema(BaseModel):
     mrz_valid: bool | None = Field(
         ..., description="Проверка контрольных цифр; null для неполной MRZ."
     )
-    meta: PassportOcrMetaSchema = Field(
-        ..., description="Движок, выбранная модель и время OCR."
+    meta: PassportMrzOcrMetaSchema = Field(
+        ..., description="MRZ Scanner и время OCR."
     )
 
 

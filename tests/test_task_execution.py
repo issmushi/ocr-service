@@ -9,9 +9,7 @@ from app.core.errors import AppError, ErrorCode
 from app.modules.tasks.enums import TaskOperation
 from app.modules.tasks.execution import execute_task_operation
 from app.modules.v1.full.schemas import FullOcrModel
-from app.modules.v1.idcard.schemas import IdcardOcrModel
 from app.modules.v1.passport.schemas import (
-    PassportOcrModel,
     PassportPage,
     PassportPageOcrModel,
 )
@@ -37,13 +35,11 @@ class TaskExecutionTests(unittest.IsolatedAsyncioTestCase):
                 TaskOperation.PASSPORT_MRZ,
                 "recognize_passport_upload",
                 {
-                    "model": "mrz",
                     "crop": False,
                     "normalize": False,
                     "normalization": True,
                 },
                 {
-                    "model": PassportOcrModel.MRZ,
                     "crop": False,
                     "normalize": False,
                     "normalization": True,
@@ -63,13 +59,11 @@ class TaskExecutionTests(unittest.IsolatedAsyncioTestCase):
                 TaskOperation.IDCARD_MRZ,
                 "recognize_idcard_upload",
                 {
-                    "model": "qwen3-vl-8b",
                     "crop": True,
                     "normalize": True,
                     "normalization": False,
                 },
                 {
-                    "model": IdcardOcrModel.QWEN3_VL_8B,
                     "crop": True,
                     "normalize": True,
                     "normalization": False,
@@ -94,9 +88,10 @@ class TaskExecutionTests(unittest.IsolatedAsyncioTestCase):
                     self.assertEqual(upload.size, len(b"original-image"))
                     self.assertEqual(await upload.read(), b"original-image")
                     self.assertEqual(kwargs, expected)
-                    self.assertIsInstance(
-                        kwargs["model"], type(expected["model"])
-                    )
+                    if "model" in expected:
+                        self.assertIsInstance(
+                            kwargs["model"], type(expected["model"])
+                        )
                     return response
 
                 handler = AsyncMock(side_effect=recognize)
@@ -110,6 +105,28 @@ class TaskExecutionTests(unittest.IsolatedAsyncioTestCase):
                 )
                 self.assertTrue(received[0].file.closed)
                 self.assertEqual(options, original_options)
+
+    async def test_previously_queued_mrz_tasks_discard_model_choice(self):
+        """Old tasks retain flags and now execute through the fixed scanner."""
+        response = {"success": True, "data": None, "error": None}
+        flags = {"crop": False, "normalize": False, "normalization": True}
+        for operation, handler_name in (
+            (TaskOperation.PASSPORT_MRZ, "recognize_passport_upload"),
+            (TaskOperation.IDCARD_MRZ, "recognize_idcard_upload"),
+        ):
+            for model in ("mrz", "paddle", "qwen3-vl-8b", "removed-model"):
+                with self.subTest(operation=operation, stored_model=model):
+                    options = {"model": model, **flags}
+                    handler = AsyncMock(return_value=response)
+                    with patch(f"{EXECUTION}.{handler_name}", handler):
+                        result = await execute_task_operation(
+                            job(operation, options), b"original-image"
+                        )
+                    self.assertEqual(handler.await_args.kwargs, flags)
+                    self.assertEqual(options, {"model": model, **flags})
+                    self.assertEqual(
+                        result, {"format": "json", "response": response}
+                    )
 
     async def test_json_payload_has_the_same_schema_serialization_as_http(
         self,

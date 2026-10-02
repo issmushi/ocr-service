@@ -8,13 +8,6 @@ from pydantic import BaseModel, Field
 from app.core.api_schemas import ErrorSchema
 
 
-class PassportOcrModel(str, Enum):
-    PADDLE = "paddle"
-    MRZ = "mrz"
-    QWEN3_VL_4B = "qwen3-vl-4b"
-    QWEN3_VL_8B = "qwen3-vl-8b"
-
-
 class PassportPage(int, Enum):
     PAGE_3 = 3
 
@@ -27,7 +20,6 @@ class PassportPageOcrModel(str, Enum):
 
 class PassportOcrMetaSchema(BaseModel):
     engine: Literal[
-        "paddleocr",
         "mrz-scanner",
         "qwen3-vl",
         "russian-docs-ocr",
@@ -36,14 +28,13 @@ class PassportOcrMetaSchema(BaseModel):
         description="Движок, выполнивший распознавание.",
     )
     model: Literal[
-        "paddle",
         "mrz",
         "russian-ocr",
         "qwen3-vl-4b",
         "qwen3-vl-8b",
     ] = Field(
         ...,
-        description="Выбранная в запросе модель распознавания.",
+        description="Модель, выполнившая распознавание.",
     )
     duration_seconds: float = Field(
         ...,
@@ -52,6 +43,15 @@ class PassportOcrMetaSchema(BaseModel):
             "Длительность вызова OCR в секундах, включая ожидание движка; "
             "чтение, проверка и обрезка изображения в это время не входят."
         ),
+    )
+
+
+class PassportMrzOcrMetaSchema(PassportOcrMetaSchema):
+    engine: Literal["mrz-scanner"] = Field(
+        ..., description="MRZ Scanner — движок распознавания MRZ."
+    )
+    model: Literal["mrz"] = Field(
+        ..., description="Фиксированная модель распознавания MRZ."
     )
 
 
@@ -247,9 +247,9 @@ class PassportMrzDataSchema(PassportDataSchema):
             "получен от OCR."
         ),
     )
-    meta: PassportOcrMetaSchema = Field(
+    meta: PassportMrzOcrMetaSchema = Field(
         ...,
-        description="Движок, выбранная модель и время распознавания.",
+        description="Движок, модель и время распознавания.",
     )
 
 

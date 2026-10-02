@@ -13,17 +13,19 @@ from fastapi.testclient import TestClient
 from PIL import Image
 
 from app.main import app
+from app.modules.v1.passport.pipeline import (
+    normalize_passport_mrz_from_text_result,
+)
 from app.workers.ocr_worker import execute_ocr_job
 
 
 @pytest.mark.parametrize(
     ("operation", "form"),
     [
-        ("passport/mrz", {"model": "qwen3-vl-4b"}),
+        ("passport/mrz", {}),
         (
             "passport/mrz",
             {
-                "model": "qwen3-vl-8b",
                 "crop": "false",
                 "normalize": "false",
                 "normalization": "false",
@@ -33,11 +35,10 @@ from app.workers.ocr_worker import execute_ocr_job
             "passport/page",
             {"model": "qwen3-vl-8b", "page": "3", "crop": "false"},
         ),
-        ("idcard/mrz", {"model": "qwen3-vl-4b"}),
+        ("idcard/mrz", {}),
         (
             "idcard/mrz",
             {
-                "model": "qwen3-vl-8b",
                 "crop": "false",
                 "normalize": "false",
                 "normalization": "false",
@@ -83,6 +84,17 @@ def test_task_result_matches_direct_http_response(tmp_path, operation, form):
             idcard_rows if operation == "idcard/mrz" else passport_rows
         )
 
+    async def recognize_mrz(scanner_operation, _content, **options):
+        raw_result = {"items": [{"text": raw_text}]}
+        if scanner_operation == "passport_v1":
+            return normalize_passport_mrz_from_text_result(
+                raw_result,
+                engine="mrz-scanner",
+                normalize=options.get("normalize", True),
+            )
+        assert scanner_operation == "mrz_crop_text"
+        return raw_result
+
     with ExitStack() as stack:
         client = TestClient(app)
         stack.callback(client.close)
@@ -107,6 +119,7 @@ def test_task_result_matches_direct_http_response(tmp_path, operation, form):
                     return_value=10.0,
                 )
             )
+        for module in ("passport", "full"):
             stack.enter_context(
                 patch(
                     f"app.modules.v1.{module}.service.recognize_vlm_image",
@@ -115,6 +128,12 @@ def test_task_result_matches_direct_http_response(tmp_path, operation, form):
                     ),
                 )
             )
+        scanner = stack.enter_context(
+            patch(
+                "app.modules.v1.passport.runtime.mrz_scanner_runtime.run",
+                new=AsyncMock(side_effect=recognize_mrz),
+            )
+        )
         for module in ("passport", "idcard"):
             stack.enter_context(
                 patch(
@@ -149,6 +168,11 @@ def test_task_result_matches_direct_http_response(tmp_path, operation, form):
         assert created.status_code == 202, created.text
         task_id = created.json()["data"]["task_id"]
         assert stored["job_id"] == task_id
+        if operation in {"passport/mrz", "idcard/mrz"}:
+            assert stored["options"] == {
+                key: form.get(key, "true") == "true"
+                for key in ("crop", "normalize", "normalization")
+            }
         image_path = Path(stored["image_path"])
         assert image_path.read_bytes() == content
         job = {
@@ -169,6 +193,8 @@ def test_task_result_matches_direct_http_response(tmp_path, operation, form):
             )
         )
         completed = client.get(f"/v1/tasks/{task_id}/result")
+        if operation in {"passport/mrz", "idcard/mrz"}:
+            assert scanner.await_count == 2
 
     assert completed.status_code == 200, completed.text
     assert completed.headers["content-type"] == direct.headers["content-type"]

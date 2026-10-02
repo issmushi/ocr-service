@@ -1,12 +1,5 @@
 import type { ParamDefinition, ParamValue, ToolDefinition, ToolId } from "./types";
 
-const mrzModels = [
-  { value: "paddle", label: "PaddleOCR", note: "Чтение текста" },
-  { value: "mrz", label: "MRZ Scanner", note: "Чтение MRZ" },
-  { value: "qwen3-vl-4b", label: "Qwen3-VL 4B", note: "Если включён на сервере" },
-  { value: "qwen3-vl-8b", label: "Qwen3-VL 8B", note: "Если включён на сервере" },
-];
-
 const passportFieldModels = [
   { value: "none", label: "Только вырезки" },
   { value: "paddle", label: "Paddle eslav v5 · CPU" },
@@ -21,14 +14,6 @@ export function passportFieldOcrLabel(model: string): string {
 }
 
 const mrzParams: ParamDefinition[] = [
-  {
-    kind: "select",
-    key: "model",
-    label: "Модель",
-    description: "Движок для чтения MRZ.",
-    defaultValue: "mrz",
-    options: mrzModels,
-  },
   {
     kind: "toggle",
     key: "crop",
@@ -58,7 +43,7 @@ export const tools: ToolDefinition[] = [
     group: "Распознавание",
     title: "MRZ паспорта",
     shortTitle: "Passport MRZ",
-    description: "Прочитать две строки MRZ и разобрать их в поля паспорта.",
+    description: "Прочитать две строки через MRZ Scanner и разобрать их в поля паспорта.",
     endpoint: "/v1/ocr/passport/mrz",
     responseKind: "json",
     params: mrzParams,
@@ -108,7 +93,7 @@ export const tools: ToolDefinition[] = [
     group: "Распознавание",
     title: "MRZ ID-карты",
     shortTitle: "ID-card MRZ",
-    description: "Прочитать MRZ ID-карты Казахстана или Кыргызстана и разобрать поля.",
+    description: "Прочитать MRZ ID-карты Казахстана или Кыргызстана через MRZ Scanner и разобрать поля.",
     endpoint: "/v1/ocr/idcard/mrz",
     responseKind: "json",
     params: mrzParams,

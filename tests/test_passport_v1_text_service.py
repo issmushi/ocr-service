@@ -114,7 +114,8 @@ class PassportV1PageServiceTests(unittest.TestCase):
                 new=AsyncMock(return_value=result),
             ) as run,
             patch(
-                f"{SERVICE}.paddle_runtime.run", new_callable=AsyncMock
+                "app.modules.paddle.runtime.paddle_runtime.run",
+                new_callable=AsyncMock,
             ) as paddle_run,
             patch(
                 f"{SERVICE}.mrz_scanner_runtime.run", new_callable=AsyncMock
@@ -170,7 +171,8 @@ class PassportV1PageServiceTests(unittest.TestCase):
                     new=AsyncMock(return_value=result),
                 ) as vlm_run,
                 patch(
-                    f"{SERVICE}.paddle_runtime.run", new_callable=AsyncMock
+                    "app.modules.paddle.runtime.paddle_runtime.run",
+                    new_callable=AsyncMock,
                 ) as paddle_run,
                 patch(
                     f"{SERVICE}.mrz_scanner_runtime.run",
@@ -664,7 +666,8 @@ class PassportV1PageServiceTests(unittest.TestCase):
                     new=AsyncMock(return_value=result),
                 ) as vlm_run,
                 patch(
-                    f"{SERVICE}.paddle_runtime.run", new_callable=AsyncMock
+                    "app.modules.paddle.runtime.paddle_runtime.run",
+                    new_callable=AsyncMock,
                 ) as paddle_run,
                 patch(
                     f"{SERVICE}.mrz_scanner_runtime.run",
@@ -827,7 +830,8 @@ class PassportV1PageServiceTests(unittest.TestCase):
             with self.subTest(code=code):
                 with (
                     patch(
-                        f"{SERVICE}.paddle_runtime.run", new_callable=AsyncMock
+                        "app.modules.paddle.runtime.paddle_runtime.run",
+                        new_callable=AsyncMock,
                     ) as run,
                     patch(
                         f"{SERVICE}.recognize_vlm_image",
@@ -971,7 +975,8 @@ class PassportV1PageServiceTests(unittest.TestCase):
                     f"{SERVICE}.russian_runtime.run", new_callable=AsyncMock
                 ) as russian_run,
                 patch(
-                    f"{SERVICE}.paddle_runtime.run", new_callable=AsyncMock
+                    "app.modules.paddle.runtime.paddle_runtime.run",
+                    new_callable=AsyncMock,
                 ) as paddle_run,
             ):
                 response = self.client.post(
@@ -1044,7 +1049,7 @@ class PassportV1PageServiceTests(unittest.TestCase):
         )
         self.assertEqual(
             set(meta_schema["properties"]["engine"]["enum"]),
-            {"paddleocr", "mrz-scanner", "qwen3-vl", "russian-docs-ocr"},
+            {"mrz-scanner", "qwen3-vl", "russian-docs-ocr"},
         )
         self.assertNotIn(
             "PassportTextDataSchema", schema["components"]["schemas"]
@@ -1072,10 +1077,7 @@ class PassportV1PageServiceTests(unittest.TestCase):
             page_data_schema["properties"]["issuing_country"]["const"],
             "RUS",
         )
-        self.assertEqual(
-            set(schema["components"]["schemas"]["PassportOcrModel"]["enum"]),
-            {"paddle", "mrz", "qwen3-vl-4b", "qwen3-vl-8b"},
-        )
+        self.assertNotIn("PassportOcrModel", schema["components"]["schemas"])
         self.assertIn("страницу внутреннего паспорта РФ", operation["summary"])
         self.assertEqual(
             operation["responses"]["200"]["content"]["application/json"][

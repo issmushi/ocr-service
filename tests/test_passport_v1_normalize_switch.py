@@ -7,6 +7,7 @@ import numpy as np
 import pytest
 from fastapi.testclient import TestClient
 
+from app.core.config import settings
 from app.core.images.preprocessing import PreparedImage
 from app.main import app
 from app.modules.v1.passport.pipeline import (
@@ -28,15 +29,21 @@ EMPTY_REPORT = {
     "corrections": [],
     "issues": [],
 }
-MODELS = ("paddle", "mrz", "qwen3-vl-4b", "qwen3-vl-8b")
+TEXT_ADAPTER_ENGINES = ("paddle", "mrz", "qwen3-vl-4b", "qwen3-vl-8b")
 
 
-def test_openapi_exposes_both_switches_with_enabled_defaults():
+def test_openapi_exposes_normalization_switches_without_model_selection():
     schema = app.openapi()
     reference = schema["paths"][PATH]["post"]["requestBody"]["content"][
         "multipart/form-data"
     ]["schema"]["$ref"]
     body = schema["components"]["schemas"][reference.rsplit("/", 1)[-1]]
+    assert set(body["properties"]) == {
+        "image",
+        "crop",
+        "normalize",
+        "normalization",
+    }
     for field in ("normalize", "normalization"):
         assert body["properties"][field]["type"] == "boolean"
         assert body["properties"][field]["default"] is True
@@ -75,7 +82,7 @@ def test_disabled_normalization_never_calls_header_or_country_rules():
     }
 
 
-@pytest.mark.parametrize("engine", MODELS)
+@pytest.mark.parametrize("engine", TEXT_ADAPTER_ENGINES)
 def test_text_adapter_keeps_ocr_characters_with_normalization_disabled(engine):
     result = normalize_passport_mrz_from_text_result(
         {"items": [{"text": "\n".join(RAW_MRZ)}]},
@@ -135,12 +142,10 @@ def test_bytes_pipelines_propagate_normalization_switch(engine):
         )
 
 
-@pytest.mark.parametrize("model", MODELS)
 @pytest.mark.parametrize("crop", (False, True))
 @pytest.mark.parametrize("normalize", (False, True))
 @pytest.mark.parametrize("normalization", (False, True))
-def test_normalization_and_report_switches_are_independent_for_all_engines(
-    model,
+def test_scanner_normalization_and_report_switches_are_independent(
     crop,
     normalize,
     normalization,
@@ -161,24 +166,15 @@ def test_normalization_and_report_switches_are_independent_for_all_engines(
         patch(
             "app.modules.v1.passport.service.crop_mrz_bytes",
             AsyncMock(return_value=b"crop"),
-        ),
-        patch(
-            "app.modules.v1.passport.service.paddle_runtime.run",
-            AsyncMock(side_effect=run),
-        ),
+        ) as crop_mrz,
         patch(
             "app.modules.v1.passport.service.mrz_scanner_runtime.run",
             AsyncMock(side_effect=run),
-        ),
-        patch(
-            "app.modules.v1.passport.service.recognize_vlm_image",
-            AsyncMock(return_value=raw_text),
-        ),
+        ) as mrz_run,
     ):
         response = TestClient(app).post(
             PATH,
             data={
-                "model": model,
                 "crop": str(crop).lower(),
                 "normalize": str(normalize).lower(),
                 "normalization": str(normalization).lower(),
@@ -187,7 +183,20 @@ def test_normalization_and_report_switches_are_independent_for_all_engines(
         )
 
     assert response.status_code == 200, response.text
+    options = {} if crop or normalize else {"normalize": False}
+    mrz_run.assert_awaited_once_with(
+        "mrz_crop_text" if crop else "passport_v1",
+        b"crop" if crop else b"image",
+        timeout_seconds=settings.mrz_scanner_document_hard_timeout_seconds,
+        **options,
+    )
+    if crop:
+        crop_mrz.assert_awaited_once_with(b"image")
+    else:
+        crop_mrz.assert_not_awaited()
     data = response.json()["data"]
+    assert data["meta"]["engine"] == "mrz-scanner"
+    assert data["meta"]["model"] == "mrz"
     if normalize:
         assert data["mrz"] == [
             "P<ARMHAYRAPETYAN<<ARAM".ljust(44, "<"),
@@ -207,9 +216,8 @@ def test_normalization_and_report_switches_are_independent_for_all_engines(
         assert data["normalization"] is None
 
 
-@pytest.mark.parametrize("model", MODELS)
 @pytest.mark.parametrize("crop", (False, True))
-def test_disabled_normalization_does_not_repair_unknown_header(model, crop):
+def test_disabled_normalization_does_not_repair_unknown_header(crop):
     raw = ["<ARMHAYRAPETYAN<<ARAM".ljust(43, "<"), RAW_MRZ[1]]
     raw_text = {"items": [{"text": "\n".join(raw)}]}
 
@@ -226,22 +234,13 @@ def test_disabled_normalization_does_not_repair_unknown_header(model, crop):
             AsyncMock(return_value=b"crop"),
         ),
         patch(
-            "app.modules.v1.passport.service.paddle_runtime.run",
-            AsyncMock(side_effect=run),
-        ),
-        patch(
             "app.modules.v1.passport.service.mrz_scanner_runtime.run",
             AsyncMock(side_effect=run),
-        ),
-        patch(
-            "app.modules.v1.passport.service.recognize_vlm_image",
-            AsyncMock(return_value=raw_text),
         ),
     ):
         response = TestClient(app).post(
             PATH,
             data={
-                "model": model,
                 "crop": str(crop).lower(),
                 "normalize": "false",
             },

@@ -10,10 +10,7 @@ from app.core.api_schemas import (
     OCR_FAILED_RESPONSE,
     OCR_TIMEOUT_RESPONSE,
 )
-from app.modules.v1.idcard.schemas import (
-    IdcardMrzResponseSchema,
-    IdcardOcrModel,
-)
+from app.modules.v1.idcard.schemas import IdcardMrzResponseSchema
 from app.modules.v1.idcard.service import recognize_idcard_upload
 
 router = APIRouter(tags=["OCR V1: ID Card"])
@@ -26,7 +23,7 @@ router = APIRouter(tags=["OCR V1: ID Card"])
     description=(
         "Распознаёт ID-карты Казахстана с двумя "
         "или тремя строками MRZ и Кыргызстана "
-        "с тремя строками. Модели: paddle, mrz, qwen3-vl-4b, qwen3-vl-8b. "
+        "с тремя строками через MRZ Scanner. "
         "При crop=true выравнивает документ и "
         "передаёт OCR только найденную MRZ; "
         "при crop=false движок получает исходное изображение. "
@@ -55,10 +52,6 @@ async def recognize_idcard(
     image: UploadFile = File(
         ..., description="Изображение стороны ID-карты с MRZ."
     ),
-    model: IdcardOcrModel = Form(
-        IdcardOcrModel.MRZ,
-        description="Модель распознавания. По умолчанию MRZ Scanner (mrz).",
-    ),
     crop: bool = Form(True, description="Вырезать MRZ перед OCR."),
     normalize: bool = Form(
         True, description="Применять исправления и достройку MRZ."
@@ -72,7 +65,6 @@ async def recognize_idcard(
 ) -> dict[str, Any]:
     return await recognize_idcard_upload(
         image,
-        model=model,
         crop=crop,
         normalize=normalize,
         normalization=normalization,

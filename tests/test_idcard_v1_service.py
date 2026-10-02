@@ -91,13 +91,6 @@ KGZ_TD1_DOCUMENT = {
     "mrz_valid": True,
 }
 
-ENGINE_BY_MODEL = {
-    "paddle": "paddleocr",
-    "mrz": "mrz-scanner",
-    "qwen3-vl-4b": "qwen3-vl",
-    "qwen3-vl-8b": "qwen3-vl",
-}
-
 
 def _raw_result(lines: list[str]) -> dict[str, Any]:
     return {"items": [{"text": line} for line in lines]}
@@ -107,7 +100,7 @@ def _post_idcard(
     client: TestClient,
     lines: list[str],
     *,
-    model: str | None = "paddle",
+    extra_data: dict[str, str] | None = None,
     crop: bool = False,
     normalize: bool = True,
     normalization: bool = True,
@@ -115,9 +108,7 @@ def _post_idcard(
     raw_result = _raw_result(lines)
     mocks = {
         "crop": AsyncMock(return_value=b"cropped-mrz"),
-        "paddle": AsyncMock(return_value=raw_result),
         "mrz": AsyncMock(return_value=raw_result),
-        "vlm": AsyncMock(return_value=raw_result),
     }
     with (
         patch(
@@ -125,22 +116,13 @@ def _post_idcard(
             new=mocks["crop"],
         ),
         patch(
-            "app.modules.v1.idcard.service.paddle_runtime.run",
-            new=mocks["paddle"],
-        ),
-        patch(
             "app.modules.v1.idcard.service.mrz_scanner_runtime.run",
             new=mocks["mrz"],
-        ),
-        patch(
-            "app.modules.v1.idcard.service.recognize_vlm_image",
-            new=mocks["vlm"],
         ),
         patch(
             "app.modules.v1.idcard.service.settings",
             new=replace(
                 settings,
-                paddle_ocr_document_hard_timeout_seconds=11.0,
                 mrz_scanner_document_hard_timeout_seconds=17.0,
             ),
         ),
@@ -154,8 +136,7 @@ def _post_idcard(
             "normalize": str(normalize).lower(),
             "normalization": str(normalization).lower(),
         }
-        if model is not None:
-            data["model"] = model
+        data.update(extra_data or {})
         response = client.post(
             PATH,
             data=data,
@@ -164,10 +145,9 @@ def _post_idcard(
     return response, mocks
 
 
-def _assert_selected_runtime(
+def _assert_mrz_runtime(
     mocks: dict[str, AsyncMock],
     *,
-    model: str,
     crop: bool,
 ) -> None:
     content = b"cropped-mrz" if crop else b"fake-image"
@@ -175,34 +155,11 @@ def _assert_selected_runtime(
         mocks["crop"].assert_awaited_once_with(b"fake-image")
     else:
         mocks["crop"].assert_not_awaited()
-
-    if model == "paddle":
-        mocks["paddle"].assert_awaited_once_with(
-            "idcard_v1_text",
-            content,
-            timeout_seconds=11.0,
-        )
-    else:
-        mocks["paddle"].assert_not_awaited()
-
-    if model == "mrz":
-        mocks["mrz"].assert_awaited_once_with(
-            "mrz_crop_text",
-            content,
-            timeout_seconds=17.0,
-        )
-    else:
-        mocks["mrz"].assert_not_awaited()
-
-    if model.startswith("qwen"):
-        mocks["vlm"].assert_awaited_once_with(
-            content,
-            model=model,
-            filename="mrz.jpg" if crop else "idcard.png",
-            content_type="image/jpeg" if crop else "image/png",
-        )
-    else:
-        mocks["vlm"].assert_not_awaited()
+    mocks["mrz"].assert_awaited_once_with(
+        "mrz_crop_text",
+        content,
+        timeout_seconds=17.0,
+    )
 
 
 @pytest.fixture
@@ -210,17 +167,14 @@ def client() -> TestClient:
     return TestClient(app)
 
 
-@pytest.mark.parametrize("model", tuple(ENGINE_BY_MODEL))
 @pytest.mark.parametrize("crop", (False, True))
-def test_all_models_and_crop_modes_return_the_same_document(
+def test_mrz_scanner_crop_modes_return_the_same_document(
     client: TestClient,
-    model: str,
     crop: bool,
 ) -> None:
     response, mocks = _post_idcard(
         client,
         KAZ_TD2,
-        model=model,
         crop=crop,
     )
 
@@ -232,14 +186,14 @@ def test_all_models_and_crop_modes_return_the_same_document(
             "normalization": EMPTY_NORMALIZATION,
             **KAZ_TD2_DOCUMENT,
             "meta": {
-                "engine": ENGINE_BY_MODEL[model],
-                "model": model,
+                "engine": "mrz-scanner",
+                "model": "mrz",
                 "duration_seconds": 0.25,
             },
         },
         "error": None,
     }
-    _assert_selected_runtime(mocks, model=model, crop=crop)
+    _assert_mrz_runtime(mocks, crop=crop)
 
 
 @pytest.mark.parametrize(
@@ -271,8 +225,8 @@ def test_supported_td1_td2_and_kyrgyz_document_codes(
         "normalization": None,
         **expected_document,
         "meta": {
-            "engine": "paddleocr",
-            "model": "paddle",
+            "engine": "mrz-scanner",
+            "model": "mrz",
             "duration_seconds": 0.25,
         },
     }
@@ -358,7 +312,7 @@ def test_normalize_false_does_not_repair_header(client: TestClient) -> None:
 
     assert response.status_code == 422
     assert response.json()["error"]["code"] == "OCR_FAILED"
-    mocks["paddle"].assert_awaited_once()
+    mocks["mrz"].assert_awaited_once()
 
 
 def test_normalize_false_keeps_short_line_without_padding(
@@ -376,7 +330,7 @@ def test_normalize_false_keeps_short_line_without_padding(
     assert response.json()["data"]["normalization"] == EMPTY_NORMALIZATION
     assert response.json()["data"]["mrz_valid"] is None
     assert len(response.json()["data"]["mrz"][2]) == 29
-    mocks["paddle"].assert_awaited_once()
+    mocks["mrz"].assert_awaited_once()
 
 
 @pytest.mark.parametrize(
@@ -402,7 +356,7 @@ def test_unknown_nonempty_idcard_headers_return_ocr_failed(
 
     assert response.status_code == 422
     assert response.json()["error"]["code"] == "OCR_FAILED"
-    mocks["paddle"].assert_awaited_once()
+    mocks["mrz"].assert_awaited_once()
 
 
 def test_td1_missing_third_line_returns_ocr_failed(client: TestClient) -> None:
@@ -410,50 +364,25 @@ def test_td1_missing_third_line_returns_ocr_failed(client: TestClient) -> None:
 
     assert response.status_code == 422
     assert response.json()["error"]["code"] == "OCR_FAILED"
-    mocks["paddle"].assert_awaited_once()
+    mocks["mrz"].assert_awaited_once()
 
 
-def test_unknown_model_is_rejected_before_dispatch(client: TestClient) -> None:
-    with (
-        patch(
-            "app.modules.v1.idcard.service.crop_mrz_bytes",
-            new_callable=AsyncMock,
-        ) as crop_mrz,
-        patch(
-            "app.modules.v1.idcard.service.paddle_runtime.run",
-            new_callable=AsyncMock,
-        ) as paddle_run,
-        patch(
-            "app.modules.v1.idcard.service.mrz_scanner_runtime.run",
-            new_callable=AsyncMock,
-        ) as mrz_run,
-        patch(
-            "app.modules.v1.idcard.service.recognize_vlm_image",
-            new_callable=AsyncMock,
-        ) as vlm_run,
-    ):
-        response = client.post(
-            PATH,
-            data={"model": "removed-model"},
-            files={"image": ("idcard.jpg", b"fake-image", "image/jpeg")},
-        )
-
-    assert response.status_code == 422
-    assert response.json() == {
-        "success": False,
-        "data": None,
-        "error": {
-            "code": "VALIDATION_ERROR",
-            "message": "Некорректные параметры запроса",
-        },
-    }
-    crop_mrz.assert_not_awaited()
-    paddle_run.assert_not_awaited()
-    mrz_run.assert_not_awaited()
-    vlm_run.assert_not_awaited()
+@pytest.mark.parametrize(
+    "legacy_model", ["paddle", "qwen3-vl-4b", "qwen3-vl-8b"]
+)
+def test_old_model_parameter_cannot_select_another_engine(
+    client: TestClient, legacy_model: str
+) -> None:
+    response, mocks = _post_idcard(
+        client, KAZ_TD1, extra_data={"model": legacy_model}
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["data"]["meta"]["model"] == "mrz"
+    assert response.json()["data"]["meta"]["engine"] == "mrz-scanner"
+    _assert_mrz_runtime(mocks, crop=False)
 
 
-def test_openapi_documents_models_flags_and_response_fields() -> None:
+def test_openapi_documents_mrz_scanner_flags_and_response_fields() -> None:
     schema = app.openapi()
     request_schema = schema["paths"][PATH]["post"]["requestBody"]["content"][
         "multipart/form-data"
@@ -461,18 +390,12 @@ def test_openapi_documents_models_flags_and_response_fields() -> None:
     component_name = request_schema["$ref"].rsplit("/", 1)[-1]
     body_schema = schema["components"]["schemas"][component_name]
     properties = body_schema["properties"]
-    model_component = properties["model"]["$ref"].rsplit("/", 1)[-1]
 
     assert properties["image"]["type"] == "string"
     assert properties["image"]["format"] == "binary"
     assert body_schema["required"] == ["image"]
-    assert properties["model"]["default"] == "mrz"
-    assert schema["components"]["schemas"][model_component]["enum"] == [
-        "paddle",
-        "mrz",
-        "qwen3-vl-4b",
-        "qwen3-vl-8b",
-    ]
+    assert set(properties) == {"image", "crop", "normalize", "normalization"}
+    assert "IdcardOcrModel" not in schema["components"]["schemas"]
     for flag in ("crop", "normalize", "normalization"):
         assert properties[flag]["type"] == "boolean"
         assert properties[flag]["default"] is True
@@ -480,6 +403,12 @@ def test_openapi_documents_models_flags_and_response_fields() -> None:
     response_properties = schema["components"]["schemas"][
         "IdcardMrzDataSchema"
     ]["properties"]
+    meta_component = response_properties["meta"]["$ref"].rsplit("/", 1)[-1]
+    meta_properties = schema["components"]["schemas"][meta_component][
+        "properties"
+    ]
+    assert meta_properties["engine"]["const"] == "mrz-scanner"
+    assert meta_properties["model"]["const"] == "mrz"
     assert {
         "mrz",
         "normalization",
@@ -509,7 +438,6 @@ def test_request_defaults_enable_crop_normalization_and_report(
     response, mocks = _post_idcard(
         client,
         KAZ_TD1,
-        model=None,
         crop=True,
     )
 
@@ -520,4 +448,4 @@ def test_request_defaults_enable_crop_normalization_and_report(
         "model": "mrz",
         "duration_seconds": 0.25,
     }
-    _assert_selected_runtime(mocks, model="mrz", crop=True)
+    _assert_mrz_runtime(mocks, crop=True)

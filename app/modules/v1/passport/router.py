@@ -12,7 +12,6 @@ from app.core.api_schemas import (
 )
 from app.modules.v1.passport.schemas import (
     PassportMrzResponseSchema,
-    PassportOcrModel,
     PassportPage,
     PassportPageOcrModel,
     PassportPageResponseSchema,
@@ -30,12 +29,11 @@ router = APIRouter(tags=["OCR V1: Passport"])
     response_model=PassportMrzResponseSchema,
     summary="Распознать MRZ-строки паспорта",
     description=(
-        "Принимает изображение паспорта и выбранный движок: paddle, mrz, "
-        "qwen3-vl-4b или qwen3-vl-8b. "
+        "Распознаёт изображение паспорта через MRZ Scanner. "
         "При crop=true (по умолчанию) "
         "сначала выравнивает документ, находит MRZ "
-        "и передаёт движку только этот фрагмент. При crop=false каждый движок "
-        "обрабатывает исходное изображение по собственной логике. "
+        "и передаёт сканеру только этот фрагмент. При crop=false сканер "
+        "находит MRZ на исходном изображении. "
         "При normalize=true (по умолчанию) нормализует тип документа, страну "
         "выдачи и применяет правила страны. Возвращает обе MRZ-строки "
         "и при normalization=true — журнал исправлений каждого символа "
@@ -61,13 +59,6 @@ async def recognize_passport(
     image: UploadFile = File(
         ...,
         description="Изображение страницы паспорта с MRZ-зоной.",
-    ),
-    model: PassportOcrModel = Form(
-        PassportOcrModel.MRZ,
-        description=(
-            "Движок распознавания: mrz (по умолчанию), paddle, "
-            "qwen3-vl-4b или qwen3-vl-8b."
-        ),
     ),
     crop: bool = Form(
         True,
@@ -95,7 +86,6 @@ async def recognize_passport(
 ) -> dict[str, Any]:
     return await recognize_passport_upload(
         image,
-        model=model,
         crop=crop,
         normalization=normalization,
         **({} if normalize else {"normalize": False}),
@@ -143,10 +133,7 @@ async def recognize_passport_page(
     ),
     model: PassportPageOcrModel = Form(
         PassportPageOcrModel.RUSSIAN_OCR,
-        description=(
-            "Модель: russian-ocr, qwen3-vl-4b или qwen3-vl-8b. "
-            "Обычный PaddleOCR доступен только в эндпоинте MRZ."
-        ),
+        description="Модель: russian-ocr, qwen3-vl-4b или qwen3-vl-8b.",
     ),
     crop: bool = Form(
         True,

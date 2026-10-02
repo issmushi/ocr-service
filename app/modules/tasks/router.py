@@ -32,9 +32,7 @@ from app.modules.tasks.creation import create_image_task
 from app.modules.tasks.enums import TERMINAL_STATUSES, JobStatus, TaskOperation
 from app.modules.tasks.service import get_job, mark_cancelled
 from app.modules.v1.full.schemas import FullOcrModel
-from app.modules.v1.idcard.schemas import IdcardOcrModel
 from app.modules.v1.passport.schemas import (
-    PassportOcrModel,
     PassportPage,
     PassportPageOcrModel,
 )
@@ -86,17 +84,15 @@ TASK_ERRORS = {
 )
 async def create_passport_mrz_task(
     image: UploadFile = File(...),
-    model: PassportOcrModel = Form(PassportOcrModel.MRZ),
     crop: bool = Form(True),
     normalize: bool = Form(True),
     normalization: bool = Form(True),
 ) -> dict[str, Any]:
-    ensure_ocr_model_enabled(model.value)
+    ensure_ocr_model_enabled("mrz")
     return await create_image_task(
         image,
         operation=TaskOperation.PASSPORT_MRZ,
         options={
-            "model": model.value,
             "crop": crop,
             "normalize": normalize,
             "normalization": normalization,
@@ -138,17 +134,15 @@ async def create_passport_page_task(
 )
 async def create_idcard_mrz_task(
     image: UploadFile = File(...),
-    model: IdcardOcrModel = Form(IdcardOcrModel.MRZ),
     crop: bool = Form(True),
     normalize: bool = Form(True),
     normalization: bool = Form(True),
 ) -> dict[str, Any]:
-    ensure_ocr_model_enabled(model.value)
+    ensure_ocr_model_enabled("mrz")
     return await create_image_task(
         image,
         operation=TaskOperation.IDCARD_MRZ,
         options={
-            "model": model.value,
             "crop": crop,
             "normalize": normalize,
             "normalization": normalization,

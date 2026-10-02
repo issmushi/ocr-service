@@ -70,24 +70,33 @@ def test_disabled_model_returns_engine_unavailable() -> None:
 
 
 @pytest.mark.parametrize(
-    ("path", "form"),
+    ("path", "form", "disabled_model"),
     [
-        ("/v1/ocr/passport/mrz", {"model": "qwen3-vl-4b"}),
-        ("/v1/ocr/passport/page", {"page": "3", "model": "qwen3-vl-4b"}),
-        ("/v1/ocr/idcard/mrz", {"model": "qwen3-vl-4b"}),
-        ("/v1/ocr/full", {"model": "qwen3-vl-4b"}),
-        ("/v1/tasks/passport/mrz", {"model": "qwen3-vl-4b"}),
-        ("/v1/tasks/passport/page", {"page": "3", "model": "qwen3-vl-4b"}),
-        ("/v1/tasks/idcard/mrz", {"model": "qwen3-vl-4b"}),
-        ("/v1/tasks/full", {"model": "qwen3-vl-4b"}),
+        ("/v1/ocr/passport/mrz", {}, "mrz"),
+        (
+            "/v1/ocr/passport/page",
+            {"page": "3", "model": "qwen3-vl-4b"},
+            "qwen3-vl-4b",
+        ),
+        ("/v1/ocr/idcard/mrz", {}, "mrz"),
+        ("/v1/ocr/full", {"model": "qwen3-vl-4b"}, "qwen3-vl-4b"),
+        ("/v1/tasks/passport/mrz", {}, "mrz"),
+        (
+            "/v1/tasks/passport/page",
+            {"page": "3", "model": "qwen3-vl-4b"},
+            "qwen3-vl-4b",
+        ),
+        ("/v1/tasks/idcard/mrz", {}, "mrz"),
+        ("/v1/tasks/full", {"model": "qwen3-vl-4b"}, "qwen3-vl-4b"),
     ],
 )
 def test_disabled_model_is_rejected_by_sync_and_task_endpoints(
     path: str,
     form: dict[str, str],
+    disabled_model: str,
 ) -> None:
     configured = SimpleNamespace(
-        is_model_enabled=lambda model: model != "qwen3-vl-4b"
+        is_model_enabled=lambda model: model != disabled_model
     )
 
     client = TestClient(app)

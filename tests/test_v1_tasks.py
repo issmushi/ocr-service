@@ -29,7 +29,6 @@ CASES = [
         "passport_mrz",
         {},
         {
-            "model": "mrz",
             "crop": True,
             "normalize": True,
             "normalization": True,
@@ -46,7 +45,6 @@ CASES = [
         "idcard_mrz",
         {},
         {
-            "model": "mrz",
             "crop": True,
             "normalize": True,
             "normalization": True,
@@ -146,15 +144,9 @@ def test_create_each_operation_persists_one_image_and_exact_sync_defaults(
     assert len(list(directory.iterdir())) == 1
 
 
-@pytest.mark.parametrize(
-    ("path", "model"),
-    [
-        ("passport/mrz", "qwen3-vl-8b"),
-        ("idcard/mrz", "mrz"),
-    ],
-)
+@pytest.mark.parametrize("path", ["passport/mrz", "idcard/mrz"])
 def test_mrz_custom_flags_are_saved_as_booleans(
-    client, image_content, persistence, path, model
+    client, image_content, persistence, path
 ):
     create, _ = persistence
     response = post_task(
@@ -162,7 +154,6 @@ def test_mrz_custom_flags_are_saved_as_booleans(
         path,
         image_content,
         {
-            "model": model,
             "crop": "false",
             "normalize": "false",
             "normalization": "false",
@@ -171,10 +162,36 @@ def test_mrz_custom_flags_are_saved_as_booleans(
 
     assert response.status_code == 202
     assert create.await_args.kwargs["options"] == {
-        "model": model,
         "crop": False,
         "normalize": False,
         "normalization": False,
+    }
+
+
+@pytest.mark.parametrize("path", ["passport/mrz", "idcard/mrz"])
+def test_mrz_task_schema_has_no_model_choice(client, path):
+    schema = client.get("/openapi.json").json()
+    request = schema["paths"][f"/v1/tasks/{path}"]["post"]["requestBody"]
+    body = request["content"]["multipart/form-data"]["schema"]
+    fields = schema["components"]["schemas"][body["$ref"].split("/")[-1]][
+        "properties"
+    ]
+
+    assert set(fields) == {"image", "crop", "normalize", "normalization"}
+
+
+@pytest.mark.parametrize("path", ["passport/mrz", "idcard/mrz"])
+def test_obsolete_mrz_model_form_is_not_persisted(
+    client, image_content, persistence, path
+):
+    create, _ = persistence
+    response = post_task(client, path, image_content, {"model": "qwen3-vl-8b"})
+
+    assert response.status_code == 202
+    assert create.await_args.kwargs["options"] == {
+        "crop": True,
+        "normalize": True,
+        "normalization": True,
     }
 
 
@@ -204,7 +221,7 @@ def test_page_and_full_custom_options(
         ("passport/page", {}),
         ("passport/page", {"page": "2"}),
         ("passport/page", {"page": "3", "model": "paddle"}),
-        ("passport/mrz", {"model": "russian-ocr"}),
+        ("passport/mrz", {"crop": "sometimes"}),
         ("idcard/mrz", {"normalize": "sometimes"}),
         ("full", {"model": "mrz"}),
     ],
