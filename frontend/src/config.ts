@@ -72,6 +72,17 @@ export const tools: ToolDefinition[] = [
     outputHint: "Ответ: поля загранпаспорта, MRZ при наличии и meta",
   },
   {
+    id: "snils",
+    group: "Россия",
+    title: "СНИЛС",
+    shortTitle: "SNILS",
+    description: "Распознать СНИЛС: Russian OCR находит поля, Paddle Cyrillic перечитывает номер и даты на вырезках.",
+    endpoint: "/v1/ocr/snils",
+    responseKind: "json",
+    params: [],
+    outputHint: "Ответ: номер СНИЛС, ФИО, дата и место рождения, пол, дата регистрации и meta",
+  },
+  {
     id: "full-ocr",
     group: "Распознавание",
     title: "Весь текст",

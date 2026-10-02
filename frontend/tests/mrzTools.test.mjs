@@ -143,6 +143,49 @@ test("Russian international passport sends only image and exposes its own task r
   assert.match(fields, /Код органа выдачи/);
 });
 
+test("SNILS sends one image, shows its fields, and documents the task route", async (t) => {
+  const tool = toolById.snils;
+  assert.equal(tool.endpoint, "/v1/ocr/snils");
+  assert.equal(tool.group, "Россия");
+  assert.match(tool.description, /Paddle Cyrillic/);
+  assert.deepEqual(tool.params, []);
+  assert.deepEqual(defaultParams(tool), {});
+
+  const file = new File(["synthetic"], "snils.jpg", { type: "image/jpeg" });
+  const originalFetch = globalThis.fetch;
+  t.after(() => { globalThis.fetch = originalFetch; });
+  globalThis.fetch = async (url, options) => {
+    assert.equal(url, "/v1/ocr/snils");
+    assert.equal(options.method, "POST");
+    assert.deepEqual([...options.body.keys()], ["image"]);
+    return new Response(JSON.stringify({
+      success: true,
+      data: { snils_number: "000-000-000 00", date_of_birth: "01.01.2000", meta: { engine: "russian-ocr" } },
+      error: null,
+    }), { headers: { "content-type": "application/json" } });
+  };
+  const result = await runTool("", tool, [file], defaultParams(tool), new AbortController().signal);
+  assert.equal(result.ok, true);
+  assert.equal(result.json.data.date_of_birth, "01.01.2000");
+
+  const curl = buildCurl("http://localhost:8000", tool, [file], {});
+  assert.match(curl, /\/v1\/ocr\/snils/);
+  assert.match(curl, /image=@/);
+  assert.doesNotMatch(curl, /-F '(?:model|crop)=/);
+
+  const docs = renderToStaticMarkup(createElement(DocsPage, { navigate() {} }));
+  assert.match(docs, /\/v1\/tasks\/snils/);
+  assert.match(docs, /Paddle Cyrillic/);
+  assert.match(docs, /date_of_birth/);
+
+  const fields = renderToStaticMarkup(createElement(FieldsView, {
+    entries: [["snils_number", "000-000-000 00"], ["birth_place", "ГОРОД"], ["registration_date", "02.01.2000"]],
+  }));
+  assert.match(fields, /Номер СНИЛС/);
+  assert.match(fields, /Место рождения/);
+  assert.match(fields, /Дата регистрации/);
+});
+
 test("MRZ fields show the shared document names and all document types", () => {
   for (const [type, label] of [
     ["internal_passport", "Внутренний паспорт"],

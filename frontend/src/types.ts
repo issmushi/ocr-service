@@ -4,6 +4,7 @@ export type ToolId =
   | "mrz"
   | "passport-internal"
   | "passport-international"
+  | "snils"
   | "full-ocr"
   | "crop-document"
   | "crop-mrz"
