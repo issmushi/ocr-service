@@ -4,6 +4,8 @@ import unittest
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
+import numpy as np
+
 from app.modules.russian.inference_worker import russian_inference_worker
 from app.modules.russian.passport import recognize_passport_text_bytes
 from tests.russian.test_engine_adapter import image_bytes
@@ -14,17 +16,25 @@ class InferenceWorkerTests(unittest.TestCase):
         self,
     ) -> None:
         pipeline = Mock()
-        pipeline.words_detector.predict.return_value = {
-            "WordsDetector": {"bbox": [[2, 2, 15, 10, 0.9, 0, "Word"]]}
+        pipeline.words_detector.predict_transform.return_value = {
+            "WordsDetector": {"warped_img": [np.zeros((8, 13, 3), np.uint8)]}
         }
         pipeline.ocr_cyr.predict.return_value = {
             "OCRCyrillic": {"ocr_output": "ПРИМЕР"}
         }
+        detector = Mock()
+        detector.predict.return_value = [
+            {"dt_polys": [[[2, 2], [15, 2], [15, 10], [2, 10]]]}
+        ]
         with (
             patch(
                 "app.ocr_engine.russian.factory.create_pipeline",
                 return_value=pipeline,
             ) as factory,
+            patch(
+                "app.ocr_engine.paddle.factory.create_cpu_text_detector",
+                return_value=detector,
+            ) as detector_factory,
             patch(
                 "app.modules.russian.inference_worker.serve_inference_worker"
             ) as serve,
@@ -32,12 +42,18 @@ class InferenceWorkerTests(unittest.TestCase):
             russian_inference_worker(Mock(), "cpu")
             _, initialize, dispatch = serve.call_args.args
             reader = initialize()
+            detector_factory.assert_not_called()
             for _ in range(2):
                 result = dispatch(reader, "full_text", (image_bytes(),), {})
                 self.assertEqual(result, {"text": "ПРИМЕР"})
 
         factory.assert_called_once_with(device="cpu")
-        self.assertEqual(pipeline.words_detector.predict.call_count, 2)
+        detector_factory.assert_called_once_with()
+        self.assertEqual(detector.predict.call_count, 2)
+        self.assertEqual(
+            pipeline.words_detector.predict_transform.call_count, 2
+        )
+        pipeline.words_detector.predict.assert_not_called()
         self.assertEqual(pipeline.ocr_cyr.predict.call_count, 2)
         pipeline.process_img.assert_not_called()
         pipeline.ocr_cyr.fix_errors.assert_not_called()

@@ -17,6 +17,7 @@ from app.core.images.validation import (
 )
 from app.core.model_availability import ensure_ocr_model_enabled
 from app.modules.russian.runtime import russian_runtime
+from app.ocr_engine.paddle.factory import FULL_TEXT_DETECTOR_MODEL
 
 
 async def recognize_full_russian_upload(image: UploadFile) -> dict[str, Any]:
@@ -51,6 +52,7 @@ async def recognize_full_russian_upload(image: UploadFile) -> dict[str, Any]:
             "meta": {
                 "engine": "russian-docs-ocr",
                 "model": "russian-ocr",
+                "detector": FULL_TEXT_DETECTOR_MODEL,
                 "duration_seconds": duration_seconds,
             },
         }

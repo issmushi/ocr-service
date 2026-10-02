@@ -35,7 +35,14 @@ def detect_text_regions(
 ) -> TextDetectionResult:
     """Detect every text region without running text recognition."""
     pipeline = direct_ocr_pipeline(ocr)
-    raw_result = next(pipeline.text_det_model.predict(image), None)
+    return detect_text_model_regions(pipeline.text_det_model, image)
+
+
+def detect_text_model_regions(
+    model: Any, image: np.ndarray
+) -> TextDetectionResult:
+    """Use a standalone detector or a pipeline's text model on a BGR image."""
+    raw_result = next(iter(model.predict(image)), None)
     if raw_result is None:
         return TextDetectionResult(image=image, regions=())
 

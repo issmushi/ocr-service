@@ -58,6 +58,9 @@ class RussianFullOcrMetaSchema(FullOcrMetaSchema):
     model: Literal["russian-ocr"] = Field(
         ..., description="Russian OCR accurate, кириллическая модель."
     )
+    detector: Literal["PP-OCRv5_mobile_det"] = Field(
+        ..., description="Отдельная модель поиска текста на всей странице."
+    )
 
 
 class RussianFullOcrDataSchema(FullOcrDataSchema):

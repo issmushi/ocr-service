@@ -66,7 +66,7 @@ def upload(client, content, **data):
     )
 
 
-def test_returns_raw_text_and_fixed_russian_metadata(
+def test_returns_raw_text_and_fixed_hybrid_metadata(
     client, image_content, engines
 ):
     with (
@@ -87,6 +87,7 @@ def test_returns_raw_text_and_fixed_russian_metadata(
             "meta": {
                 "engine": "russian-docs-ocr",
                 "model": "russian-ocr",
+                "detector": "PP-OCRv5_mobile_det",
                 "duration_seconds": 0.375,
             },
         },
@@ -100,14 +101,43 @@ def test_returns_raw_text_and_fixed_russian_metadata(
     engines["vlm"].assert_not_awaited()
 
 
+def test_only_russian_model_needs_to_be_enabled(
+    client, image_content, engines
+):
+    with patch(
+        "app.core.model_availability.settings",
+        replace(settings, ocr_models="russian-ocr"),
+    ):
+        response = upload(client, image_content)
+
+    assert response.status_code == 200, response.text
+    assert response.json()["data"]["text"] == TEXT
+    assert response.json()["data"]["meta"]["model"] == "russian-ocr"
+    assert response.json()["data"]["meta"]["detector"] == "PP-OCRv5_mobile_det"
+    engines["russian"].assert_awaited_once_with(
+        "full_text",
+        image_content,
+        timeout_seconds=settings.russian_ocr_full_hard_timeout_seconds,
+    )
+    engines["paddle"].assert_not_awaited()
+    engines["vlm"].assert_not_awaited()
+
+
 @pytest.mark.parametrize("model", ["paddle", "qwen3-vl-8b", "unknown"])
-def test_extra_model_and_crop_fields_cannot_change_dispatch(
+def test_extra_fields_cannot_change_fixed_hybrid_dispatch(
     client, image_content, engines, model
 ):
-    response = upload(client, image_content, model=model, crop="true")
+    response = upload(
+        client,
+        image_content,
+        model=model,
+        detector="PP-OCRv5_server_det",
+        crop="true",
+    )
 
     assert response.status_code == 200, response.text
     assert response.json()["data"]["meta"]["model"] == "russian-ocr"
+    assert response.json()["data"]["meta"]["detector"] == "PP-OCRv5_mobile_det"
     engines["russian"].assert_awaited_once_with(
         "full_text",
         image_content,
@@ -267,7 +297,7 @@ def test_service_closes_upload_on_success_and_failure(
     assert image.file.closed
 
 
-def test_openapi_has_only_image_and_fixed_russian_response():
+def test_openapi_has_only_image_and_fixed_hybrid_response():
     schema = app.openapi()
 
     def dereference(value):
@@ -276,6 +306,11 @@ def test_openapi_has_only_image_and_fixed_russian_response():
         ]
 
     operation = schema["paths"][PATH]["post"]
+    description = operation["description"]
+    assert "PP-OCRv5_mobile_det" in description
+    assert "Russian OCR" in description
+    assert "accurate" in description
+    assert "Paddle не используется" not in description
     body = dereference(
         operation["requestBody"]["content"]["multipart/form-data"]["schema"]
     )
@@ -297,6 +332,8 @@ def test_openapi_has_only_image_and_fixed_russian_response():
     meta = dereference(data["properties"]["meta"])
     assert meta["properties"]["engine"]["const"] == "russian-docs-ocr"
     assert meta["properties"]["model"]["const"] == "russian-ocr"
+    assert meta["properties"]["detector"]["const"] == "PP-OCRv5_mobile_det"
+    assert "detector" in meta["required"]
     assert {"200", "400", "413", "422", "503", "504"} <= set(
         operation["responses"]
     )
