@@ -133,6 +133,25 @@ async def create_passport_international_task(
 
 
 @router.post(
+    "/snils",
+    status_code=202,
+    response_model=TaskCreatedResponseSchema,
+    summary="Создать задачу распознавания СНИЛС",
+    responses=CREATION_ERRORS,
+)
+async def create_snils_task(
+    image: UploadFile = File(...),
+) -> dict[str, Any]:
+    ensure_ocr_model_enabled("russian-ocr")
+    ensure_ocr_model_enabled("paddle")
+    return await create_image_task(
+        image,
+        operation=TaskOperation.SNILS,
+        options={},
+    )
+
+
+@router.post(
     "/full",
     status_code=202,
     response_model=TaskCreatedResponseSchema,

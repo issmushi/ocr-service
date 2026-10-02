@@ -46,6 +46,7 @@ CASES = [
         {},
         {},
     ),
+    ("snils", "snils", {}, {}),
     ("full", "full_v1", {}, {"model": "paddle"}),
     ("crop/document", "crop_document", {}, {}),
     ("crop/mrz", "crop_mrz", {}, {}),
@@ -240,6 +241,26 @@ def test_international_passport_task_exposes_only_image(
     response = post_task(
         client,
         "passport/international",
+        image_content,
+        {"model": "qwen3-vl-8b", "crop": "false"},
+    )
+    assert response.status_code == 202
+    assert create.await_args.kwargs["options"] == {}
+
+
+def test_snils_task_exposes_only_image(client, image_content, persistence):
+    schema = client.get("/openapi.json").json()
+    request = schema["paths"]["/v1/tasks/snils"]["post"]["requestBody"]
+    body = request["content"]["multipart/form-data"]["schema"]
+    fields = schema["components"]["schemas"][body["$ref"].split("/")[-1]][
+        "properties"
+    ]
+    assert set(fields) == {"image"}
+
+    create, _ = persistence
+    response = post_task(
+        client,
+        "snils",
         image_content,
         {"model": "qwen3-vl-8b", "crop": "false"},
     )

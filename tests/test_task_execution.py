@@ -68,6 +68,12 @@ class TaskExecutionTests(unittest.IsolatedAsyncioTestCase):
                 {},
             ),
             (
+                TaskOperation.SNILS,
+                "recognize_snils_upload",
+                {},
+                {},
+            ),
+            (
                 TaskOperation.IDCARD_MRZ,
                 "recognize_mrz_upload",
                 {

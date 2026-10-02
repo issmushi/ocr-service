@@ -1,0 +1,1 @@
+"""SNILS recognition scenario."""

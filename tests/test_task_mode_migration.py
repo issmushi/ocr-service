@@ -23,6 +23,12 @@ INTERNATIONAL_MIGRATION_PATH = (
     / "versions"
     / "20261002_0009_russian_international_task_mode.py"
 )
+SNILS_MIGRATION_PATH = (
+    Path(__file__).resolve().parents[1]
+    / "alembic"
+    / "versions"
+    / "20261002_0010_snils_task_mode.py"
+)
 
 
 def load_migration(path=MIGRATION_PATH):
@@ -170,6 +176,49 @@ class InternationalPassportTaskModeMigrationTests(unittest.TestCase):
         self.assertNotIn(
             "'passport_international'", migration.PREVIOUS_TASK_MODE_CHECK
         )
+
+
+class SnilsTaskModeMigrationTests(unittest.TestCase):
+    def test_upgrade_adds_snils_and_preserves_existing_modes(self):
+        migration = load_migration(SNILS_MIGRATION_PATH)
+        self.assertEqual(migration.down_revision, "20261002_0009")
+        with (
+            patch.object(migration.op, "drop_constraint") as drop_constraint,
+            patch.object(
+                migration.op, "create_check_constraint"
+            ) as create_constraint,
+        ):
+            migration.upgrade()
+
+        drop_constraint.assert_called_once_with(
+            "ck_ocr_jobs_mode", "ocr_jobs", type_="check"
+        )
+        create_constraint.assert_called_once_with(
+            "ck_ocr_jobs_mode",
+            "ocr_jobs",
+            migration.SNILS_TASK_MODE_CHECK,
+            postgresql_not_valid=True,
+        )
+        for mode in ("snils", "passport_international", "mrz"):
+            self.assertIn(f"'{mode}'", migration.SNILS_TASK_MODE_CHECK)
+
+    def test_downgrade_restores_previous_constraint(self):
+        migration = load_migration(SNILS_MIGRATION_PATH)
+        with (
+            patch.object(migration.op, "drop_constraint"),
+            patch.object(
+                migration.op, "create_check_constraint"
+            ) as create_constraint,
+        ):
+            migration.downgrade()
+
+        create_constraint.assert_called_once_with(
+            "ck_ocr_jobs_mode",
+            "ocr_jobs",
+            migration.PREVIOUS_TASK_MODE_CHECK,
+            postgresql_not_valid=True,
+        )
+        self.assertNotIn("'snils'", migration.PREVIOUS_TASK_MODE_CHECK)
 
 
 if __name__ == "__main__":

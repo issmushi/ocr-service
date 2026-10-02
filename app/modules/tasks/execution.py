@@ -24,6 +24,8 @@ from app.modules.v1.passport.service import (
     recognize_passport_internal_upload,
     recognize_passport_international_upload,
 )
+from app.modules.v1.russia.snils.schemas import SnilsResponseSchema
+from app.modules.v1.russia.snils.service import recognize_snils_upload
 
 
 async def execute_task_operation(
@@ -73,6 +75,9 @@ async def execute_task_operation(
         elif operation == TaskOperation.PASSPORT_INTERNATIONAL:
             response = await recognize_passport_international_upload(upload)
             schema = PassportInternationalResponseSchema
+        elif operation == TaskOperation.SNILS:
+            response = await recognize_snils_upload(upload)
+            schema = SnilsResponseSchema
         elif operation == TaskOperation.FULL_V1:
             if "model" in options:
                 options["model"] = FullOcrModel(options["model"])

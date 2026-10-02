@@ -14,6 +14,7 @@ def russian_inference_worker(
     from app.modules.russian.field_ocr import recognize_field_text_bytes
     from app.modules.russian.fields import detect_passport_fields_bytes
     from app.modules.russian.passport import recognize_passport_text_bytes
+    from app.modules.russian.snils import recognize_snils_bytes
     from app.ocr_engine.russian.factory import create_pipeline
     from app.ocr_engine.russian.field_recognizer import create_cpu_field_reader
 
@@ -39,6 +40,8 @@ def russian_inference_worker(
             return detect_passport_fields_bytes(
                 *args, pipeline=pipeline, **kwargs
             )
+        if operation == "snils":
+            return recognize_snils_bytes(*args, pipeline=pipeline, **kwargs)
         if operation not in {"passport_text", "passport_international"}:
             raise ValueError(
                 f"Unsupported RussianDocsOCR operation: {operation}"

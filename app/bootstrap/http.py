@@ -43,6 +43,7 @@ def configure_http(app: FastAPI) -> None:
             "/v1/tasks/mrz": max_body_size,
             "/v1/tasks/passport/internal": max_body_size,
             "/v1/tasks/passport/international": max_body_size,
+            "/v1/tasks/snils": max_body_size,
             "/v1/tasks/full": max_body_size,
             "/v1/tasks/crop/document": max_body_size,
             "/v1/tasks/crop/mrz": max_body_size,
