@@ -152,6 +152,24 @@ async def create_snils_task(
 
 
 @router.post(
+    "/driver-license",
+    status_code=202,
+    response_model=TaskCreatedResponseSchema,
+    summary="Создать задачу распознавания водительского удостоверения РФ",
+    responses=CREATION_ERRORS,
+)
+async def create_driver_license_task(
+    image: UploadFile = File(...),
+) -> dict[str, Any]:
+    ensure_ocr_model_enabled("russian-ocr")
+    return await create_image_task(
+        image,
+        operation=TaskOperation.DRIVER_LICENSE,
+        options={},
+    )
+
+
+@router.post(
     "/full",
     status_code=202,
     response_model=TaskCreatedResponseSchema,

@@ -11,6 +11,9 @@ def russian_inference_worker(
     device: str,
 ) -> None:
     """Own a RussianDocsOCR pipeline in a serial, killable worker."""
+    from app.modules.russian.driver_license import (
+        recognize_driver_license_bytes,
+    )
     from app.modules.russian.field_ocr import recognize_field_text_bytes
     from app.modules.russian.fields import detect_passport_fields_bytes
     from app.modules.russian.passport import recognize_passport_text_bytes
@@ -42,6 +45,10 @@ def russian_inference_worker(
             )
         if operation == "snils":
             return recognize_snils_bytes(*args, pipeline=pipeline, **kwargs)
+        if operation == "driver_license":
+            return recognize_driver_license_bytes(
+                *args, pipeline=pipeline, **kwargs
+            )
         if operation not in {"passport_text", "passport_international"}:
             raise ValueError(
                 f"Unsupported RussianDocsOCR operation: {operation}"

@@ -24,6 +24,12 @@ from app.modules.v1.passport.service import (
     recognize_passport_internal_upload,
     recognize_passport_international_upload,
 )
+from app.modules.v1.russia.driver_license.schemas import (
+    DriverLicenseResponseSchema,
+)
+from app.modules.v1.russia.driver_license.service import (
+    recognize_driver_license_upload,
+)
 from app.modules.v1.russia.snils.schemas import SnilsResponseSchema
 from app.modules.v1.russia.snils.service import recognize_snils_upload
 
@@ -78,6 +84,9 @@ async def execute_task_operation(
         elif operation == TaskOperation.SNILS:
             response = await recognize_snils_upload(upload)
             schema = SnilsResponseSchema
+        elif operation == TaskOperation.DRIVER_LICENSE:
+            response = await recognize_driver_license_upload(upload)
+            schema = DriverLicenseResponseSchema
         elif operation == TaskOperation.FULL_V1:
             if "model" in options:
                 options["model"] = FullOcrModel(options["model"])

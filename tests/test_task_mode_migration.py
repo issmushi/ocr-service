@@ -29,6 +29,12 @@ SNILS_MIGRATION_PATH = (
     / "versions"
     / "20261002_0010_snils_task_mode.py"
 )
+DRIVER_LICENSE_MIGRATION_PATH = (
+    Path(__file__).resolve().parents[1]
+    / "alembic"
+    / "versions"
+    / "20261002_0011_driver_license_task_mode.py"
+)
 
 
 def load_migration(path=MIGRATION_PATH):
@@ -219,6 +225,53 @@ class SnilsTaskModeMigrationTests(unittest.TestCase):
             postgresql_not_valid=True,
         )
         self.assertNotIn("'snils'", migration.PREVIOUS_TASK_MODE_CHECK)
+
+
+class DriverLicenseTaskModeMigrationTests(unittest.TestCase):
+    def test_upgrade_adds_driver_license_and_preserves_existing_modes(self):
+        migration = load_migration(DRIVER_LICENSE_MIGRATION_PATH)
+        self.assertEqual(migration.down_revision, "20261002_0010")
+        with (
+            patch.object(migration.op, "drop_constraint") as drop_constraint,
+            patch.object(
+                migration.op, "create_check_constraint"
+            ) as create_constraint,
+        ):
+            migration.upgrade()
+
+        drop_constraint.assert_called_once_with(
+            "ck_ocr_jobs_mode", "ocr_jobs", type_="check"
+        )
+        create_constraint.assert_called_once_with(
+            "ck_ocr_jobs_mode",
+            "ocr_jobs",
+            migration.DRIVER_LICENSE_TASK_MODE_CHECK,
+            postgresql_not_valid=True,
+        )
+        for mode in ("driver_license", "snils", "passport_international"):
+            self.assertIn(
+                f"'{mode}'", migration.DRIVER_LICENSE_TASK_MODE_CHECK
+            )
+
+    def test_downgrade_restores_previous_constraint(self):
+        migration = load_migration(DRIVER_LICENSE_MIGRATION_PATH)
+        with (
+            patch.object(migration.op, "drop_constraint"),
+            patch.object(
+                migration.op, "create_check_constraint"
+            ) as create_constraint,
+        ):
+            migration.downgrade()
+
+        create_constraint.assert_called_once_with(
+            "ck_ocr_jobs_mode",
+            "ocr_jobs",
+            migration.PREVIOUS_TASK_MODE_CHECK,
+            postgresql_not_valid=True,
+        )
+        self.assertNotIn(
+            "'driver_license'", migration.PREVIOUS_TASK_MODE_CHECK
+        )
 
 
 if __name__ == "__main__":

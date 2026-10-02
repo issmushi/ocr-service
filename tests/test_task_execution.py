@@ -74,6 +74,12 @@ class TaskExecutionTests(unittest.IsolatedAsyncioTestCase):
                 {},
             ),
             (
+                TaskOperation.DRIVER_LICENSE,
+                "recognize_driver_license_upload",
+                {},
+                {},
+            ),
+            (
                 TaskOperation.IDCARD_MRZ,
                 "recognize_mrz_upload",
                 {
