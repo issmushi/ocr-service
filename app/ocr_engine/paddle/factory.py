@@ -6,35 +6,9 @@ import warnings
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from paddleocr import PaddleOCR, TextDetection, TextRecognition
+    from paddleocr import PaddleOCR, TextRecognition
 
 CYRILLIC_TEXT_MODEL = "cyrillic_PP-OCRv5_mobile_rec"
-FULL_TEXT_DETECTOR_MODEL = "PP-OCRv5_mobile_det"
-
-
-def create_cpu_text_detector() -> TextDetection:
-    """Load only the lightweight page text detector for Russian full OCR."""
-    with open(os.devnull, "w", encoding="utf-8") as devnull:
-        with warnings.catch_warnings():
-            warnings.filterwarnings(
-                "ignore",
-                message="No ccache found.*",
-                category=UserWarning,
-            )
-            with (
-                contextlib.redirect_stdout(devnull),
-                contextlib.redirect_stderr(devnull),
-            ):
-                from paddleocr import TextDetection as TextDetectionClass
-
-                return TextDetectionClass(
-                    model_name=FULL_TEXT_DETECTOR_MODEL,
-                    device="cpu",
-                    enable_mkldnn=False,
-                    cpu_threads=2,
-                    limit_side_len=1600,
-                    limit_type="max",
-                )
 
 
 def create_cyrillic_text_recognizer() -> TextRecognition:

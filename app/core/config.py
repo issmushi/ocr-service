@@ -72,9 +72,6 @@ class Settings:
     russian_ocr_document_hard_timeout_seconds: float = env_float(
         "RUSSIAN_OCR_DOCUMENT_HARD_TIMEOUT_SECONDS", 18.0
     )
-    russian_ocr_full_hard_timeout_seconds: float = env_float(
-        "RUSSIAN_OCR_FULL_HARD_TIMEOUT_SECONDS", 38.0
-    )
     vlm_ocr_url: str = os.getenv("VLM_OCR_URL", "http://127.0.0.1:8004")
     vlm_ocr_timeout_seconds: float = env_float(
         "VLM_OCR_TIMEOUT_SECONDS", 300.0
@@ -238,9 +235,6 @@ class Settings:
             ),
             "RUSSIAN_OCR_DOCUMENT_HARD_TIMEOUT_SECONDS": (
                 self.russian_ocr_document_hard_timeout_seconds
-            ),
-            "RUSSIAN_OCR_FULL_HARD_TIMEOUT_SECONDS": (
-                self.russian_ocr_full_hard_timeout_seconds
             ),
             "MRZ_SCANNER_STARTUP_TIMEOUT_SECONDS": (
                 self.mrz_scanner_startup_timeout_seconds

@@ -49,33 +49,3 @@ class FullOcrResponseSchema(BaseModel):
     success: bool
     data: FullOcrDataSchema | None
     error: ErrorSchema | None
-
-
-class RussianFullOcrMetaSchema(FullOcrMetaSchema):
-    engine: Literal["russian-docs-ocr"] = Field(
-        ..., description="Движок Russian OCR."
-    )
-    model: Literal["russian-ocr"] = Field(
-        ..., description="Russian OCR accurate, кириллическая модель."
-    )
-    detector: Literal["PP-OCRv5_mobile_det"] = Field(
-        ..., description="Отдельная модель поиска текста на всей странице."
-    )
-
-
-class RussianFullOcrDataSchema(FullOcrDataSchema):
-    text: str = Field(
-        ...,
-        description=(
-            "Сырой текст Russian OCR. Слова объединяются пробелами, "
-            "найденные строки — переводами строк. "
-            "Паспортные исправления и нормализация не применяются."
-        ),
-    )
-    meta: RussianFullOcrMetaSchema
-
-
-class RussianFullOcrResponseSchema(BaseModel):
-    success: bool
-    data: RussianFullOcrDataSchema | None
-    error: ErrorSchema | None

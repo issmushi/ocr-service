@@ -10,12 +10,7 @@ from app.core.api_schemas import (
     OCR_FAILED_RESPONSE,
     OCR_TIMEOUT_RESPONSE,
 )
-from app.modules.v1.full.russian_service import recognize_full_russian_upload
-from app.modules.v1.full.schemas import (
-    FullOcrModel,
-    FullOcrResponseSchema,
-    RussianFullOcrResponseSchema,
-)
+from app.modules.v1.full.schemas import FullOcrModel, FullOcrResponseSchema
 from app.modules.v1.full.service import recognize_full_upload
 
 router = APIRouter(tags=["OCR V1: Full"])
@@ -50,38 +45,3 @@ async def recognize_full(
     ),
 ) -> dict[str, Any]:
     return await recognize_full_upload(image, model=model)
-
-
-@router.post(
-    "/full_test",
-    response_model=RussianFullOcrResponseSchema,
-    summary="Тест: весь текст изображения через Russian OCR",
-    description=(
-        "Принимает одно изображение целиком. Лёгкий детектор Paddle "
-        "PP-OCRv5_mobile_det на CPU ищет строки на всей странице. "
-        "Russian OCR выделяет слова внутри каждой найденной строки "
-        "и читает их кириллической моделью accurate. "
-        "Обрабатываются все найденные строки без отбора паспортных полей "
-        "и без ограничения количества строк. "
-        "Возвращает сырой текст и время OCR. "
-        "Слова объединяются слева направо, строки — сверху вниз. "
-        "Без обрезки документа, исправлений и нормализации. "
-        "В meta указаны распознавалка russian-ocr и используемый детектор. "
-        "Для теста загружайте изображение с текстом в правильной ориентации. "
-        "Сложная вёрстка, таблицы и латиница могут распознаваться неточно."
-    ),
-    responses={
-        400: COMMON_ERROR_RESPONSES[400],
-        413: COMMON_ERROR_RESPONSES[413],
-        422: OCR_FAILED_RESPONSE,
-        503: OCR_ENGINE_UNAVAILABLE_RESPONSE,
-        504: OCR_TIMEOUT_RESPONSE,
-        500: COMMON_ERROR_RESPONSES[500],
-    },
-)
-async def recognize_full_test(
-    image: UploadFile = File(
-        ..., description="Изображение с русским печатным текстом."
-    ),
-) -> dict[str, Any]:
-    return await recognize_full_russian_upload(image)
