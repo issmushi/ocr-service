@@ -188,10 +188,6 @@ class PassportV1ServiceTests(unittest.TestCase):
                         new_callable=AsyncMock,
                     ) as paddle_run,
                     patch(
-                        "app.modules.v1.passport.service.recognize_vlm_image",
-                        new_callable=AsyncMock,
-                    ) as vlm_run,
-                    patch(
                         "app.modules.v1.passport.service.ensure_ocr_model_enabled"
                     ) as enabled,
                 ):
@@ -222,7 +218,6 @@ class PassportV1ServiceTests(unittest.TestCase):
                     crop_mrz.assert_not_awaited()
                 enabled.assert_called_once_with("mrz")
                 paddle_run.assert_not_awaited()
-                vlm_run.assert_not_awaited()
 
     def test_default_crop_sends_only_the_crop_to_mrz_scanner(self) -> None:
         raw_result = {
@@ -288,10 +283,6 @@ class PassportV1ServiceTests(unittest.TestCase):
                 "app.modules.v1.passport.service.mrz_scanner_runtime.run",
                 new_callable=AsyncMock,
             ) as mrz_run,
-            patch(
-                "app.modules.v1.passport.service.recognize_vlm_image",
-                new_callable=AsyncMock,
-            ) as vlm_run,
         ):
             response = self.client.post(
                 PATH,
@@ -309,7 +300,6 @@ class PassportV1ServiceTests(unittest.TestCase):
         crop_mrz.assert_awaited_once_with(b"full-page")
         paddle_run.assert_not_awaited()
         mrz_run.assert_not_awaited()
-        vlm_run.assert_not_awaited()
 
     def test_cropped_scanner_text_is_extracted_and_normalized(self) -> None:
         raw_result = {

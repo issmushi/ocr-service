@@ -150,6 +150,9 @@ def normalize_passport_text_result(
         "department_code": normalize_text(
             ocr_result.get("Issue_organisation_code")
         ),
+        "Issue_organization_ru": normalize_text(
+            ocr_result.get("Issue_organization_ru")
+        ),
         "personal_number": None,
         "mrz_valid": None,
     }

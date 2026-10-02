@@ -17,13 +17,11 @@ from app.modules.v1.full.service import recognize_full_upload
 from app.modules.v1.idcard.schemas import IdcardMrzResponseSchema
 from app.modules.v1.idcard.service import recognize_idcard_upload
 from app.modules.v1.passport.schemas import (
+    PassportInternalResponseSchema,
     PassportMrzResponseSchema,
-    PassportPage,
-    PassportPageOcrModel,
-    PassportPageResponseSchema,
 )
 from app.modules.v1.passport.service import (
-    recognize_passport_page_upload,
+    recognize_passport_internal_upload,
     recognize_passport_upload,
 )
 
@@ -65,12 +63,10 @@ async def execute_task_operation(
             response = await recognize_passport_upload(upload, **options)
             schema = PassportMrzResponseSchema
         elif operation == TaskOperation.PASSPORT_PAGE:
-            if "model" in options:
-                options["model"] = PassportPageOcrModel(options["model"])
-            if "page" in options:
-                options["page"] = PassportPage(options["page"])
-            response = await recognize_passport_page_upload(upload, **options)
-            schema = PassportPageResponseSchema
+            # Old queued jobs may contain page/model/crop options. The internal
+            # passport endpoint now always runs RussianDocsOCR on the image.
+            response = await recognize_passport_internal_upload(upload)
+            schema = PassportInternalResponseSchema
         elif operation == TaskOperation.IDCARD_MRZ:
             options.pop("model", None)
             response = await recognize_idcard_upload(upload, **options)

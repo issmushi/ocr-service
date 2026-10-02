@@ -2,7 +2,7 @@ export type Section = "overview" | "docs" | "playground";
 
 export type ToolId =
   | "passport-mrz"
-  | "passport-page"
+  | "passport-internal"
   | "idcard-mrz"
   | "full-ocr"
   | "crop-document"

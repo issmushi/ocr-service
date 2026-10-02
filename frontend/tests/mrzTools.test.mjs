@@ -68,9 +68,40 @@ test("both MRZ tools send only image and processing flags, with no model selecto
   }
 });
 
-test("page, full text and field crop tools retain model selection", () => {
+test("internal passport sends only image and uses Russian OCR", async (t) => {
+  const tool = toolById["passport-internal"];
+  assert.equal(tool.endpoint, "/v1/ocr/passport/internal");
+  assert.match(tool.description, /Russian OCR/);
+  assert.deepEqual(tool.params, []);
+  assert.deepEqual(defaultParams(tool), {});
+
+  const file = new File(["synthetic"], "passport.jpg", { type: "image/jpeg" });
+  const originalFetch = globalThis.fetch;
+  t.after(() => { globalThis.fetch = originalFetch; });
+  globalThis.fetch = async (url, options) => {
+    assert.equal(url, "/v1/ocr/passport/internal");
+    assert.equal(options.method, "POST");
+    assert.deepEqual([...options.body.keys()], ["image"]);
+    assert.equal(await options.body.get("image").text(), "synthetic");
+    return new Response(JSON.stringify({ success: true, data: { Issue_organization_ru: "МВД России" }, error: null }), { headers: { "content-type": "application/json" } });
+  };
+  const result = await runTool("", tool, [file], defaultParams(tool), new AbortController().signal);
+  assert.equal(result.ok, true);
+  assert.equal(result.json.data.Issue_organization_ru, "МВД России");
+
+  const curl = buildCurl("http://localhost:8000", tool, [file], defaultParams(tool));
+  assert.match(curl, /\/v1\/ocr\/passport\/internal/);
+  assert.match(curl, /image=@/);
+  assert.doesNotMatch(curl, /-F '(?:page|model|crop)=/);
+
+  const docs = renderToStaticMarkup(createElement(DocsPage, { navigate() {} }));
+  assert.match(docs, /\/v1\/tasks\/passport\/internal/);
+  assert.match(docs, /Issue_organization_ru/);
+  assert.match(docs, /Кем выдан/);
+});
+
+test("full text and field crop tools retain model selection", () => {
   for (const [id, key, expectedDefault] of [
-    ["passport-page", "model", "russian-ocr"],
     ["full-ocr", "model", "paddle"],
     ["crop-passport-fields", "ocr_model", "paddle"],
   ]) {

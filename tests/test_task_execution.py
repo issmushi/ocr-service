@@ -9,10 +9,6 @@ from app.core.errors import AppError, ErrorCode
 from app.modules.tasks.enums import TaskOperation
 from app.modules.tasks.execution import execute_task_operation
 from app.modules.v1.full.schemas import FullOcrModel
-from app.modules.v1.passport.schemas import (
-    PassportPage,
-    PassportPageOcrModel,
-)
 
 EXECUTION = "app.modules.tasks.execution"
 
@@ -47,13 +43,9 @@ class TaskExecutionTests(unittest.IsolatedAsyncioTestCase):
             ),
             (
                 TaskOperation.PASSPORT_PAGE,
-                "recognize_passport_page_upload",
-                {"page": 3, "model": "russian-ocr", "crop": False},
-                {
-                    "page": PassportPage.PAGE_3,
-                    "model": PassportPageOcrModel.RUSSIAN_OCR,
-                    "crop": False,
-                },
+                "recognize_passport_internal_upload",
+                {},
+                {},
             ),
             (
                 TaskOperation.IDCARD_MRZ,
@@ -127,6 +119,21 @@ class TaskExecutionTests(unittest.IsolatedAsyncioTestCase):
                     self.assertEqual(
                         result, {"format": "json", "response": response}
                     )
+
+    async def test_previously_queued_passport_page_discards_old_options(self):
+        """Existing tasks retain their mode and use fixed Russian OCR."""
+        response = {"success": True, "data": None, "error": None}
+        options = {"page": 3, "model": "qwen3-vl-8b", "crop": False}
+        handler = AsyncMock(return_value=response)
+        with patch(f"{EXECUTION}.recognize_passport_internal_upload", handler):
+            result = await execute_task_operation(
+                job(TaskOperation.PASSPORT_PAGE, options), b"original-image"
+            )
+        self.assertEqual(handler.await_args.kwargs, {})
+        self.assertEqual(
+            options, {"page": 3, "model": "qwen3-vl-8b", "crop": False}
+        )
+        self.assertEqual(result, {"format": "json", "response": response})
 
     async def test_json_payload_has_the_same_schema_serialization_as_http(
         self,

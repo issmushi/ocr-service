@@ -16,26 +16,18 @@ from app.core.images.validation import (
 )
 from app.core.model_availability import ensure_ocr_model_enabled
 from app.modules.russian.runtime import russian_runtime
-from app.modules.v1.crop.service import (
-    crop_document_image_bytes,
-    crop_mrz_bytes,
-)
+from app.modules.v1.crop.service import crop_mrz_bytes
 from app.modules.v1.passport.parsing import (
-    PassportVlmResultError,
     normalize_visual_passport_data,
     parse_normalized_passport_mrz,
-    passport_data_from_vlm_result,
 )
 from app.modules.v1.passport.pipeline import (
     normalize_passport_mrz_from_text_result,
 )
 from app.modules.v1.passport.runtime import mrz_scanner_runtime
 from app.modules.v1.passport.schemas import (
-    PassportPage,
-    PassportPageDataSchema,
-    PassportPageOcrModel,
+    PassportInternalDataSchema,
 )
-from app.modules.vlm.client import recognize_vlm_image
 
 PASSPORT_MRZ_LINE_COUNT = 2
 PASSPORT_OCR_ENGINE_BY_MODEL = {
@@ -131,49 +123,24 @@ async def recognize_passport_upload(
     )
 
 
-async def recognize_passport_page_upload(
+async def recognize_passport_internal_upload(
     image: UploadFile,
-    *,
-    page: PassportPage,
-    model: PassportPageOcrModel = PassportPageOcrModel.RUSSIAN_OCR,
-    crop: bool = True,
 ) -> dict[str, Any]:
-    """Return normalized fields from one supported Russian passport page."""
-    ensure_ocr_model_enabled(model.value)
+    """Read an internal Russian passport through RussianDocsOCR."""
+    ensure_ocr_model_enabled("russian-ocr")
     validate_image_extension(image.filename or "image.jpg")
     await prepare_upload_stream(
         image,
         max_bytes=settings.ocr_max_image_size_bytes,
     )
     content = await image.read()
-    filename = image.filename or "image.jpg"
-    content_type = image.content_type or "application/octet-stream"
-    if crop:
-        content = await crop_document_image_bytes(content)
-        filename = "passport-cropped.jpg"
-        content_type = "image/jpeg"
-    if page != PassportPage.PAGE_3:  # pragma: no cover - validated by FastAPI.
-        raise AppError(
-            ErrorCode.VALIDATION_ERROR,
-            "Поддерживается только третья страница внутреннего паспорта РФ",
-        )
-    if model == PassportPageOcrModel.RUSSIAN_OCR:
-        await asyncio.to_thread(validate_image_bytes, content)
-        started = perf_counter()
-        result = await russian_runtime.run(
-            "passport_text",
-            content,
-            timeout_seconds=settings.russian_ocr_document_hard_timeout_seconds,
-        )
-    else:
-        started = perf_counter()
-        result = await recognize_vlm_image(
-            content,
-            model=model.value,
-            filename=filename,
-            content_type=content_type,
-            task="passport_fields",
-        )
+    await asyncio.to_thread(validate_image_bytes, content)
+    started = perf_counter()
+    result = await russian_runtime.run(
+        "passport_text",
+        content,
+        timeout_seconds=settings.russian_ocr_document_hard_timeout_seconds,
+    )
     duration_seconds = perf_counter() - started
 
     try:
@@ -182,18 +149,9 @@ async def recognize_passport_page_upload(
                 ErrorCode.OCR_FAILED,
                 "OCR не смог получить пригодный результат",
             )
-        if model == PassportPageOcrModel.RUSSIAN_OCR:
-            passport_data = normalize_visual_passport_data(
-                result.get("passport")
-            )
-        else:
-            try:
-                passport_data = passport_data_from_vlm_result(result)
-            except PassportVlmResultError as error:
-                raise AppError(
-                    ErrorCode.OCR_FAILED,
-                    "Qwen вернул некорректный формат паспортных данных",
-                ) from error
+        passport_data = normalize_visual_passport_data(
+            result.get("passport")
+        )
         passport_data.update(
             {
                 "passport_type": "internal",
@@ -205,12 +163,12 @@ async def recognize_passport_page_upload(
                 "mrz_valid": None,
             }
         )
-        data = PassportPageDataSchema.model_validate(
+        data = PassportInternalDataSchema.model_validate(
             {
                 "mrz": None,
                 "normalization": None,
                 **passport_data,
-                "meta": _passport_ocr_meta(model.value, duration_seconds),
+                "meta": _passport_ocr_meta("russian-ocr", duration_seconds),
             }
         )
     except ValidationError as error:

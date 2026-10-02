@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import asyncio
 import base64
-import json
 from contextlib import ExitStack
 from io import BytesIO
 from pathlib import Path
@@ -31,10 +30,7 @@ from app.workers.ocr_worker import execute_ocr_job
                 "normalization": "false",
             },
         ),
-        (
-            "passport/page",
-            {"model": "qwen3-vl-8b", "page": "3", "crop": "false"},
-        ),
+        ("passport/internal", {}),
         ("idcard/mrz", {}),
         (
             "idcard/mrz",
@@ -71,18 +67,9 @@ def test_task_result_matches_direct_http_response(tmp_path, operation, form):
         "9001158M3501151KAZ<<<<<<<<<<<0",
         "TESTOV<<TEST<<<<<<<<<<<<<<<<<<",
     ]
-    if operation == "passport/page":
-        raw_text = json.dumps(
-            {
-                "surname": "ТЕСТОВ",
-                "name": "ТЕСТ",
-                "date_of_birth": "15.01.1990",
-            }
-        )
-    else:
-        raw_text = "\n".join(
-            idcard_rows if operation == "idcard/mrz" else passport_rows
-        )
+    raw_text = "\n".join(
+        idcard_rows if operation == "idcard/mrz" else passport_rows
+    )
 
     async def recognize_mrz(scanner_operation, _content, **options):
         raw_result = {"items": [{"text": raw_text}]}
@@ -119,19 +106,33 @@ def test_task_result_matches_direct_http_response(tmp_path, operation, form):
                     return_value=10.0,
                 )
             )
-        for module in ("passport", "full"):
-            stack.enter_context(
-                patch(
-                    f"app.modules.v1.{module}.service.recognize_vlm_image",
-                    new=AsyncMock(
-                        return_value={"items": [{"text": raw_text}]}
-                    ),
-                )
+        stack.enter_context(
+            patch(
+                "app.modules.v1.full.service.recognize_vlm_image",
+                new=AsyncMock(
+                    return_value={"items": [{"text": raw_text}]}
+                ),
             )
+        )
         scanner = stack.enter_context(
             patch(
                 "app.modules.v1.passport.runtime.mrz_scanner_runtime.run",
                 new=AsyncMock(side_effect=recognize_mrz),
+            )
+        )
+        stack.enter_context(
+            patch(
+                "app.modules.v1.passport.service.russian_runtime.run",
+                new=AsyncMock(
+                    return_value={
+                        "passport": {
+                            "surname": "ТЕСТОВ",
+                            "name": "ТЕСТ",
+                            "date_of_birth": "15.01.1990",
+                            "Issue_organization_ru": "ГУ МВД ПО МОСКВЕ",
+                        }
+                    }
+                ),
             )
         )
         for module in ("passport", "idcard"):
@@ -202,3 +203,7 @@ def test_task_result_matches_direct_http_response(tmp_path, operation, form):
         assert completed.content == direct.content
     else:
         assert completed.json() == direct.json()
+        if operation == "passport/internal":
+            assert completed.json()["data"]["Issue_organization_ru"] == (
+                "ГУ МВД ПО МОСКВЕ"
+            )

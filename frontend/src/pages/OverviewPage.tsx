@@ -81,7 +81,7 @@ export function OverviewPage({ health, navigate }: Props) {
         <div className="tool-card-grid">
           {tools.map((tool) => (
             <button className="tool-card" key={tool.id} onClick={() => navigate("playground", tool.id)} type="button">
-              <span className="tool-card__icon"><Icon name={tool.id.includes("crop") ? "crop" : tool.id === "best-frame" ? "frame" : tool.id === "passport-page" ? "passport" : tool.id === "full-ocr" ? "file" : "scan"} /></span>
+              <span className="tool-card__icon"><Icon name={tool.id.includes("crop") ? "crop" : tool.id === "best-frame" ? "frame" : tool.id === "passport-internal" ? "passport" : tool.id === "full-ocr" ? "file" : "scan"} /></span>
               <span className="method">POST</span>
               <h3>{tool.title}</h3>
               <code>{tool.endpoint}</code>

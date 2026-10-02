@@ -30,6 +30,7 @@ const fieldLabels: Record<string, string> = {
   document_number: "Номер документа",
   nationality: "Гражданство",
   issue_date: "Дата выдачи",
+  Issue_organization_ru: "Кем выдан",
   expiry_date: "Срок действия",
   department_code: "Код подразделения",
   personal_number: "Персональный номер",
@@ -301,7 +302,7 @@ export function PlaygroundPage({ apiBaseUrl, initialTool, onToolChange }: Props)
               <span className="nav-kicker">{group}</span>
               {tools.filter((item) => item.group === group).map((item) => (
                 <button className={item.id === toolId ? "active" : ""} key={item.id} onClick={() => chooseTool(item.id)} type="button">
-                  <span><Icon name={item.id.includes("crop") ? "crop" : item.id === "best-frame" ? "frame" : item.id === "passport-page" ? "passport" : item.id === "full-ocr" ? "file" : "scan"} /></span>
+                  <span><Icon name={item.id.includes("crop") ? "crop" : item.id === "best-frame" ? "frame" : item.id === "passport-internal" ? "passport" : item.id === "full-ocr" ? "file" : "scan"} /></span>
                   <div><strong>{item.title}</strong><small>{item.shortTitle}</small></div>
                   <Icon name="chevron" size={15} />
                 </button>

@@ -187,7 +187,7 @@ def _internal_passport_identity(
 
 def normalize_visual_passport_data(values: Any) -> dict[str, Any]:
     """Normalize visual OCR fields to the public passport contract."""
-    data = empty_passport_mrz_data()
+    data = {**empty_passport_mrz_data(), "Issue_organization_ru": None}
     if not isinstance(values, dict):
         return data
 
@@ -227,6 +227,9 @@ def normalize_visual_passport_data(values: Any) -> dict[str, Any]:
             "issue_date": _public_date(values.get("issue_date")),
             "expiry_date": _public_date(values.get("expiry_date")),
             "department_code": _department_code(values.get("department_code")),
+            "Issue_organization_ru": _text_or_none(
+                values.get("Issue_organization_ru")
+            ),
             "personal_number": normalize_number(values.get("personal_number")),
             # Visual OCR cannot validate MRZ control digits.
             "mrz_valid": None,

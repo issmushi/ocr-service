@@ -1,21 +1,10 @@
 from __future__ import annotations
 
-from enum import Enum
 from typing import Literal
 
 from pydantic import BaseModel, Field
 
 from app.core.api_schemas import ErrorSchema
-
-
-class PassportPage(int, Enum):
-    PAGE_3 = 3
-
-
-class PassportPageOcrModel(str, Enum):
-    RUSSIAN_OCR = "russian-ocr"
-    QWEN3_VL_4B = "qwen3-vl-4b"
-    QWEN3_VL_8B = "qwen3-vl-8b"
 
 
 class PassportOcrMetaSchema(BaseModel):
@@ -52,6 +41,15 @@ class PassportMrzOcrMetaSchema(PassportOcrMetaSchema):
     )
     model: Literal["mrz"] = Field(
         ..., description="Фиксированная модель распознавания MRZ."
+    )
+
+
+class PassportInternalOcrMetaSchema(PassportOcrMetaSchema):
+    engine: Literal["russian-docs-ocr"] = Field(
+        ..., description="RussianDocsOCR — движок распознавания паспорта."
+    )
+    model: Literal["russian-ocr"] = Field(
+        ..., description="Фиксированная модель распознавания паспорта."
     )
 
 
@@ -259,7 +257,7 @@ class PassportMrzResponseSchema(BaseModel):
     error: ErrorSchema | None
 
 
-class PassportPageDataSchema(PassportDataSchema):
+class PassportInternalDataSchema(PassportDataSchema):
     mrz: None = Field(
         ...,
         description="Всегда null: этот сценарий не читает MRZ-зону.",
@@ -306,13 +304,19 @@ class PassportPageDataSchema(PassportDataSchema):
         ...,
         description="Всегда null: MRZ и её контрольные цифры не проверяются.",
     )
-    meta: PassportOcrMetaSchema = Field(
+    Issue_organization_ru: str | None = Field(
         ...,
-        description="Движок, выбранная модель и время распознавания.",
+        description=(
+            "Кем выдан внутренний паспорт РФ; null, если не прочитано."
+        ),
+    )
+    meta: PassportInternalOcrMetaSchema = Field(
+        ...,
+        description="Движок RussianDocsOCR и время распознавания.",
     )
 
 
-class PassportPageResponseSchema(BaseModel):
+class PassportInternalResponseSchema(BaseModel):
     success: bool
-    data: PassportPageDataSchema | None
+    data: PassportInternalDataSchema | None
     error: ErrorSchema | None

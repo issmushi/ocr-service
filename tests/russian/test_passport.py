@@ -39,6 +39,7 @@ class PassportTests(unittest.TestCase):
             "First_name_ru": "ИВАН",
             "Middle_name_ru": None,
             "Licence_number": "12 34 567890",
+            "Issue_organization_ru": "  ОТДЕЛОМ МВД РОССИИ  ",
         }
         result = recognize_passport_text_bytes(
             image_bytes(),
@@ -73,6 +74,12 @@ class PassportTests(unittest.TestCase):
                         "box": None,
                         "detection_confidence": None,
                     },
+                    {
+                        "text": "ОТДЕЛОМ МВД РОССИИ",
+                        "confidence": None,
+                        "box": None,
+                        "detection_confidence": None,
+                    },
                 ],
                 "image_width": 48,
                 "image_height": 32,
@@ -91,6 +98,7 @@ class PassportTests(unittest.TestCase):
                     "issue_date": None,
                     "expiry_date": None,
                     "department_code": None,
+                    "Issue_organization_ru": "ОТДЕЛОМ МВД РОССИИ",
                     "personal_number": None,
                     "mrz_valid": None,
                 },
@@ -132,6 +140,7 @@ class PassportTests(unittest.TestCase):
                 "issue_date": "2020-05-04",
                 "expiry_date": "2030-05-04",
                 "department_code": "FMS",
+                "Issue_organization_ru": None,
                 "personal_number": None,
                 "mrz_valid": None,
             },

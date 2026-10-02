@@ -74,17 +74,17 @@ def test_disabled_model_returns_engine_unavailable() -> None:
     [
         ("/v1/ocr/passport/mrz", {}, "mrz"),
         (
-            "/v1/ocr/passport/page",
-            {"page": "3", "model": "qwen3-vl-4b"},
-            "qwen3-vl-4b",
+            "/v1/ocr/passport/internal",
+            {},
+            "russian-ocr",
         ),
         ("/v1/ocr/idcard/mrz", {}, "mrz"),
         ("/v1/ocr/full", {"model": "qwen3-vl-4b"}, "qwen3-vl-4b"),
         ("/v1/tasks/passport/mrz", {}, "mrz"),
         (
-            "/v1/tasks/passport/page",
-            {"page": "3", "model": "qwen3-vl-4b"},
-            "qwen3-vl-4b",
+            "/v1/tasks/passport/internal",
+            {},
+            "russian-ocr",
         ),
         ("/v1/tasks/idcard/mrz", {}, "mrz"),
         ("/v1/tasks/full", {"model": "qwen3-vl-4b"}, "qwen3-vl-4b"),

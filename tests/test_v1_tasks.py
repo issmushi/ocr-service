@@ -35,10 +35,10 @@ CASES = [
         },
     ),
     (
-        "passport/page",
+        "passport/internal",
         "passport_page",
-        {"page": "3"},
-        {"page": 3, "model": "russian-ocr", "crop": True},
+        {},
+        {},
     ),
     (
         "idcard/mrz",
@@ -195,32 +195,52 @@ def test_obsolete_mrz_model_form_is_not_persisted(
     }
 
 
-@pytest.mark.parametrize(
-    ("path", "form", "options"),
-    [
-        (
-            "passport/page",
-            {"page": "3", "model": "russian-ocr", "crop": "false"},
-            {"page": 3, "model": "russian-ocr", "crop": False},
-        ),
-        ("full", {"model": "qwen3-vl-8b"}, {"model": "qwen3-vl-8b"}),
-    ],
-)
-def test_page_and_full_custom_options(
-    client, image_content, persistence, path, form, options
-):
+def test_full_custom_model(client, image_content, persistence):
     create, _ = persistence
-    response = post_task(client, path, image_content, form)
+    response = post_task(
+        client, "full", image_content, {"model": "qwen3-vl-8b"}
+    )
     assert response.status_code == 202
-    assert create.await_args.kwargs["options"] == options
+    assert create.await_args.kwargs["options"] == {"model": "qwen3-vl-8b"}
+
+
+def test_internal_passport_task_exposes_only_image_and_ignores_old_options(
+    client, image_content, persistence
+):
+    schema = client.get("/openapi.json").json()
+    request = schema["paths"]["/v1/tasks/passport/internal"]["post"][
+        "requestBody"
+    ]
+    body = request["content"]["multipart/form-data"]["schema"]
+    fields = schema["components"]["schemas"][body["$ref"].split("/")[-1]][
+        "properties"
+    ]
+    assert set(fields) == {"image"}
+
+    create, _ = persistence
+    response = post_task(
+        client,
+        "passport/internal",
+        image_content,
+        {"page": "3", "model": "qwen3-vl-8b", "crop": "false"},
+    )
+    assert response.status_code == 202
+    assert create.await_args.kwargs["options"] == {}
+
+
+def test_old_passport_page_task_route_is_removed(
+    client, image_content, persistence
+):
+    create, directory = persistence
+    response = post_task(client, "passport/page", image_content)
+    assert response.status_code == 404
+    create.assert_not_awaited()
+    assert list(directory.iterdir()) == []
 
 
 @pytest.mark.parametrize(
     ("path", "form"),
     [
-        ("passport/page", {}),
-        ("passport/page", {"page": "2"}),
-        ("passport/page", {"page": "3", "model": "paddle"}),
         ("passport/mrz", {"crop": "sometimes"}),
         ("idcard/mrz", {"normalize": "sometimes"}),
         ("full", {"model": "mrz"}),

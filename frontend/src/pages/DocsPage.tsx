@@ -74,7 +74,7 @@ const errors = [
 
 const taskOperations = [
   ["/v1/ocr/passport/mrz", "/v1/tasks/passport/mrz"],
-  ["/v1/ocr/passport/page", "/v1/tasks/passport/page"],
+  ["/v1/ocr/passport/internal", "/v1/tasks/passport/internal"],
   ["/v1/ocr/idcard/mrz", "/v1/tasks/idcard/mrz"],
   ["/v1/ocr/full", "/v1/tasks/full"],
   ["/v1/ocr/crop/document", "/v1/tasks/crop/document"],
@@ -157,11 +157,12 @@ export function DocsPage({ navigate }: Props) {
                 </button>
               ))}
             </div>
+            <div className="callout callout--info"><Icon name="info" /><div><strong>Внутренний паспорт РФ</strong><p><code>/v1/ocr/passport/internal</code> принимает только фото в поле <code>image</code>. Russian OCR выбирается автоматически. В ответе поле <code>Issue_organization_ru</code> означает «Кем выдан».</p></div></div>
             <div className="parameter-grid">
-              <div><strong><code>crop</code></strong><p>При true выравнивает документ и вырезает страницу или MRZ перед OCR. При false движок получает исходное изображение.</p></div>
+              <div><strong><code>crop</code></strong><p>Для MRZ: при true выравнивает документ и вырезает MRZ перед OCR. При false движок получает исходное изображение.</p></div>
               <div><strong><code>normalize</code></strong><p>При true исправляет символы и дополняет MRZ по правилам страны. При false только удаляет пробелы, приводит текст к верхнему регистру и выбирает строки.</p></div>
               <div><strong><code>normalization</code></strong><p>При true возвращает журнал исправлений, при false — null в data.normalization. На исправление MRZ не влияет.</p></div>
-              <div><strong><code>model</code></strong><p>Выбирает модель для «Страницы паспорта» и «Всего текста». Для запросов к Qwen она должна быть включена и запущена на сервере. Оба MRZ-эндпоинта используют MRZ Scanner и не принимают параметр model.</p></div>
+              <div><strong><code>model</code></strong><p>Выбирает модель для «Всего текста». Для запросов к Qwen она должна быть включена и запущена на сервере. Внутренний паспорт РФ всегда использует Russian OCR и не принимает параметр model. Оба MRZ-эндпоинта используют MRZ Scanner и не принимают параметр model.</p></div>
               <div><strong><code>crop_document</code></strong><p>Для «Полей паспорта»: при true выравнивает и обрезает документ перед поиском полей. По умолчанию true.</p></div>
               <div><strong><code>padding</code></strong><p>Для «Полей паспорта»: отступ вокруг каждой вырезки в пикселях, от 0 до 64. По умолчанию 4.</p></div>
               <div><strong><code>ocr_model</code></strong><p>Для «Полей паспорта»: none — только вырезки; paddle — Paddle eslav v5, paddle-cyrillic — Paddle Cyrillic v5, russian-ocr-accurate — Russian OCR accurate. Эти три модели работают на CPU. qwen3-vl-4b и qwen3-vl-8b используют режим сервера. API по умолчанию не читает текст; в UI выбран Paddle eslav v5. Каждая вырезка распознаётся отдельно, без нормализации. Фото и подпись пропускаются.</p></div>
