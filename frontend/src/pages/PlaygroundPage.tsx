@@ -274,7 +274,7 @@ export function PlaygroundPage({ apiBaseUrl, initialTool, onToolChange }: Props)
 
       <div className="playground-layout">
         <aside className="tool-picker">
-          {(["MRZ", "Россия", "Распознавание", "Обрезка и качество"] as const).map((group) => (
+          {(["MRZ", "Россия", "Распознавание полного текста", "Обрезка и качество"] as const).map((group) => (
             <div key={group}>
               <span className="nav-kicker">{group}</span>
               {tools.filter((item) => item.group === group).map((item) => (

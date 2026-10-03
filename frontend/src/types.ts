@@ -43,7 +43,7 @@ export type ParamDefinition = SelectParam | ToggleParam;
 
 export interface ToolDefinition {
   id: ToolId;
-  group: "MRZ" | "Россия" | "Распознавание" | "Обрезка и качество";
+  group: "MRZ" | "Россия" | "Распознавание полного текста" | "Обрезка и качество";
   title: string;
   shortTitle: string;
   description: string;

@@ -169,9 +169,9 @@ export function DocsPage({ navigate }: Props) {
               <div><strong><code>normalize</code></strong><p>При true исправляет символы и дополняет MRZ по правилам страны. При false только удаляет пробелы, приводит текст к верхнему регистру и выбирает строки.</p></div>
               <div><strong><code>normalization</code></strong><p>При true возвращает журнал исправлений, при false — null в data.normalization. На исправление MRZ не влияет.</p></div>
               <div><strong><code>model</code></strong><p>Выбирает модель для «Всего текста». Для запросов к Qwen она должна быть включена и запущена на сервере. Эндпоинты паспортов РФ, СНИЛС и водительского удостоверения используют фиксированные модели и не принимают параметр model. Единый MRZ-эндпоинт использует MRZ Scanner и не принимает параметр model.</p></div>
-              <div><strong><code>crop_document</code></strong><p>Для «Полей паспорта»: при true выравнивает и обрезает документ перед поиском полей. По умолчанию true.</p></div>
-              <div><strong><code>padding</code></strong><p>Для «Полей паспорта»: отступ вокруг каждой вырезки в пикселях, от 0 до 64. По умолчанию 4.</p></div>
-              <div><strong><code>ocr_model</code></strong><p>Для «Полей паспорта»: none — только вырезки; paddle — Paddle eslav v5, paddle-cyrillic — Paddle Cyrillic v5, russian-ocr-accurate — Russian OCR accurate. Эти три модели работают на CPU. qwen3-vl-4b и qwen3-vl-8b используют режим сервера. API по умолчанию не читает текст; в UI выбран Paddle eslav v5. Каждая вырезка распознаётся отдельно, без нормализации. Фото и подпись пропускаются.</p></div>
+              <div><strong><code>crop_document</code></strong><p>Для инструмента «Поля документа»: при true выравнивает и обрезает документ перед поиском полей. По умолчанию true.</p></div>
+              <div><strong><code>padding</code></strong><p>Для инструмента «Поля документа»: отступ вокруг каждой вырезки в пикселях, от 0 до 64. По умолчанию 4.</p></div>
+              <div><strong><code>ocr_model</code></strong><p>Для инструмента «Поля документа»: none — только вырезки; paddle — Paddle eslav v5, paddle-cyrillic — Paddle Cyrillic v5, russian-ocr-accurate — Russian OCR accurate. Эти три модели работают на CPU. qwen3-vl-4b и qwen3-vl-8b используют режим сервера. API по умолчанию не читает текст; в UI выбран Paddle eslav v5. Каждая вырезка распознаётся отдельно, без нормализации. Фото и подпись пропускаются.</p></div>
             </div>
           </div>
         </section>

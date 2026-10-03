@@ -95,7 +95,7 @@ export const tools: ToolDefinition[] = [
   },
   {
     id: "full-ocr",
-    group: "Распознавание",
+    group: "Распознавание полного текста",
     title: "Весь текст",
     shortTitle: "Full OCR",
     description: "Вернуть найденный текст без разбора на поля документа.",
@@ -142,8 +142,8 @@ export const tools: ToolDefinition[] = [
   {
     id: "crop-passport-fields",
     group: "Обрезка и качество",
-    title: "Поля паспорта",
-    shortTitle: "Passport fields",
+    title: "Поля документа",
+    shortTitle: "Document fields",
     description: "Найти поля паспорта РФ и сравнить чтение вырезок моделями Paddle eslav v5, Paddle Cyrillic v5, Russian OCR accurate и Qwen. Текст возвращается без нормализации.",
     endpoint: "/v1/ocr/crop/passport-fields",
     responseKind: "json",
