@@ -581,7 +581,7 @@ class CropRouteTests(unittest.TestCase):
             {
                 "/v1/ocr/crop/document",
                 "/v1/ocr/crop/mrz",
-                "/v1/ocr/crop/passport-fields",
+                "/v1/ocr/crop/document-fields",
             },
         )
         for path in paths:

@@ -140,12 +140,12 @@ export const tools: ToolDefinition[] = [
     outputHint: "Ответ: обрезанная MRZ в JPEG",
   },
   {
-    id: "crop-passport-fields",
+    id: "crop-document-fields",
     group: "Обрезка и качество",
     title: "Поля документа",
     shortTitle: "Document fields",
     description: "Найти поля паспорта РФ и сравнить чтение вырезок моделями Paddle eslav v5, Paddle Cyrillic v5, Russian OCR accurate и Qwen. Текст возвращается без нормализации.",
-    endpoint: "/v1/ocr/crop/passport-fields",
+    endpoint: "/v1/ocr/crop/document-fields",
     responseKind: "json",
     params: [
       {

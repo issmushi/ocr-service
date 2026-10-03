@@ -40,7 +40,7 @@ def configure_http(app: FastAPI) -> None:
             "/v1/ocr/driver-license": max_body_size,
             "/v1/ocr/crop/document": max_body_size,
             "/v1/ocr/crop/mrz": max_body_size,
-            "/v1/ocr/crop/passport-fields": max_body_size,
+            "/v1/ocr/crop/document-fields": max_body_size,
             "/v1/tasks/mrz": max_body_size,
             "/v1/tasks/passport/internal": max_body_size,
             "/v1/tasks/passport/international": max_body_size,

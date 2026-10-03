@@ -258,7 +258,7 @@ test("MRZ fields show the shared document names and all document types", () => {
 test("full text and field crop tools retain model selection", () => {
   for (const [id, key, expectedDefault] of [
     ["full-ocr", "model", "paddle"],
-    ["crop-passport-fields", "ocr_model", "paddle"],
+    ["crop-document-fields", "ocr_model", "paddle"],
   ]) {
     const tool = toolById[id];
     const selector = tool.params.find((param) => param.key === key);

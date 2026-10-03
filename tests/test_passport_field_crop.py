@@ -18,7 +18,7 @@ from app.modules.russian.fields import detect_passport_fields_bytes
 from app.modules.russian.inference_worker import russian_inference_worker
 from app.modules.v1.crop.passport_fields import crop_passport_fields_upload
 
-PATH = "/v1/ocr/crop/passport-fields"
+PATH = "/v1/ocr/crop/document-fields"
 SERVICE = "app.modules.v1.crop.passport_fields"
 WORKER = "app.modules.russian.fields"
 

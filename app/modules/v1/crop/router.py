@@ -37,9 +37,9 @@ ERROR_RESPONSES = {
 
 
 @router.post(
-    "/crop/passport-fields",
+    "/crop/document-fields",
     response_model=PassportFieldCropResponse,
-    summary="Найти и вырезать поля паспорта РФ",
+    summary="Найти и вырезать поля документа",
     description=(
         "Эксперимент для третьей страницы внутреннего паспорта РФ. "
         "Использует детектор Russian OCR, исправляет ориентацию, "
@@ -57,7 +57,7 @@ ERROR_RESPONSES = {
     ),
     responses=ERROR_RESPONSES,
 )
-async def crop_passport_fields(
+async def crop_document_fields(
     response: Response,
     image: UploadFile = File(
         ..., description="Фото третьей страницы внутреннего паспорта РФ."

@@ -9,7 +9,7 @@ export type ToolId =
   | "full-ocr"
   | "crop-document"
   | "crop-mrz"
-  | "crop-passport-fields"
+  | "crop-document-fields"
   | "best-frame";
 
 export type ResponseKind = "json" | "image";

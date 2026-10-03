@@ -196,7 +196,7 @@ test("server labels are escaped as text", () => {
 test("field recognition defaults to CPU Paddle and sends each selected OCR model as multipart", async (t) => {
   const originalFetch = globalThis.fetch;
   t.after(() => { globalThis.fetch = originalFetch; });
-  const tool = toolById["crop-passport-fields"];
+  const tool = toolById["crop-document-fields"];
   assert.deepEqual(defaultParams(tool), { ocr_model: "paddle", crop_document: true, padding: "4" });
   const selector = tool.params.find((param) => param.key === "ocr_model");
   assert.equal(selector.label, "Распознавание полей");
@@ -209,7 +209,7 @@ test("field recognition defaults to CPU Paddle and sends each selected OCR model
   for (const model of selector.options.map((option) => option.value)) {
     const params = { crop_document: false, padding: "16", ocr_model: model };
     globalThis.fetch = async (url, options) => {
-      assert.equal(url, "/v1/ocr/crop/passport-fields");
+      assert.equal(url, "/v1/ocr/crop/document-fields");
       assert.equal(options.method, "POST");
       assert.equal(options.signal, controller.signal);
       assert.deepEqual([...options.body.keys()], ["image", "crop_document", "padding", "ocr_model"]);
@@ -224,7 +224,7 @@ test("field recognition defaults to CPU Paddle and sends each selected OCR model
     assert.equal(response.ok, true);
     assert.equal(parsePassportFieldCrops(response.json.data).fields.length, 2);
     const curl = buildCurl("http://localhost:8000", tool, [file], params);
-    assert.match(curl, /\/v1\/ocr\/crop\/passport-fields/);
+    assert.match(curl, /\/v1\/ocr\/crop\/document-fields/);
     assert.match(curl, /-F 'crop_document=false'/);
     assert.match(curl, /-F 'padding=16'/);
     assert.ok(curl.includes(`-F 'ocr_model=${model}'`));
@@ -234,7 +234,7 @@ test("field recognition defaults to CPU Paddle and sends each selected OCR model
 
 test("new CPU alternatives are available only in the passport field crop experiment", () => {
   for (const tool of Object.values(toolById)) {
-    if (tool.id === "crop-passport-fields") continue;
+    if (tool.id === "crop-document-fields") continue;
     const values = tool.params.flatMap((param) => param.kind === "select" ? param.options.map((option) => option.value) : []);
     assert.ok(!values.includes("paddle-cyrillic"), tool.id);
     assert.ok(!values.includes("russian-ocr-accurate"), tool.id);
