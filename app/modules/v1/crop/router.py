@@ -19,6 +19,10 @@ from app.modules.v1.crop.field_schemas import (
     PassportFieldCropResponse,
 )
 from app.modules.v1.crop.passport_fields import crop_passport_fields_upload
+from app.modules.v1.crop.registration_fields import (
+    crop_registration_fields_upload,
+)
+from app.modules.v1.crop.registration_schemas import RegistrationCropResponse
 from app.modules.v1.crop.service import (
     crop_document_image_bytes,
     crop_mrz_bytes,
@@ -79,6 +83,42 @@ async def crop_document_fields(
         crop_document=crop_document,
         padding=padding,
         ocr_model=ocr_model,
+    )
+
+
+@router.post(
+    "/crop/registration-fields-test",
+    response_model=RegistrationCropResponse,
+    summary="Тест: вырезать строки адреса и штампы прописки",
+    description=(
+        "Находит и выравнивает страницу или разворот прописки, затем отдельно "
+        "вырезает адресные строки и штампы в PNG. Координаты относятся к "
+        "возвращённому обзору документа. "
+        "При ocr_model=none текст не читается. "
+        "Можно передать эти же PNG выбранной OCR-модели; результат будет "
+        "в ocr каждого фрагмента без нормализации. Возвращаются и печатные, "
+        "и рукописные области; точность чтения зависит от модели. "
+        "Для другого типа документа или при отсутствии областей fields "
+        "пустой. Изображения не сохраняются."
+    ),
+    responses=ERROR_RESPONSES,
+)
+async def crop_registration_fields_test(
+    response: Response,
+    image: UploadFile = File(
+        ..., description="Фото страницы или разворота с пропиской."
+    ),
+    padding: int = Form(
+        4, ge=0, le=64, description="Отступ вокруг вырезки в пикселях."
+    ),
+    ocr_model: FieldOcrModel = Form(
+        FieldOcrModel.NONE,
+        description="Модель чтения вырезок; none — только детекция и обрезка.",
+    ),
+) -> dict[str, Any]:
+    response.headers["Cache-Control"] = "no-store"
+    return await crop_registration_fields_upload(
+        image, padding=padding, ocr_model=ocr_model
     )
 
 
