@@ -9,12 +9,14 @@ from app.modules.v1.russia.driver_license.router import (
     router as driver_license_router,
 )
 from app.modules.v1.russia.snils.router import router as snils_router
+from app.modules.v1.russia.uv.router import router as uv_router
 
 router = APIRouter(prefix="/v1/ocr")
 router.include_router(mrz_router)
 router.include_router(passport_router)
 router.include_router(snils_router)
 router.include_router(driver_license_router)
+router.include_router(uv_router)
 router.include_router(full_router)
 router.include_router(crop_router)
 router.include_router(best_frame_router)
