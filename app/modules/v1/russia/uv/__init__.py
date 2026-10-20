@@ -1,1 +1,1 @@
-"""Experimental UV image screening; not document authentication."""
+"""UV image screening for the passport authenticity route."""

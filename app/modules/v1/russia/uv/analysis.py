@@ -1,8 +1,8 @@
-"""Small, deliberately uncalibrated screening profile for Regula UV scans.
+"""Colour and layout rules for Regula UV scans of passport page 3.
 
-The thresholds describe image appearance observed in local page-3 scans.
-They are not security specifications or a classifier trained on verified
-genuine/counterfeit documents. A rendered colour pattern can pass them.
+The thresholds describe image appearance observed in local scans. They are
+not security specifications or a classifier trained on verified genuine/
+counterfeit documents. A rendered colour pattern can pass them.
 No images, identities or descriptors of personal fields are retained here.
 """
 
@@ -27,16 +27,6 @@ MIN_SHORT_SIDE = 400
 PHOTO_REGION = (0.03, 0.15, 0.36, 0.65)
 BAND_REGION = (0.02, 0.55, 0.98, 0.80)
 BACKGROUND_REGION = (0.40, 0.12, 0.90, 0.53)
-LIMITATIONS = [
-    "Тестовый профиль страницы с фотографией внутреннего паспорта РФ. "
-    "Тип документа и версия бланка автоматически не подтверждаются.",
-    "Нужен цветной UV-скан страницы целиком, почти без внешнего фона. "
-    "Повороты на 90 градусов исправляются; перспектива не исправляется.",
-    "Пороги подобраны по локальным сканам Regula, без подтверждённых "
-    "образцов подделок. Точность обнаружения подделок не измерена.",
-    "Рисунок, волокна, замена фотографии и данные документа не проверяются. "
-    "Цветная имитация или повторное фото изображения могут пройти тест.",
-]
 
 
 def _region(image: np.ndarray, box: tuple[float, ...]) -> np.ndarray:
@@ -74,7 +64,7 @@ def _band_metrics(green: np.ndarray) -> dict[str, float]:
     }
 
 
-def _orient(rgb: np.ndarray) -> tuple[np.ndarray, int]:
+def _orient(rgb: np.ndarray) -> np.ndarray:
     candidates = []
     for turns in range(4):
         rotated = np.rot90(rgb, k=-turns)
@@ -86,26 +76,18 @@ def _orient(rgb: np.ndarray) -> tuple[np.ndarray, int]:
         score = band["horizontal_coverage"] + float(
             _region(blue, PHOTO_REGION).mean()
         )
-        candidates.append((score, turns, rotated))
+        candidates.append((score, rotated))
     if not candidates:
-        return rgb, 0
-    _, turns, rotated = max(candidates, key=lambda item: item[0])
-    return np.ascontiguousarray(rotated), turns * 90
+        return rgb
+    _, rotated = max(candidates, key=lambda item: item[0])
+    return np.ascontiguousarray(rotated)
 
 
-def _check(
-    code: str,
-    passed: bool,
-    message: str,
-    metrics: dict[str, float],
-    region: tuple[float, ...] | None = None,
-) -> UvCheckSchema:
+def _check(code: str, passed: bool, message: str) -> UvCheckSchema:
     return UvCheckSchema(
         code=code,
         status="passed" if passed else "failed",
         message=message,
-        metrics={key: round(value, 4) for key, value in metrics.items()},
-        region=region,
     )
 
 
@@ -122,7 +104,7 @@ def analyze_uv(content: bytes) -> UvDataSchema:
             ErrorCode.IMAGE_READ_ERROR, "Изображение невозможно прочитать"
         ) from error
 
-    rgb, rotation = _orient(rgb)
+    rgb = _orient(rgb)
     height, width = rgb.shape[:2]
     gray = cv2.cvtColor(rgb, cv2.COLOR_RGB2GRAY)
     green, blue = _masks(rgb)
@@ -136,7 +118,6 @@ def analyze_uv(content: bytes) -> UvDataSchema:
             "Разрешение достаточное."
             if resolution_ok
             else "Слишком маленькое изображение: загрузите исходный скан.",
-            {"short_side_pixels": float(min(original_width, original_height))},
         )
     )
     geometry_ok = 1.20 <= width / height <= 1.75
@@ -144,10 +125,9 @@ def analyze_uv(content: bytes) -> UvDataSchema:
         _check(
             "page_geometry",
             geometry_ok,
-            "Пропорции совместимы с тестовым профилем; тип не подтверждён."
+            "Пропорции соответствуют профилю страницы."
             if geometry_ok
             else "Нужен скан одной страницы целиком без фона.",
-            {"aspect_ratio": width / height},
         )
     )
     brightness = float(np.percentile(gray, 95))
@@ -157,10 +137,9 @@ def analyze_uv(content: bytes) -> UvDataSchema:
         _check(
             "exposure",
             exposure_ok,
-            "Есть различимые яркие участки без сильного белого пересвета."
+            "Яркость снимка в допустимых пределах."
             if exposure_ok
             else "Снимок слишком тёмный или пересвечен.",
-            {"brightness_p95": brightness, "white_clipped_fraction": clipped},
         )
     )
     sharpness = float(cv2.Laplacian(gray, cv2.CV_64F).var())
@@ -172,7 +151,6 @@ def analyze_uv(content: bytes) -> UvDataSchema:
             "На снимке различимы мелкие детали."
             if sharpness_ok
             else "Недостаточно мелких деталей: возможен смаз или пустой кадр.",
-            {"laplacian_variance": sharpness},
         )
     )
     color_fraction = float(blue.mean())
@@ -181,103 +159,62 @@ def analyze_uv(content: bytes) -> UvDataSchema:
         _check(
             "uv_color_signature",
             color_ok,
-            "Цвета совместимы с UV-примерами; "
-            "источник освещения не подтверждён."
+            "Цветовые признаки соответствуют UV-профилю."
             if color_ok
             else "Не найдены цвета из UV-профиля; возможно, фото "
             "обычное, чёрно-белое или снято в других условиях.",
-            {"blue_fraction": color_fraction},
         )
     )
 
-    can_evaluate = all(check.status == "passed" for check in checks)
-    if can_evaluate:
-        band = _band_metrics(green)
-        band_ok = (
-            0.035 <= band["green_fraction"] <= 0.55
-            and band["horizontal_coverage"] >= 0.55
-            and band["bright_components"] >= 20
+    failed_checks = [
+        check.message for check in checks if check.status == "failed"
+    ]
+    if failed_checks:
+        raise AppError(
+            ErrorCode.AUTHENTICITY_UNDETERMINED,
+            "Невозможно оценить UV-признаки: " + " ".join(failed_checks),
         )
-        checks.append(
-            _check(
-                "fluorescent_band",
-                band_ok,
-                "Найдена неоднородная зелёная полоса в ожидаемой зоне."
-                if band_ok
-                else "Зелёная полоса отсутствует или отличается "
-                "от тестового профиля. Возможен другой бланк или освещение.",
-                band,
-                BAND_REGION,
-            )
-        )
-        photo_fraction = float(_region(blue, PHOTO_REGION).mean())
-        photo_ok = photo_fraction >= 0.15
-        checks.append(
-            _check(
-                "photo_zone_glow",
-                photo_ok,
-                "Свечение в зоне фотографии совместимо с тестовым профилем."
-                if photo_ok
-                else "Свечение в зоне фотографии отличается "
-                "от тестового профиля; причина не установлена.",
-                {"blue_fraction": photo_fraction},
-                PHOTO_REGION,
-            )
-        )
-        background = float(np.median(_region(gray, BACKGROUND_REGION)))
-        background_ok = background <= 100
-        checks.append(
-            _check(
-                "background_glow",
-                background_ok,
-                "Фон достаточно тёмный относительно тестовых UV-примеров."
-                if background_ok
-                else "Фон светлее тестовых UV-примеров. "
-                "Нужно исключить другое освещение или другой вариант бланка.",
-                {"median_brightness": background},
-                BACKGROUND_REGION,
-            )
-        )
-        passed = band_ok and photo_ok and background_ok
-        status = "consistent" if passed else "suspicious"
-        message = (
-            "Тестовые UV-признаки найдены. Подлинность не подтверждена."
-            if passed
-            else "Есть отличия от тестового UV-профиля. "
-            "Нужна ручная проверка; это не заключение о подделке."
-        )
-    else:
-        passed = None
-        status = "inconclusive"
-        message = (
-            "Этот снимок нельзя оценить по тестовому UV-профилю. "
-            "Причины указаны в checks."
-        )
-        for code in (
+
+    band = _band_metrics(green)
+    band_ok = (
+        0.035 <= band["green_fraction"] <= 0.55
+        and band["horizontal_coverage"] >= 0.55
+        and band["bright_components"] >= 20
+    )
+    checks.append(
+        _check(
             "fluorescent_band",
+            band_ok,
+            "Найдена неоднородная зелёная полоса в ожидаемой зоне."
+            if band_ok
+            else "Зелёная полоса отсутствует или отличается от профиля.",
+        )
+    )
+    photo_fraction = float(_region(blue, PHOTO_REGION).mean())
+    photo_ok = photo_fraction >= 0.15
+    checks.append(
+        _check(
             "photo_zone_glow",
+            photo_ok,
+            "Свечение в зоне фотографии соответствует профилю."
+            if photo_ok
+            else "Свечение в зоне фотографии отличается от профиля.",
+        )
+    )
+    background = float(np.median(_region(gray, BACKGROUND_REGION)))
+    background_ok = background <= 100
+    checks.append(
+        _check(
             "background_glow",
-        ):
-            checks.append(
-                UvCheckSchema(
-                    code=code,
-                    status="not_checked",
-                    message=(
-                        "Проверка пропущена: входной снимок не прошёл отбор."
-                    ),
-                )
-            )
+            background_ok,
+            "Яркость фона в допустимых пределах."
+            if background_ok
+            else "Фон светлее предусмотренного профилем уровня.",
+        )
+    )
 
     return UvDataSchema(
-        uv_check_passed=passed,
-        status=status,
-        message=message,
+        is_authentic=band_ok and photo_ok and background_ok,
         checks=checks,
-        limitations=LIMITATIONS,
-        meta=UvMetaSchema(
-            duration_seconds=perf_counter() - started,
-            rotation_degrees=rotation,
-            analyzed_width=width,
-            analyzed_height=height,
-        ),
+        meta=UvMetaSchema(duration_seconds=perf_counter() - started),
     )

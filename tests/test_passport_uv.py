@@ -45,7 +45,7 @@ def client():
     client.close()
 
 
-def test_matching_colours_never_claim_physical_authenticity(client):
+def test_matching_colours_return_boolean_with_compact_contract(client):
     response = client.post(
         PATH,
         files={"image": ("synthetic.png", encode(synthetic_pattern()))},
@@ -54,11 +54,15 @@ def test_matching_colours_never_claim_physical_authenticity(client):
     result = response.json()
     assert result["success"] is True
     data = result["data"]
-    assert data["uv_check_passed"] is True
-    assert data["status"] == "consistent"
-    assert data["is_authentic"] is None
-    assert data["limitations"]
-    assert data["meta"]["experimental"] is True
+    assert set(data) == {"is_authentic", "checks", "meta"}
+    assert data["is_authentic"] is True
+    assert len(data["checks"]) == 8
+    for check in data["checks"]:
+        assert set(check) == {"code", "status", "message"}
+        assert check["status"] == "passed"
+    assert set(data["meta"]) == {"engine", "model", "duration_seconds"}
+    assert data["meta"]["engine"] == "opencv"
+    assert data["meta"]["model"] == "ru-passport-uv-v1"
     assert data["meta"]["duration_seconds"] >= 0
 
 
@@ -67,26 +71,28 @@ def test_right_angle_rotation_preserves_result(turns):
     rgb = np.asarray(synthetic_pattern())
     rotated = Image.fromarray(np.rot90(rgb, k=turns))
     data = analyze_uv(encode(rotated))
-    assert data.uv_check_passed is True
-    assert data.meta.rotation_degrees == turns * 90
+    assert data.is_authentic is True
 
 
 @pytest.mark.parametrize("failure", ["band", "background"])
-def test_visible_deviation_is_suspicious_not_a_fake_verdict(failure):
-    data = analyze_uv(
-        encode(
-            synthetic_pattern(
-                band=failure != "band",
-                bright_background=failure == "background",
-            )
-        )
+def test_visible_deviation_returns_false_in_successful_response(
+    client, failure
+):
+    image = synthetic_pattern(
+        band=failure != "band",
+        bright_background=failure == "background",
     )
-    assert data.uv_check_passed is False
-    assert data.status == "suspicious"
-    assert data.is_authentic is None
+    response = client.post(
+        PATH, files={"image": ("synthetic.png", encode(image))}
+    )
+    assert response.status_code == 200
+    assert response.json()["success"] is True
+    assert response.json()["error"] is None
+    data = response.json()["data"]
+    assert data["is_authentic"] is False
     check_code = "fluorescent_band" if failure == "band" else "background_glow"
-    check = next(check for check in data.checks if check.code == check_code)
-    assert check.status == "failed"
+    check = next(c for c in data["checks"] if c["code"] == check_code)
+    assert check["status"] == "failed"
 
 
 @pytest.mark.parametrize(
@@ -100,7 +106,9 @@ def test_visible_deviation_is_suspicious_not_a_fake_verdict(failure):
         "wrong_geometry",
     ],
 )
-def test_unusable_input_is_inconclusive_and_skips_uv_checks(kind):
+def test_unusable_input_returns_error_instead_of_authenticity_false(
+    client, kind
+):
     image = synthetic_pattern()
     if kind == "dark":
         image = Image.new("RGB", image.size, "black")
@@ -114,20 +122,26 @@ def test_unusable_input_is_inconclusive_and_skips_uv_checks(kind):
         image = image.filter(ImageFilter.GaussianBlur(radius=15))
     else:
         image = image.resize((1000, 300))
-    data = analyze_uv(encode(image))
-    assert data.status == "inconclusive"
-    assert data.uv_check_passed is None
-    assert data.is_authentic is None
-    assert all(check.status == "not_checked" for check in data.checks[-3:])
+    response = client.post(
+        PATH, files={"image": ("synthetic.png", encode(image))}
+    )
+    assert response.status_code == 422
+    result = response.json()
+    assert result["success"] is False
+    assert result["data"] is None
+    assert result["error"]["code"] == "AUTHENTICITY_UNDETERMINED"
+    assert result["error"]["message"].startswith(
+        "Невозможно оценить UV-признаки:"
+    )
 
 
 def test_a_solid_green_rectangle_is_not_a_pattern():
     rgb = np.asarray(synthetic_pattern(band=False)).copy()
     rgb[430:480, 20:980] = (160, 220, 80)
     data = analyze_uv(encode(Image.fromarray(rgb)))
-    assert data.uv_check_passed is False
+    assert data.is_authentic is False
     check = next(c for c in data.checks if c.code == "fluorescent_band")
-    assert check.metrics["bright_components"] == 0
+    assert check.status == "failed"
 
 
 @pytest.mark.parametrize(
@@ -170,7 +184,7 @@ def test_animation_is_not_silently_reduced_to_one_frame(client):
     assert response.json()["error"]["code"] == "IMAGE_READ_ERROR"
 
 
-def test_swagger_accepts_one_photo_and_exposes_null_authenticity():
+def test_swagger_exposes_boolean_authenticity_and_assessment_errors():
     schema = app.openapi()
     route = schema["paths"][PATH]["post"]
     assert route["tags"] == ["Authenticity"]
@@ -180,4 +194,12 @@ def test_swagger_accepts_one_photo_and_exposes_null_authenticity():
     assert set(body["properties"]) == {"image"}
     assert body["required"] == ["image"]
     data = schema["components"]["schemas"]["UvDataSchema"]
-    assert data["properties"]["is_authentic"]["type"] == "null"
+    assert data["properties"]["is_authentic"]["type"] == "boolean"
+    assert "is_authentic" in data["required"]
+    assert set(data["properties"]) == {"is_authentic", "checks", "meta"}
+    assert "422" in route["responses"]
+    example = route["responses"]["422"]["content"]["application/json"][
+        "examples"
+    ]["cannot_assess"]["value"]
+    assert example["success"] is False
+    assert example["error"]["code"] == "AUTHENTICITY_UNDETERMINED"
