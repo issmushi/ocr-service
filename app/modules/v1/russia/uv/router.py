@@ -1,4 +1,4 @@
-"""Single-image UV experiment, available directly from Swagger."""
+"""Passport authenticity route, currently backed by UV screening."""
 
 from __future__ import annotations
 
@@ -15,14 +15,15 @@ from app.core.images.validation import validate_image_extension
 from app.modules.v1.russia.uv.analysis import analyze_uv
 from app.modules.v1.russia.uv.schemas import UvResponseSchema
 
-router = APIRouter(tags=["Russia"])
+router = APIRouter(tags=["Authenticity"])
 
 
 @router.post(
-    "/passport/uv-test",
+    "/passport/authenticity",
     response_model=UvResponseSchema,
-    summary="Проверить UV-признаки паспорта РФ (тест)",
+    summary="Проверить признаки подлинности паспорта РФ",
     description=(
+        "Текущий способ проверки — анализ UV-признаков. "
         "Загрузите цветной UV-скан страницы с фотографией целиком, "
         "почти без внешнего фона. Проверяются качество, цветная полоса, "
         "свечение фона и зоны фотографии по экспериментальным порогам. "
@@ -37,7 +38,7 @@ router = APIRouter(tags=["Russia"])
         500: COMMON_ERROR_RESPONSES[500],
     },
 )
-async def check_passport_uv(
+async def check_passport_authenticity(
     image: UploadFile = File(
         ..., description="Цветной UV-снимок одной страницы паспорта РФ."
     ),

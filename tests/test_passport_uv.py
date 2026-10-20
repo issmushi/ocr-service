@@ -11,7 +11,7 @@ from PIL import Image, ImageFilter
 from app.main import app
 from app.modules.v1.russia.uv.analysis import analyze_uv
 
-PATH = "/v1/ocr/passport/uv-test"
+PATH = "/v1/ocr/passport/authenticity"
 
 
 def encode(image: Image.Image) -> bytes:
@@ -173,7 +173,8 @@ def test_animation_is_not_silently_reduced_to_one_frame(client):
 def test_swagger_accepts_one_photo_and_exposes_null_authenticity():
     schema = app.openapi()
     route = schema["paths"][PATH]["post"]
-    assert route["tags"] == ["Russia"]
+    assert route["tags"] == ["Authenticity"]
+    assert "/v1/ocr/passport/uv-test" not in schema["paths"]
     ref = route["requestBody"]["content"]["multipart/form-data"]["schema"]
     body = schema["components"]["schemas"][ref["$ref"].split("/")[-1]]
     assert set(body["properties"]) == {"image"}
