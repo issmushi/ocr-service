@@ -8,11 +8,13 @@ Its MIT license and upstream scope/third-party notice are retained verbatim as
 covers its source and trained weights. The fonts and language ports mentioned
 in that notice are not included here.
 
-The integration keeps the document, orientation, text-field, word, and accurate
-Cyrillic/Latin OCR paths used by the service. Quality, anti-spoofing, address
-recognition, and unsupported CoreML/OpenVINO backends are excluded. Template
+The integration keeps the document, orientation, text-field, word, accurate
+Cyrillic/Latin OCR, and registration-address paths used by the service.
+Quality, anti-spoofing, and unsupported CoreML/OpenVINO backends are excluded. Template
 page registration and its image assets are not included; enabling it is rejected.
-Registration-stamp models and stages are also excluded with the address path.
+AddressLines, AddressTextKind, and RegistrationStamps load lazily when a
+registration page is read. The address-reading and stamp-association stages
+are retained from upstream without changes.
 Document geometry helpers and the latest passport parsing/word assembly remain.
 The new DocDetect stage selects the largest document before classification,
 preserving its source resolution. The stage-based upstream pipeline layout is
@@ -26,10 +28,11 @@ retain upstream dtype-aware ONNX inputs, session warmup, and GPU run locking.
 Accurate OCR uses CPU by default even when detector models use GPU. Only the
 accurate OCR model tier is included. No legacy OCR or model-format aliases remain.
 
-The seven required ONNX model sets follow upstream `models-v11`, pinned by path,
+The ten required ONNX model sets follow upstream `models-v11`, pinned by path,
 size, SHA-256, release tag, and asset name in `app/ocr_engine/russian/models.lock.json`.
 Unchanged files are fetched from their original releases; DocDetect and TextFields
 come from v10, and DocTypeAngles weights and centers come from v11.
+RegistrationStamps comes from v11; AddressLines and AddressTextKind come from v4.
 Model binaries are downloaded and verified by the service installer; they are
 not stored in this repository. Upstream samples, tests, services, scripts, ports,
 benchmark output, and Python bytecode are excluded.

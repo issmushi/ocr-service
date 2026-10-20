@@ -44,6 +44,9 @@ class ModelManifestTests(unittest.TestCase):
             "TextFields",
             "DocTypeAngles",
             "DocDetect",
+            "AddressLines",
+            "AddressTextKind",
+            "RegistrationStamps",
             "Words",
             "OCR/cyrillic_accurate",
             "OCR/latin_accurate",
@@ -66,9 +69,9 @@ class ModelManifestTests(unittest.TestCase):
         self.assertEqual(
             {item["path"] for item in manifest["files"]}, expected_paths
         )
-        self.assertEqual(len(manifest["files"]), 15)
+        self.assertEqual(len(manifest["files"]), 21)
         self.assertEqual(
-            sum(item["size"] for item in manifest["files"]), 183242799
+            sum(item["size"] for item in manifest["files"]), 239341305
         )
         for item in manifest["files"]:
             self.assertRegex(item["release"], r"^models-v\d+$")

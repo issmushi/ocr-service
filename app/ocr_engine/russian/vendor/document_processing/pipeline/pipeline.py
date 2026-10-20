@@ -6,8 +6,10 @@ import cv2
 import numpy as np
 
 from ..geometry import Chain, Offset, QuarterTurns, Scale
-from ..pipeline_modules import (DocDeskewer, DocDetector, DocTypeAngles, DocumentDetector,
-                                OCRCyrillic, OCRLatin, TextFieldsDetector, WordsDetector)
+from ..pipeline_modules import (AddressLinesDetector, AddressTextKindClassifier,
+                                DocDeskewer, DocDetector, DocTypeAngles, DocumentDetector,
+                                OCRCyrillic, OCRLatin, RegistrationStamps,
+                                TextFieldsDetector, WordsDetector)
 from ..pipeline_modules.page_registration.geometry import PageGeometry
 # The stages of Pipeline, one module each; Pipeline below is the orchestrator
 # (construction, process_img / process_frame, _process_document) and inherits
@@ -18,6 +20,7 @@ from .fields import FieldsStage
 from .mrz_reading import MrzReadingStage
 from .pages import PagesStage, _segments_payload
 from .reading import ReadingStage
+from .stamps import StampsStage
 # The options, the results and pair_sides used to live in this module, and the
 # tests, the service and the conformance tools import them from here.
 from .documents import PAIRED_SIDES  # noqa: F401
@@ -45,7 +48,7 @@ def _resolve_device(device):
 
 
 class Pipeline(DocumentsStage, PagesStage, FieldsStage, MrzReadingStage,
-               ReadingStage, DateFieldsStage):
+               ReadingStage, StampsStage, DateFieldsStage):
     """Pipeline for OCR processing of documents.
 
     Performs steps of pre-processing, text detection and OCR
@@ -59,8 +62,8 @@ class Pipeline(DocumentsStage, PagesStage, FieldsStage, MrzReadingStage,
 
         Document detection precedes classification. Detector models use the
         requested device; accurate OCR remains on CPU unless experimental GPU
-        batching is explicitly enabled. Address, quality and template stages
-        are excluded from this service integration.
+        batching is explicitly enabled. Address models load lazily when a
+        registration page is read. Quality and template stages are excluded.
         """
         if model_format != 'ONNX':
             raise ValueError("The embedded RussianDocsOCR supports ONNX only")
@@ -72,6 +75,10 @@ class Pipeline(DocumentsStage, PagesStage, FieldsStage, MrzReadingStage,
         device = _resolve_device(device)
         self.device = device
         self.model_format = model_format
+        self._registration_verbose = verbose
+        self.address_lines = None
+        self.address_textkind = None
+        self.registration_stamps = None
         self.ocr_mode = ocr
         self.ocr_gpu_batch = bool(ocr_gpu_batch)
 
@@ -142,6 +149,20 @@ class Pipeline(DocumentsStage, PagesStage, FieldsStage, MrzReadingStage,
         # port of this library first diverges. See pipeline/probe.py; when None
         # every emission site costs a single attribute test.
         self.probe = None
+
+    def _ensure_address_models(self):
+        """Load the address models once inside the serialized OCR worker."""
+        if self.address_lines is not None:
+            return
+        options = dict(model_format="ONNX", device=self.device,
+                       verbose=self._registration_verbose)
+        # Publish the complete set only after all three models have loaded.
+        lines = AddressLinesDetector(**options)
+        textkind = AddressTextKindClassifier(**options)
+        stamps = RegistrationStamps(**options)
+        self.address_lines = lines
+        self.address_textkind = textkind
+        self.registration_stamps = stamps
 
     def _emit(self, name: str, payload) -> None:
         """Hand one intermediate value to the probe, if one is attached.
@@ -333,7 +354,7 @@ class Pipeline(DocumentsStage, PagesStage, FieldsStage, MrzReadingStage,
                     # re-classification asked for on it
                     self._canvas(self._borders_geometry())
                     self._canvas(self.results._meta_results['Angle90']['geometry'])
-        if doc_type == 'NONE' or doc_type.startswith('INTPASSPORTADDR'):
+        if doc_type == 'NONE':
             print("[!] The document on picture has unknown type")
             return self.results
         # labels are '<TYPE>_<YEAR>'; tolerate a missing year suffix
@@ -364,6 +385,19 @@ class Pipeline(DocumentsStage, PagesStage, FieldsStage, MrzReadingStage,
             self._emit('fields.bbox', text_fields.get('bbox') if text_fields else None)
         else:
             return self.results
+
+        # Upstream registration-page path. Only this document type needs the
+        # extra address and stamp models; ordinary documents reuse the core set.
+        if ocr and getattr(self.ocr_options, 'has_address', False):
+            self._ensure_address_models()
+            self._model_call(self._address_lines, img)
+            if not self.results._meta_results.get('Address_lines'):
+                self.results._meta_results['DocType'] = 'NONE'
+                self.results._meta_results['Quality']['DocConf'] = 0.0
+                return self.results
+            self._model_call(self._registration_stamps, img)
+            self._emit('address.lines', self.results._meta_results.get('Address_lines'))
+            self._emit('address.stamps', self.results._meta_results.get('RegistrationStamps'))
 
         #splitting words
         if text_fields:

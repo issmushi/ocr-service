@@ -8,6 +8,9 @@ from app.modules.v1.passport.router import router as passport_router
 from app.modules.v1.russia.driver_license.router import (
     router as driver_license_router,
 )
+from app.modules.v1.russia.registration.router import (
+    router as registration_router,
+)
 from app.modules.v1.russia.snils.router import router as snils_router
 from app.modules.v1.russia.uv.router import router as uv_router
 
@@ -16,6 +19,7 @@ router.include_router(mrz_router)
 router.include_router(passport_router)
 router.include_router(snils_router)
 router.include_router(driver_license_router)
+router.include_router(registration_router)
 router.include_router(uv_router)
 router.include_router(full_router)
 router.include_router(crop_router)
