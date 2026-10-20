@@ -87,7 +87,7 @@ NPU пока не поддерживается.
 Адрес API задаётся через `API_HOST` и `API_PORT`; по умолчанию это
 `127.0.0.1:8000`. Сохраните созданный ключ QR: он нужен для чтения ранее выданных QR.
 
-Веса Russian OCR загружаются в `storage/models/russian-docs-ocr/4.6.1/models`
+Веса Russian OCR загружаются в `storage/models/russian-docs-ocr/4.8.1/models`
 и проверяются по SHA-256. Путь можно изменить через `RUSSIAN_OCR_MODELS_DIR`.
 Чтобы взять эти веса из локального каталога, задайте `RUSSIAN_OCR_MODELS_SOURCE_DIR`.
 

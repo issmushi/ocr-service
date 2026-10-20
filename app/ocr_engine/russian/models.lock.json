@@ -1,15 +1,15 @@
 {
   "schema_version": 1,
   "package": "RussianDocsOCR",
-  "version": "4.6.1",
-  "models_version": "v8",
+  "version": "4.8.1",
+  "models_version": "v11",
   "source": {
     "repository": "https://github.com/protei300/RussianDocsOCR",
-    "source_commit": "bd0028aa8e9d3a30d2de4df8b672185bfcd984ba",
-    "base_url": "https://github.com/protei300/RussianDocsOCR/releases/download/models-v8/",
+    "source_commit": "65c88400d5d76289d754bdcbf427eeed374ac169",
+    "base_url": "https://github.com/protei300/RussianDocsOCR/releases/download/models-v11/",
     "license": {
       "spdx": "MIT",
-      "url": "https://github.com/protei300/RussianDocsOCR/blob/bd0028aa8e9d3a30d2de4df8b672185bfcd984ba/LICENSE"
+      "url": "https://github.com/protei300/RussianDocsOCR/blob/65c88400d5d76289d754bdcbf427eeed374ac169/LICENSE"
     }
   },
   "files": [
@@ -17,79 +17,106 @@
       "path": "Borders/ONNX/model.json",
       "asset": "Borders__ONNX__model.json",
       "size": 1130,
-      "sha256": "8be728d0efb2d51340988e941d1b49894a71c28a939259900949e23d63212605"
+      "sha256": "8be728d0efb2d51340988e941d1b49894a71c28a939259900949e23d63212605",
+      "release": "models-v4"
     },
     {
       "path": "Borders/ONNX/model.onnx",
       "asset": "Borders__ONNX__model.onnx",
       "size": 40401449,
-      "sha256": "b11e3d5b3c2cf8ffbc182a589f3132f864998bd06b28a88c78972b4117160111"
+      "sha256": "b11e3d5b3c2cf8ffbc182a589f3132f864998bd06b28a88c78972b4117160111",
+      "release": "models-v7"
+    },
+    {
+      "path": "DocDetect/ONNX/model.json",
+      "asset": "DocDetect__ONNX__model.4670d23e4d14.json",
+      "size": 939,
+      "sha256": "4670d23e4d14def477e35d74f7d4492150b10e918d88c3524f3ef07d389cc680",
+      "release": "models-v10"
+    },
+    {
+      "path": "DocDetect/ONNX/model.onnx",
+      "asset": "DocDetect__ONNX__model.7150f074b8c5.onnx",
+      "size": 37778015,
+      "sha256": "7150f074b8c5b4c60e7d926c649bae475c2d982ccd91fe6d47000f0018bb3a07",
+      "release": "models-v10"
     },
     {
       "path": "DocTypeAngles/ONNX/model.json",
       "asset": "DocTypeAngles__ONNX__model.json",
       "size": 1142,
-      "sha256": "6017dc07b7b06b5d5980212af2ccc551df45e73e7c3599036dc444f0a5eac172"
+      "sha256": "6017dc07b7b06b5d5980212af2ccc551df45e73e7c3599036dc444f0a5eac172",
+      "release": "models-v4"
     },
     {
       "path": "DocTypeAngles/ONNX/model.onnx",
-      "asset": "DocTypeAngles__ONNX__model.onnx",
+      "asset": "DocTypeAngles__ONNX__model.d32e6688eff9.onnx",
       "size": 9967217,
-      "sha256": "ac2260ce7ba1a445eed130c975d8566051f321eaaa432e8d540852311f88abc2"
+      "sha256": "d32e6688eff92bb39e23db4c02d804cce8ae45985a0c752c77a5dada877b85e8",
+      "release": "models-v11"
     },
     {
       "path": "DocTypeAngles/ONNX/resources/centers.npz",
-      "asset": "DocTypeAngles__ONNX__resources__centers.npz",
-      "size": 67968,
-      "sha256": "9b1633c93111bea16773d4b6d2468e5844ed6789f8dff44cd6afcd62972031ee"
+      "asset": "DocTypeAngles__ONNX__resources__centers.a7b4aedac1bf.npz",
+      "size": 72448,
+      "sha256": "a7b4aedac1bf2dbd2dd90c5b1764397749e8eaaabcb0887407d839b4a2896d5e",
+      "release": "models-v11"
     },
     {
       "path": "OCR/cyrillic_accurate/ONNX/model.json",
       "asset": "OCR__cyrillic_accurate__ONNX__model.json",
       "size": 666,
-      "sha256": "f23e60c46271e45b6c8b4c020d65d1c201e603d129caa65cffc125f24ac6f75b"
+      "sha256": "f23e60c46271e45b6c8b4c020d65d1c201e603d129caa65cffc125f24ac6f75b",
+      "release": "models-v4"
     },
     {
       "path": "OCR/cyrillic_accurate/ONNX/model.onnx",
       "asset": "OCR__cyrillic_accurate__ONNX__model.onnx",
       "size": 21530379,
-      "sha256": "72216720d78d12582f4a38127a0ac5358c49cbe2eea07170604715ee34b9f3e8"
+      "sha256": "72216720d78d12582f4a38127a0ac5358c49cbe2eea07170604715ee34b9f3e8",
+      "release": "models-v4"
     },
     {
       "path": "OCR/latin_accurate/ONNX/model.json",
       "asset": "OCR__latin_accurate__ONNX__model.json",
       "size": 725,
-      "sha256": "383713c6cc317a50f2d8116237666d1e99a84303f3c0f64597a991b101c86c9a"
+      "sha256": "383713c6cc317a50f2d8116237666d1e99a84303f3c0f64597a991b101c86c9a",
+      "release": "models-v4"
     },
     {
       "path": "OCR/latin_accurate/ONNX/model.onnx",
       "asset": "OCR__latin_accurate__ONNX__model.onnx",
       "size": 21630958,
-      "sha256": "b496bff0c31535e91bab5c718f74e05ea4704ababea7208ce948dc272d4d865e"
+      "sha256": "b496bff0c31535e91bab5c718f74e05ea4704ababea7208ce948dc272d4d865e",
+      "release": "models-v4"
     },
     {
       "path": "TextFields/ONNX/model.json",
-      "asset": "TextFields__ONNX__model.json",
-      "size": 2914,
-      "sha256": "dd445c48bcadd0a87b70eb28d1a06da2b51672a9e8c2609de2794fe08b15f5c2"
+      "asset": "TextFields__ONNX__model.410f3c0e4f31.json",
+      "size": 2906,
+      "sha256": "410f3c0e4f318db4214538ccfa78c87e74c34ee400d4ef2a44c9ec27b94519ad",
+      "release": "models-v10"
     },
     {
       "path": "TextFields/ONNX/model.onnx",
-      "asset": "TextFields__ONNX__model.onnx",
-      "size": 37860071,
-      "sha256": "9b419dbf7b3bbe72521bd88619038133ed78b60ef3761489ff4a4691c74d59c5"
+      "asset": "TextFields__ONNX__model.6751d001c629.onnx",
+      "size": 41400942,
+      "sha256": "6751d001c6296911a3f9804bbfacf810f570a46766cd11c6a476a1df59a8b149",
+      "release": "models-v10"
     },
     {
       "path": "Words/ONNX/model.json",
       "asset": "Words__ONNX__model.json",
       "size": 898,
-      "sha256": "f2a17441b6db796077767597d1de606033c0034930e92f4026197c437aec089d"
+      "sha256": "f2a17441b6db796077767597d1de606033c0034930e92f4026197c437aec089d",
+      "release": "models-v4"
     },
     {
       "path": "Words/ONNX/model.onnx",
       "asset": "Words__ONNX__model.onnx",
       "size": 10452985,
-      "sha256": "cb414d61c2951fa17f01c34fa529603cce7a1e8336107e2de6c960437ad79585"
+      "sha256": "cb414d61c2951fa17f01c34fa529603cce7a1e8336107e2de6c960437ad79585",
+      "release": "models-v6"
     }
   ]
 }

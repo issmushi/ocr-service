@@ -15,11 +15,11 @@ from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import BinaryIO, NoReturn
 from urllib.error import HTTPError, URLError
-from urllib.parse import quote
+from urllib.parse import quote, urljoin
 from urllib.request import Request, urlopen
 
 _MODELS_ENV = "RUSSIAN_OCR_MODELS_DIR"
-_PACKAGE_VERSION = "4.6.1"
+_PACKAGE_VERSION = "4.8.1"
 _DOWNLOAD_RETRIES = 3
 _DOWNLOAD_WORKERS = 4
 _DOWNLOAD_TIMEOUT_SECONDS = 120
@@ -46,6 +46,7 @@ class _ModelAsset:
     size: int
     sha256: str
     asset: str | None = None
+    release: str | None = None
 
 
 def _load_manifest() -> tuple[str, tuple[_ModelAsset, ...]]:
@@ -71,6 +72,18 @@ def _load_manifest() -> tuple[str, tuple[_ModelAsset, ...]]:
             size = item["size"]
             sha256 = item["sha256"].lower()
             remote_asset = item.get("asset")
+            release = item.get("release")
+            if release is not None and (
+                not isinstance(release, str)
+                or not release
+                or release in {".", ".."}
+                or any(
+                    character not in "abcdefghijklmnopqrstuvwxyz"
+                    "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._-"
+                    for character in release
+                )
+            ):
+                raise ValueError(f"invalid release for {path}")
             if remote_asset is not None and (
                 not isinstance(remote_asset, str)
                 or not remote_asset
@@ -94,7 +107,9 @@ def _load_manifest() -> tuple[str, tuple[_ModelAsset, ...]]:
             ):
                 raise ValueError(f"invalid SHA-256 for {path}")
             paths.add(path)
-            assets.append(_ModelAsset(path, size, sha256, remote_asset))
+            assets.append(
+                _ModelAsset(path, size, sha256, remote_asset, release)
+            )
     except (KeyError, TypeError, AttributeError, ValueError) as error:
         raise RussianOcrModelsError(
             f"Invalid RussianDocsOCR model manifest: {error}"
@@ -199,7 +214,12 @@ def _validate_download(
 
 def _remote_source(asset: _ModelAsset) -> AbstractContextManager[BinaryIO]:
     remote_path = asset.asset or asset.path.as_posix()
-    url = _BASE_URL + quote(remote_path, safe="/")
+    base_url = (
+        urljoin(_BASE_URL, f"../{asset.release}/")
+        if asset.release is not None
+        else _BASE_URL
+    )
+    url = base_url + quote(remote_path, safe="/")
     request = Request(
         url, headers={"User-Agent": "ocr-service-model-fetcher/1"}
     )

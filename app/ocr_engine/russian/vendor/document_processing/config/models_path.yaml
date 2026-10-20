@@ -1,3 +1,4 @@
+DocumentDetector: models\DocDetect
 DocDetector: models\Borders
 TextFieldsDetector: models\TextFields
 DocTypeAngles: models\DocTypeAngles

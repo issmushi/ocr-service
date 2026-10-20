@@ -43,6 +43,7 @@ class ModelManifestTests(unittest.TestCase):
             "Borders",
             "TextFields",
             "DocTypeAngles",
+            "DocDetect",
             "Words",
             "OCR/cyrillic_accurate",
             "OCR/latin_accurate",
@@ -52,25 +53,26 @@ class ModelManifestTests(unittest.TestCase):
             for model in expected_sets
             for name in ("model.json", "model.onnx")
         } | {"DocTypeAngles/ONNX/resources/centers.npz"}
-        self.assertEqual(manifest["version"], "4.6.1")
-        self.assertEqual(manifest["models_version"], "v8")
+        self.assertEqual(manifest["version"], "4.8.1")
+        self.assertEqual(manifest["models_version"], "v11")
         self.assertEqual(
             manifest["source"]["source_commit"],
-            "bd0028aa8e9d3a30d2de4df8b672185bfcd984ba",
+            "65c88400d5d76289d754bdcbf427eeed374ac169",
         )
         self.assertEqual(manifest["source"]["license"]["spdx"], "MIT")
         self.assertIn(
-            "/releases/download/models-v8/", manifest["source"]["base_url"]
+            "/releases/download/models-v11/", manifest["source"]["base_url"]
         )
         self.assertEqual(
             {item["path"] for item in manifest["files"]}, expected_paths
         )
-        self.assertEqual(len(manifest["files"]), 13)
+        self.assertEqual(len(manifest["files"]), 15)
         self.assertEqual(
-            sum(item["size"] for item in manifest["files"]), 141918502
+            sum(item["size"] for item in manifest["files"]), 183242799
         )
         for item in manifest["files"]:
-            self.assertEqual(item["asset"], item["path"].replace("/", "__"))
+            self.assertRegex(item["release"], r"^models-v\d+$")
+            self.assertNotIn("/", item["asset"])
         for item in manifest["files"]:
             self.assertGreater(item["size"], 0)
             self.assertRegex(item["sha256"], r"^[0-9a-f]{64}$")
@@ -82,7 +84,7 @@ class ModelManifestTests(unittest.TestCase):
             self.assertEqual(
                 assets.models_dir(),
                 assets._PROJECT_ROOT
-                / "storage/models/russian-docs-ocr/4.6.1/models",
+                / "storage/models/russian-docs-ocr/4.8.1/models",
             )
         with tempfile.TemporaryDirectory() as temporary_directory:
             absolute = Path(temporary_directory) / "models"
@@ -104,6 +106,45 @@ class ModelManifestTests(unittest.TestCase):
 
 
 class ModelAssetManagerTests(unittest.TestCase):
+    def test_fetch_uses_each_assets_pinned_release(self) -> None:
+        for release, expected in (
+            ("models-v4", "models-v4"),
+            ("models-v10", "models-v10"),
+            ("models-v11", "models-v11"),
+            (None, "models-v11"),
+        ):
+            with self.subTest(release=release):
+                asset = assets._ModelAsset(
+                    PurePosixPath("DocDetect/ONNX/model.onnx"),
+                    1,
+                    "0" * 64,
+                    "DocDetect__ONNX__model.123.onnx",
+                    release,
+                )
+                with patch.object(assets, "urlopen") as request:
+                    assets._remote_source(asset)
+                self.assertEqual(
+                    request.call_args.args[0].full_url,
+                    "https://github.com/protei300/RussianDocsOCR/"
+                    f"releases/download/{expected}/"
+                    "DocDetect__ONNX__model.123.onnx",
+                )
+
+    def test_manifest_rejects_unsafe_release_names(self) -> None:
+        manifest = json.loads(assets._MANIFEST_PATH.read_text())
+        for release in ("../bad", "..", "/bad", "x?y", 1, ""):
+            with self.subTest(release=release):
+                manifest["files"][0]["release"] = release
+                with (
+                    patch.object(
+                        Path, "read_text", return_value=json.dumps(manifest)
+                    ),
+                    self.assertRaisesRegex(
+                        assets.RussianOcrModelsError, "invalid release"
+                    ),
+                ):
+                    assets._load_manifest()
+
     def test_verify_reports_every_missing_or_corrupt_asset(self) -> None:
         first = model_asset("one/model.bin", b"first")
         second = model_asset("two/model.bin", b"second")

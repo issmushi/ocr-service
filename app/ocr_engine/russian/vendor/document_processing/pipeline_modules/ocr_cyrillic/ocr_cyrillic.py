@@ -20,7 +20,7 @@ _RU_NAME_FIELDS = ('Last_name_ru', 'First_name_ru', 'Birth_place_ru',
 #: fields - BY NAME, not by content, so the normalization can never reach a
 #: series or a document number that happens to hold eight digits.
 _DATE_FIELDS = ('Issue_date', 'Birth_date', 'Expiration_date',
-                'Father_birth_date', 'Mother_birth_date')
+                'Father_birth_date', 'Mother_birth_date', 'Act_date')
 
 
 class OCRCyrillic(BaseModule):
@@ -49,9 +49,6 @@ class OCRCyrillic(BaseModule):
         """Raw softmax CTC matrix (no decode), wrapped for the regex path."""
         ocr_raw_output = self.model.predict_fv(img)
         return {self.model_name: {'ocr_raw_output': ocr_raw_output}}
-
-    def predict_transform(self, img: Union[str, Path, np.ndarray]) -> dict:
-        pass
 
     def predict_batch(self, patches: List[np.ndarray]) -> List[str]:
         """Decode many word patches in one padded-batch inference call.

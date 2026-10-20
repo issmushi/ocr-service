@@ -107,7 +107,7 @@ class EngineAdapterTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             try:
                 os.chdir(tmp)
-                self.assertEqual(len(DEFAULT_CFG), 6)
+                self.assertEqual(len(DEFAULT_CFG), 7)
                 expected = models_dir()
                 for model, directory in DEFAULT_CFG.items():
                     with self.subTest(model=model):

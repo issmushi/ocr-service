@@ -1,4 +1,5 @@
 from .doc_detector import DocDetector
+from .document_detector import DocumentDetector
 from .textfields_detector import TextFieldsDetector
 from .words_detector import WordsDetector
 from .ocr_cyrillic import OCRCyrillic
@@ -8,6 +9,6 @@ from .deskewer import DocDeskewer
 from .page_registration.geometry import PageGeometry
 
 __all__ = [
-    "DocDetector", "TextFieldsDetector", "WordsDetector", "OCRCyrillic",
+    "DocDetector", "DocumentDetector", "TextFieldsDetector", "WordsDetector", "OCRCyrillic",
     "OCRLatin", "DocTypeAngles", "DocDeskewer", "PageGeometry",
 ]
