@@ -1,4 +1,5 @@
 type Box = [number, number, number, number];
+export type Quad = [[number, number], [number, number], [number, number], [number, number]];
 
 interface CropImage {
   image: string;
@@ -33,6 +34,9 @@ export interface PassportFieldCrop extends CropImage {
   detection_bbox: Box;
   confidence: number;
   ocr: PassportFieldOcr | null;
+  kind?: "address_line" | "registration_stamp";
+  quad?: Quad;
+  crop_quad?: Quad;
 }
 
 export interface PassportFieldCrops {
@@ -42,11 +46,11 @@ export interface PassportFieldCrops {
   ocr: FieldOcrSummary | null;
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
+export function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value && typeof value === "object" && !Array.isArray(value));
 }
 
-function isProbability(value: unknown): value is number {
+export function isProbability(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 1;
 }
 
@@ -54,7 +58,7 @@ function isDuration(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value) && value >= 0;
 }
 
-function isFieldOcr(value: unknown): value is PassportFieldOcr {
+export function isFieldOcr(value: unknown): value is PassportFieldOcr {
   if (!isRecord(value)) return false;
   return typeof value.model === "string" && Boolean(value.model.trim())
     && typeof value.engine === "string" && Boolean(value.engine.trim())
@@ -76,13 +80,14 @@ function isOcrSummary(value: unknown): value is FieldOcrSummary {
     && typeof value.failed_fields === "number" && Number.isSafeInteger(value.failed_fields) && value.failed_fields >= 0;
 }
 
-function isCropImage(value: unknown): value is CropImage {
+export function isCropImage(value: unknown, freeRotation = false): value is CropImage {
   if (!isRecord(value)) return false;
   // Only render embedded JPEG/PNG images; never request image URLs supplied by a server.
   return typeof value.image === "string" && /^data:image\/(?:jpeg|png);base64,[A-Za-z0-9+/]+={0,2}$/.test(value.image)
     && typeof value.width === "number" && Number.isSafeInteger(value.width) && value.width > 0
     && typeof value.height === "number" && Number.isSafeInteger(value.height) && value.height > 0
-    && typeof value.rotation_degrees === "number" && [0, 90, 180, 270].includes(value.rotation_degrees);
+    && typeof value.rotation_degrees === "number" && Number.isFinite(value.rotation_degrees)
+    && (freeRotation || [0, 90, 180, 270].includes(value.rotation_degrees));
 }
 
 function isBox(value: unknown, width: number, height: number): value is Box {
