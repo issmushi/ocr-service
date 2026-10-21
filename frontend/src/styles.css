@@ -270,8 +270,6 @@ code, pre { font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospac
 
 .camera-modal { overflow-y: auto; }
 .passport-fields { display: grid; gap: 14px; }
-.request-panel--fields .param-row--select { align-items: stretch; flex-direction: column; gap: 8px; }
-.request-panel--fields .param-row select { width: 100%; }
 .passport-fields__summary { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 7px; color: #52656e; font-size: 11px; }
 .passport-fields__summary strong { color: #293c45; }
 .passport-fields__ocr-summary { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 7px; padding: 9px 11px; border-radius: 6px; background: var(--teal-soft); color: #37665e; font-size: 10px; overflow-wrap: anywhere; }
@@ -279,11 +277,6 @@ code, pre { font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospac
 .passport-fields__document > svg { display: block; width: 100%; height: auto; max-height: 500px; border: 1px solid var(--line); border-radius: 8px; background: #edf1f0; }
 .passport-fields__box { fill: rgba(17, 123, 108, .08); stroke: #00796b; stroke-width: 2; }
 .passport-fields__badge { fill: #00665b; }
-.passport-fields__box--stamp { fill: rgba(48, 88, 174, .08); stroke: #3058ae; }
-.passport-fields__badge--stamp { fill: #3058ae; }
-.passport-fields__legend { display: flex; flex-wrap: wrap; gap: 8px 18px; font-size: 10px; }
-.passport-fields__legend span { color: #00796b; }
-.passport-fields__legend span + span { color: #3058ae; }
 .passport-fields__document text { fill: white; font-weight: 750; }
 .passport-fields__document figcaption { display: grid; gap: 4px; margin-top: 8px; color: #6c7b83; font-size: 9px; line-height: 1.5; }
 .passport-fields__note { margin: 0; color: #718087; font-size: 10px; line-height: 1.6; }

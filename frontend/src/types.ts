@@ -10,7 +10,6 @@ export type ToolId =
   | "crop-document"
   | "crop-mrz"
   | "crop-document-fields"
-  | "crop-registration-fields"
   | "best-frame";
 
 export type ResponseKind = "json" | "image";

@@ -41,10 +41,7 @@ def recognize_field_text(
 
     options = OCROptionsINTPassport
     patches = [image]
-    if field_name in options.needed_split or field_name in {
-        "Address",
-        "Registration_stamp",
-    }:
+    if field_name in options.needed_split:
         patches = reader.words_detector.predict_transform(image)[
             "WordsDetector"
         ]["warped_img"]

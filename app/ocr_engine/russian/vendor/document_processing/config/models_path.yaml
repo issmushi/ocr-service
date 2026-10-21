@@ -5,6 +5,3 @@ DocTypeAngles: models\DocTypeAngles
 WordsDetector: models\Words
 OCRLatinAccurate: models\OCR\latin_accurate
 OCRCyrillicAccurate: models\OCR\cyrillic_accurate
-AddressLinesDetector: models\AddressLines
-AddressTextKindClassifier: models\AddressTextKind
-RegistrationStamps: models\RegistrationStamps

@@ -2,8 +2,6 @@
 batched GPU paths, joining words into fields, the address lines."""
 import re
 
-from ..pipeline_modules import AddressLinesDetector
-from ..geometry import corners
 from .sts_marks import glue_torn_words, parse_leasing
 
 
@@ -21,113 +19,7 @@ class ReadingStage:
     #: those codepages - printing the result raised UnicodeEncodeError.
     ADDRESS_HW_PLACEHOLDER = '[рукопись]'
 
-    def _address_lines(self, img):
-        """
-        Recognize the multi-line registration address (INTPASSPORTADDR).
 
-        Runs the oriented-bbox address-line detector directly on the
-        perspective-fixed canvas (it handles line tilt itself, so no deskew is
-        needed), yielding upright line patches already ordered top-to-bottom.
-        Each line is classified printed-vs-handwritten; printed lines are split
-        into words and OCR'd with the printed Russian model, handwritten lines
-        are flagged (OCR is printed-only) and kept as a placeholder so the line
-        order/structure is preserved.
-
-        Result is stored as results.meta_results['OCR']['Address'] — lines
-        joined by newline. Per-line kinds are stored under
-        meta_results['Address_lines'] and a handwritten flag on the OCR dict.
-
-        Args:
-            img: Perspective-fixed canvas.
-        """
-        result = self.address_lines.predict_transform(img)
-        self.results._meta_results = self.results._meta_results | result
-        line_patches = result[self.address_lines.model_name]['warped_img']
-        obboxes = result[self.address_lines.model_name]['obbox']
-        line_quads = []
-        # ocr_device is only 'gpu' when ocr_gpu_batch=True was explicitly
-        # requested (see __init__) - safe to gate on it directly.
-        use_batch = self.ocr_device == 'gpu'
-
-        line_meta = []
-        self._address_line_obboxes = []   # one per line_meta entry
-        line_slots = []          # 'hw' or ('printed', index into printed_words)
-        printed_words = []       # list[list[word_patch]], one list per printed line
-        has_handwritten = False
-
-        for patch, obbox in zip(line_patches, obboxes):
-            if patch is None or patch.size == 0:
-                continue
-            self._address_line_obboxes.append(obbox)
-            # The line on the input image, in the order of line_meta
-            crop = AddressLinesDetector.crop_geometry(obbox[:5])
-            line_quad = self.results.to_input(crop.to_input(corners(0, 0, patch.shape[1], patch.shape[0])))
-            # None once means None for the whole run (see PipelineResults.to_input).
-            line_quads = None if line_quad is None else line_quads
-            if line_quads is not None:
-                line_quads.append(line_quad)
-            kind, prob = self.address_textkind.predict(patch)[self.address_textkind.model_name]
-            if kind == 'handwritten':
-                has_handwritten = True
-                line_meta.append({'kind': 'handwritten', 'p_handwritten': prob, 'text': None})
-                line_slots.append(('hw', None))
-                continue
-            # printed line: split into words (left-to-right); OCR happens below
-            words = self.words_detector.predict_transform(patch)[self.words_detector.model_name]['warped_img']
-            if not words:
-                words = [patch]
-            words = [w for w in words if w is not None and w.size > 0]
-            line_slots.append(('printed', len(printed_words)))
-            printed_words.append(words)
-            line_meta.append({'kind': 'printed', 'p_handwritten': prob, 'text': None})
-
-        if use_batch:
-            # one padded-batch call per engine across ALL address words (see
-            # ocr_batch.py / _ocr_batched for why this matters on GPU).
-            flat = [w for words in printed_words for w in words]
-            cyr_texts = self.ocr_cyr.predict_batch(flat)
-            lat_texts = self.ocr_lat.predict_batch(flat)
-            flat_texts = [lat if self._is_number_token(lat) else ru
-                          for ru, lat in zip(cyr_texts, lat_texts)]
-            texts_by_line = []
-            it = iter(flat_texts)
-            for words in printed_words:
-                texts_by_line.append([next(it) for _ in words])
-        else:
-            texts_by_line = [[self._route_word_ocr(w) for w in words] for words in printed_words]
-
-        address_lines_text = []
-        for slot, meta in zip(line_slots, line_meta):
-            kind, idx = slot
-            if kind == 'hw':
-                address_lines_text.append(self.ADDRESS_HW_PLACEHOLDER)
-                continue
-            line_words = [t.strip() for t in texts_by_line[idx] if t]
-            line_text = ' '.join(line_words)
-            meta['text'] = line_text
-            address_lines_text.append(line_text)
-
-        self.results._meta_results['Address_lines'] = line_meta
-        self.results._meta_results.setdefault('Quads', {})['address_lines'] = line_quads
-        if address_lines_text:
-            ocr_dict = self.results._meta_results.get('OCR') or {}
-            ocr_dict['Address'] = '\n'.join(address_lines_text)
-            ocr_dict['Address_has_handwritten'] = has_handwritten
-            self.results._meta_results['OCR'] = ocr_dict
-
-    def _route_word_ocr(self, word) -> str:
-        """Pick the right OCR engine for an address word (serial/per-word path;
-        used on CPU - see _address_lines for the batched GPU path).
-
-        Run both the Cyrillic and Latin engines and keep the Latin result only
-        when it is digit-dominated (a house/building/flat number), otherwise the
-        Cyrillic result. The Latin engine reads digits and Latin letters
-        cleanly, so its digit-dominated output is the reliable signal for
-        numeric tokens; Cyrillic words are taken from the Cyrillic engine.
-        """
-        ru = self.ocr_cyr.predict(word)[self.ocr_cyr.model_name]['ocr_output']
-        en = self.ocr_lat.predict(word)[self.ocr_lat.model_name]['ocr_output']
-        return en if self._is_number_token(en) else ru
 
     def _engine_by_year(self, field_name: str):
         """The engine this field takes on this form year ('cyr' or 'lat'), or
@@ -135,17 +27,6 @@ class ReadingStage:
         rules = getattr(self.ocr_options, 'engine_by_year', None) or {}
         return (rules.get(field_name) or {}).get(getattr(self, '_doc_year', None))
 
-    @staticmethod
-    def _is_number_token(en_text: str) -> bool:
-        """True if the eng+nums OCR output is digit-dominated (a number word
-        such as a house/building/flat number), i.e. at least one digit and
-        digits not outnumbered by letters among the alphanumeric characters."""
-        alnum = [c for c in (en_text or '') if c.isalnum()]
-        if not alnum:
-            return False
-        digits = sum(c.isdigit() for c in alnum)
-        letters = len(alnum) - digits
-        return digits >= 1 and digits >= letters
 
     def _ocr(self, words_dict: dict, doc_type: str):
         """

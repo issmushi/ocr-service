@@ -66,7 +66,6 @@ function handleTabListKeyDown(event: ReactKeyboardEvent<HTMLDivElement>) {
 export function PlaygroundPage({ apiBaseUrl, initialTool, onToolChange }: Props) {
   const [toolId, setToolId] = useState<ToolId>(initialTool);
   const tool = toolById[toolId];
-  const isFieldCrop = toolId === "crop-document-fields" || toolId === "crop-registration-fields";
   const [params, setParams] = useState<Record<string, ParamValue>>(() => defaultParams(tool));
   const [files, setFiles] = useState<File[]>([]);
   const [submittedFiles, setSubmittedFiles] = useState<File[]>([]);
@@ -289,7 +288,7 @@ export function PlaygroundPage({ apiBaseUrl, initialTool, onToolChange }: Props)
           ))}
         </aside>
 
-        <section className={`request-panel panel${isFieldCrop ? " request-panel--fields" : ""}`}>
+        <section className="request-panel panel">
           <div className="panel__head">
             <div><span className="method">POST</span><code>{tool.endpoint}</code></div>
             <span className="response-type">{tool.responseKind === "json" ? "JSON" : "IMAGE"}</span>
@@ -392,7 +391,7 @@ export function PlaygroundPage({ apiBaseUrl, initialTool, onToolChange }: Props)
           ) : (
             <div className="structured-result">
               <div className="result-tabs" onKeyDown={handleTabListKeyDown} role="tablist">
-                <ResultTabButton active={activeTab === "fields"} id="fields" label={isFieldCrop ? "Вырезки" : "Поля"} onClick={() => setActiveTab("fields")} />
+                <ResultTabButton active={activeTab === "fields"} id="fields" label={toolId === "crop-document-fields" ? "Вырезки" : "Поля"} onClick={() => setActiveTab("fields")} />
                 {(toolId === "mrz" || mrz.length > 0) && <ResultTabButton active={activeTab === "mrz"} count={mrz.length || undefined} disabled={!mrz.length} id="mrz" label="MRZ" onClick={() => setActiveTab("mrz")} />}
                 {toolId === "mrz" && <ResultTabButton active={activeTab === "normalization"} count={typeof normalization?.corrections_count === "number" ? normalization.corrections_count : undefined} disabled={!normalization} id="normalization" label="Нормализация" onClick={() => setActiveTab("normalization")} />}
                 <ResultTabButton active={activeTab === "meta"} disabled={!meta} id="meta" label="Meta" onClick={() => setActiveTab("meta")} />
@@ -400,7 +399,7 @@ export function PlaygroundPage({ apiBaseUrl, initialTool, onToolChange }: Props)
                 <ResultTabButton active={activeTab === "curl"} id="curl" label="cURL" onClick={() => setActiveTab("curl")} />
               </div>
               <div aria-labelledby={`result-tab-${activeTab}`} className="result-body" id={`result-panel-${activeTab}`} role="tabpanel" tabIndex={0}>
-                {activeTab === "fields" && (isFieldCrop ? <PassportFieldsView data={data} registration={toolId === "crop-registration-fields"} /> : <FieldsView entries={fieldEntries} />)}
+                {activeTab === "fields" && (toolId === "crop-document-fields" ? <PassportFieldsView data={data} /> : <FieldsView entries={fieldEntries} />)}
                 {activeTab === "mrz" && <MrzView lines={mrz} copied={copied} normalized={resultWasNormalized} onCopy={copy} />}
                 {activeTab === "normalization" && <NormalizationView enabled={resultWasNormalized} value={normalization} />}
                 {activeTab === "meta" && <MetaView meta={meta} clientDuration={result.durationMs} />}

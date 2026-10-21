@@ -22,15 +22,10 @@ async function sourceUrl(path, imports = {}) {
 
 const parserUrl = await sourceUrl("../src/components/passportFields.ts");
 const { parsePassportFieldCrops } = await import(parserUrl);
-const registrationParserUrl = await sourceUrl("../src/components/registrationFields.ts", {
-  "./passportFields": parserUrl,
-});
-const { parseRegistrationFieldCrops } = await import(registrationParserUrl);
 const configUrl = await sourceUrl("../src/config.ts");
 const { toolById, defaultParams } = await import(configUrl);
 const { PassportFieldsView } = await import(await sourceUrl("../src/components/PassportFieldsView.tsx", {
   "./passportFields": parserUrl,
-  "./registrationFields": registrationParserUrl,
   "../config": configUrl,
   react: pathToFileURL(require.resolve("react")).href,
   "react/jsx-runtime": pathToFileURL(require.resolve("react/jsx-runtime")).href,
@@ -237,100 +232,11 @@ test("field recognition defaults to CPU Paddle and sends each selected OCR model
   }
 });
 
-test("CPU alternatives are available in both field crop experiments", () => {
+test("new CPU alternatives are available only in the passport field crop experiment", () => {
   for (const tool of Object.values(toolById)) {
-    if (["crop-document-fields", "crop-registration-fields"].includes(tool.id)) continue;
+    if (tool.id === "crop-document-fields") continue;
     const values = tool.params.flatMap((param) => param.kind === "select" ? param.options.map((option) => option.value) : []);
     assert.ok(!values.includes("paddle-cyrillic"), tool.id);
     assert.ok(!values.includes("russian-ocr-accurate"), tool.id);
-  }
-});
-
-function registrationSample() {
-  const data = sample();
-  data.document_type = "INTPASSPORTADDR_ALL";
-  data.fields = data.fields.map((field, index) => ({
-    name: index === 0 ? "Address" : "Registration_stamp",
-    kind: index === 0 ? "address_line" : "registration_stamp",
-    label: index === 0 ? "Строка адреса" : "Штамп регистрации",
-    detector_label: index === 0 ? "Address" : "Stamp_registered",
-    image: field.image, width: field.width, height: field.height,
-    confidence: field.confidence, rotation_degrees: -2.45,
-    quad: [[10, 15], [210, 10], [212, 50], [12, 55]],
-    crop_quad: [[-2, 3], [222, -2], [224, 62], [0, 67]],
-    ocr: null,
-  }));
-  data.meta.model = "address-lines-and-registration-stamps";
-  return data;
-}
-
-test("registration crops render actual tilted polygons, distinct stamps and padded PNG previews", () => {
-  const data = registrationSample();
-  const parsed = parseRegistrationFieldCrops(data);
-  assert.deepEqual(parsed.fields[0].quad, data.fields[0].quad);
-  assert.deepEqual(parsed.fields[0].crop_quad, data.fields[0].crop_quad);
-  assert.equal(parsed.fields[0].rotation_degrees, -2.45);
-  const markup = renderToStaticMarkup(createElement(PassportFieldsView, { data, registration: true }));
-  assert.match(markup, /Строк адреса: 1 · Штампов: 1/);
-  assert.match(markup, /<polygon[^>]*points="10,15 210,10 212,50 12,55"/);
-  assert.match(markup, /passport-fields__box--stamp/);
-  assert.match(markup, /Углы вырезки/);
-  assert.match(markup, /2\.5° по часовой стрелке/);
-  assert.match(markup, /Распознавание текста выключено/);
-  assert.equal((markup.match(/class="passport-field"/g) ?? []).length, 2);
-});
-
-test("registration raw OCR, individual errors and empty results have useful views", () => {
-  const data = registrationSample();
-  data.fields[0].ocr = ocr({ text: "УЛ. ПРИМЕРНАЯ <тест>" });
-  data.fields[1].ocr = ocr({ status: "error", text: null, error: { code: "OCR_TIMEOUT", message: "Таймаут" } });
-  const markup = renderToStaticMarkup(createElement(PassportFieldsView, { data, registration: true }));
-  assert.match(markup, /УЛ\. ПРИМЕРНАЯ &lt;тест&gt;/);
-  assert.match(markup, /Ошибка: Таймаут/);
-  data.fields = [];
-  const empty = renderToStaticMarkup(createElement(PassportFieldsView, { data, registration: true }));
-  assert.match(empty, /Строки адреса и штампы не найдены/);
-  assert.doesNotMatch(empty, /параметр «Найти документ»/);
-});
-
-test("registration parser rejects malformed polygons, field types and unsafe image URLs", () => {
-  for (const mutate of [
-    (data) => { data.fields[0].quad = [[1, 2], [3, 4]]; },
-    (data) => { data.fields[0].crop_quad[0][0] = Number.NaN; },
-    (data) => { data.fields[0].quad = Array(4).fill([1, 1]); },
-    (data) => { data.fields[0].rotation_degrees = Number.POSITIVE_INFINITY; },
-    (data) => { data.fields[0].kind = ["address_line"]; },
-    (data) => { data.fields[0].image = "https://other.example/image.png"; },
-    (data) => { data.fields[0].ocr = ocr({ text: {} }); },
-  ]) {
-    const data = registrationSample();
-    mutate(data);
-    assert.equal(parseRegistrationFieldCrops(data), null);
-    const markup = renderToStaticMarkup(createElement(PassportFieldsView, { data, registration: true }));
-    assert.match(markup, /неожиданный формат/);
-    assert.doesNotMatch(markup, /<(?:img|image|svg)\b/);
-  }
-});
-
-test("registration tool sends only supported multipart parameters and offers all crop OCR models", async (t) => {
-  const originalFetch = globalThis.fetch;
-  t.after(() => { globalThis.fetch = originalFetch; });
-  const tool = toolById["crop-registration-fields"];
-  assert.deepEqual(defaultParams(tool), { ocr_model: "none", padding: "4" });
-  const models = tool.params.find((param) => param.key === "ocr_model").options;
-  assert.deepEqual(models, toolById["crop-document-fields"].params[0].options);
-  for (const { value } of models) {
-    const params = { ocr_model: value, padding: "8" };
-    globalThis.fetch = async (url, options) => {
-      assert.equal(url, "/v1/ocr/crop/registration-fields-test");
-      assert.deepEqual([...options.body.keys()], ["image", "ocr_model", "padding"]);
-      assert.equal(options.body.get("ocr_model"), value);
-      assert.equal(options.body.get("padding"), "8");
-      return new Response(JSON.stringify({ success: true, data: registrationSample(), error: null }), { headers: { "content-type": "application/json" } });
-    };
-    const response = await runTool("", tool, [new File(["synthetic"], "test.png", { type: "image/png" })], params);
-    assert.equal(response.ok, true);
-    assert.equal(parseRegistrationFieldCrops(response.json.data).fields.length, 2);
-    assert.doesNotMatch(buildCurl("", tool, [], params), /crop_document|normalize=/);
   }
 });

@@ -12,9 +12,3 @@ __all__ = [
     "DocDetector", "DocumentDetector", "TextFieldsDetector", "WordsDetector", "OCRCyrillic",
     "OCRLatin", "DocTypeAngles", "DocDeskewer", "PageGeometry",
 ]
-
-from .address_lines_detector import AddressLinesDetector
-from .address_textkind_classifier import AddressTextKindClassifier
-from .registration_stamps import RegistrationStamps
-
-__all__ += ["AddressLinesDetector", "AddressTextKindClassifier", "RegistrationStamps"]

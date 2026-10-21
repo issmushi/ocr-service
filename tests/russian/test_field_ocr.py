@@ -25,10 +25,7 @@ def test_raw_cyrillic_output_does_not_run_field_corrections():
     reader.words_detector.predict_transform.assert_not_called()
 
 
-@pytest.mark.parametrize(
-    "field_name",
-    ["Birth_place_ru", "Licence_number", "Address", "Registration_stamp"],
-)
+@pytest.mark.parametrize("field_name", ["Birth_place_ru", "Licence_number"])
 def test_multiword_fields_preserve_word_order_and_use_cyrillic(field_name):
     image = np.zeros((20, 60, 3), dtype=np.uint8)
     patches = [image[:, :20], image[:, 20:]]
