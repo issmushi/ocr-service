@@ -144,7 +144,7 @@ export const tools: ToolDefinition[] = [
     group: "Обрезка и качество",
     title: "Поля документа",
     shortTitle: "Document fields",
-    description: "Найти поля паспорта РФ и сравнить чтение вырезок моделями Paddle eslav v5, Paddle Cyrillic v5, Russian OCR accurate и Qwen. Текст возвращается без нормализации.",
+    description: "Загрузите фото любого документа, чтобы вырезать все обнаруженные области: текстовые поля, фотографии и подписи. При необходимости выберите модель для чтения текста на вырезках.",
     endpoint: "/v1/ocr/crop/document-fields",
     responseKind: "json",
     params: [

@@ -1,4 +1,4 @@
-"""Experimental passport field cropping with optional per-field OCR."""
+"""Document field cropping with optional per-field OCR."""
 
 from __future__ import annotations
 

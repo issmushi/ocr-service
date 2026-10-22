@@ -1,1 +1,1 @@
-"""Interactive document boundary and perspective-crop experiment."""
+"""Document, MRZ and field cropping."""

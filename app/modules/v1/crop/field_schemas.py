@@ -1,4 +1,4 @@
-"""Response for the experimental passport field detector."""
+"""Response for document field detection and cropping."""
 
 from __future__ import annotations
 

@@ -12,7 +12,7 @@ CYRILLIC_TEXT_MODEL = "cyrillic_PP-OCRv5_mobile_rec"
 
 
 def create_cyrillic_text_recognizer() -> TextRecognition:
-    """Load only the experimental Cyrillic text recognizer, always on CPU."""
+    """Load only the Cyrillic text recognizer, always on CPU."""
     with open(os.devnull, "w", encoding="utf-8") as devnull:
         with warnings.catch_warnings():
             warnings.filterwarnings(

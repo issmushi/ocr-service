@@ -23,7 +23,7 @@ FIELD_LABELS = {
     "Last_name_en": "Фамилия латиницей",
     "First_name_en": "Имя латиницей",
     "Middle_name_en": "Отчество латиницей",
-    "Licence_number": "Серия и номер паспорта",
+    "Licence_number": "Серия и номер документа",
     "Birth_date": "Дата рождения",
     "Birth_place_ru": "Место рождения",
     "Birth_place_en": "Место рождения латиницей",
