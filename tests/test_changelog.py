@@ -17,6 +17,6 @@ def test_changelog_matches_exposed_service_version() -> None:
     assert response.status_code == 200
     releases = response.json()["releases"]
     assert releases[0]["version"] == get_app_version() == app.version
-    assert releases[0]["date"] == "2026-10-02"
+    assert releases[0]["date"] == "2026-10-22"
     assert releases[0]["changes"]
     assert "/v1/changelog" not in app.openapi()["paths"]
