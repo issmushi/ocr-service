@@ -1,4 +1,7 @@
 import { useMemo } from "react";
+import { passportFieldOcrLabel } from "../config";
+import { FieldOcrView } from "./FieldOcrView";
+import { isFieldOcr, isOcrSummary, type PassportFieldOcr, type FieldOcrSummary } from "./passportFields";
 
 const fieldLabels = {
   application_number: "Номер заявления",
@@ -10,8 +13,8 @@ const fieldLabels = {
 
 type FieldName = keyof typeof fieldLabels;
 interface Preview { image: string; width: number; height: number }
-interface Field extends Preview { name: FieldName; label: string; bbox: [number, number, number, number] }
-interface Result { document: Preview; fields: Field[]; missing_fields: FieldName[]; meta: { duration_seconds: number } }
+interface Field extends Preview { ocr?: PassportFieldOcr | null; name: FieldName; label: string; bbox: [number, number, number, number] }
+interface Result { document: Preview; fields: Field[]; missing_fields: FieldName[]; meta: { duration_seconds: number; ocr?: FieldOcrSummary | null } }
 
 function record(value: unknown): value is Record<string, unknown> {
   return Boolean(value && typeof value === "object" && !Array.isArray(value));
@@ -30,10 +33,11 @@ export function parseEgrnFields(value: unknown): Result | null {
   if (!record(value) || !preview(value.document) || !Array.isArray(value.fields)
     || !Array.isArray(value.missing_fields) || !record(value.meta)
     || typeof value.meta.duration_seconds !== "number" || !Number.isFinite(value.meta.duration_seconds)
-    || value.meta.duration_seconds < 0) return null;
+    || value.meta.duration_seconds < 0 || (value.meta.ocr != null && !isOcrSummary(value.meta.ocr))) return null;
   const names = new Set<string>();
   for (const field of value.fields) {
     if (!record(field) || !preview(field) || !fieldName(field.name)
+      || (field.ocr != null && !isFieldOcr(field.ocr))
       || names.has(field.name) || typeof field.label !== "string" || !field.label.trim()
       || !Array.isArray(field.bbox) || field.bbox.length !== 4
       || !field.bbox.every((coordinate) => Number.isSafeInteger(coordinate) && coordinate >= 0)) return null;
@@ -56,7 +60,8 @@ export function EgrnFieldsView({ data }: { data: unknown }) {
   const badge = Math.min(document.width, document.height) / 35;
   return <div className="passport-fields">
     <div className="passport-fields__summary"><strong>Найдено участков: {fields.length} из 5</strong><span>Обработка: {meta.duration_seconds.toFixed(2)} с</span></div>
-    <p className="passport-fields__note">Первая страница выписки Госуслуг. Рамки показывают точные границы вырезок на выровненной странице. Значения полей пока не распознаются.</p>
+    <p className="passport-fields__note">Первая страница выписки Госуслуг. Рамки показывают точные границы вырезок на выровненной странице. {meta.ocr ? "Каждая вырезка распознаётся отдельно, без нормализации." : "Распознавание текста выключено."}</p>
+    {meta.ocr && <div className="passport-fields__ocr-summary"><span>OCR: {passportFieldOcrLabel(meta.ocr.model)} · {meta.ocr.duration_seconds.toFixed(2)} с</span><span>Обработано полей: {meta.ocr.processed_fields} · Ошибок: {meta.ocr.failed_fields}</span></div>}
     {missing.length > 0 && <div className="passport-fields__empty" role="status"><strong>Не найдены:</strong><p>{missing.map((name) => fieldLabels[name]).join(", ")}</p></div>}
     <figure className="passport-fields__document">
       <svg aria-label={`Выписка ЕГРН: ${fields.length} выделенных участков`} height={document.height} role="img" viewBox={`0 0 ${document.width} ${document.height}`} width={document.width}>
@@ -78,6 +83,7 @@ export function EgrnFieldsView({ data }: { data: unknown }) {
         <header><span>{index + 1}</span><div><h3>{field.label}</h3><code>{field.name}</code></div></header>
         <div className="passport-field__image"><img alt={`Вырезка: ${field.label}`} height={field.height} src={field.image} width={field.width} /></div>
         <dl><div><dt>Размер</dt><dd>{field.width} × {field.height} px</dd></div><div><dt>Координаты</dt><dd><code>{field.bbox.join(", ")}</code></dd></div></dl>
+        {field.ocr && <FieldOcrView ocr={field.ocr} />}
         <a className="button button--secondary" download={`egrn-${field.name}.png`} href={field.image}>Скачать PNG</a>
       </article>)}
     </div>

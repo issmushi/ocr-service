@@ -345,7 +345,7 @@ export function PlaygroundPage({ apiBaseUrl, initialTool, onToolChange }: Props)
               <div className="subheading"><span>Параметры</span><button onClick={() => { invalidateResult(); setParams(defaultParams(tool)); }} type="button">Сбросить</button></div>
               <div className="params-list">
                 {tool.params.map((param) => param.kind === "select" ? (
-                  <label className="param-row param-row--select" key={param.key}>
+                  <label className={`param-row param-row--select${param.key === "ocr_model" ? " param-row--ocr" : ""}`} key={param.key}>
                     <span><strong>{param.label}</strong><small>{param.description}</small></span>
                     <select value={String(params[param.key])} onChange={(event) => updateParam(param.key, event.target.value)}>
                       {param.options.map((option) => <option key={option.value} value={option.value}>{option.label}{option.note ? ` — ${option.note}` : ""}</option>)}

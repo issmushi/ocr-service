@@ -16,7 +16,14 @@ async function sourceUrl(path, imports = {}) {
   for (const [specifier, url] of Object.entries(imports)) outputText = outputText.replaceAll(`from "${specifier}"`, `from "${url}"`);
   return `data:text/javascript;base64,${Buffer.from(outputText).toString("base64")}`;
 }
+const fieldOcrViewUrl = await sourceUrl("../src/components/FieldOcrView.tsx", {
+  "../config": await sourceUrl("../src/config.ts"),
+  "react/jsx-runtime": pathToFileURL(require.resolve("react/jsx-runtime")).href,
+});
 const { EgrnFieldsView, parseEgrnFields } = await import(await sourceUrl("../src/components/EgrnFieldsView.tsx", {
+  "./FieldOcrView": fieldOcrViewUrl,
+  "./passportFields": await sourceUrl("../src/components/passportFields.ts"),
+  "../config": await sourceUrl("../src/config.ts"),
   react: pathToFileURL(require.resolve("react")).href,
   "react/jsx-runtime": pathToFileURL(require.resolve("react/jsx-runtime")).href,
 }));
@@ -66,16 +73,34 @@ test("malformed or external image payloads are not rendered", () => {
     assert.equal(parseEgrnFields(result), null);
   }
 });
-test("EGRN fields tool sends only the image and receives the JSON envelope", async (t) => {
+test("EGRN fields tool sends the chosen OCR model and receives the JSON envelope", async (t) => {
   const originalFetch = globalThis.fetch;
   t.after(() => { globalThis.fetch = originalFetch; });
   globalThis.fetch = async (url, options) => {
     assert.equal(url, "/v1/ocr/crop/egrn-fields");
-    assert.deepEqual([...options.body.keys()], ["image"]);
+    assert.deepEqual([...options.body.keys()], ["image", "ocr_model"]);
+    assert.equal(options.body.get("ocr_model"), "paddle");
     return Response.json({ success: true, data: sample(), error: null });
   };
   const tool = toolById["crop-egrn-fields"];
   const result = await runTool("", tool, [new File(["synthetic"], "scan.png")], defaultParams(tool), new AbortController().signal);
   assert.equal(result.ok, true);
   assert.ok(parseEgrnFields(result.json.data));
+});
+
+test("EGRN displays raw multiline OCR, failures and the same model labels as document fields", () => {
+  const result = sample();
+  const ocr = { model: "paddle-cyrillic", engine: "paddleocr", device: "cpu", status: "success", text: "ТЕСТОВЫЙ АДРЕС\nСТРОКА 2", confidence: 0.93, duration_seconds: 0.2, error: null };
+  result.fields[2].ocr = ocr;
+  result.fields[3].ocr = { ...ocr, status: "error", text: null, confidence: null, error: { code: "OCR_FAILED", message: "Ошибка поля" } };
+  result.meta.ocr = { model: "paddle-cyrillic", engine: "paddleocr", duration_seconds: 1, processed_fields: 5, failed_fields: 1 };
+  assert.ok(parseEgrnFields(result));
+  const markup = renderToStaticMarkup(createElement(EgrnFieldsView, { data: result }));
+  assert.match(markup, /ТЕСТОВЫЙ АДРЕС\nСТРОКА 2/);
+  assert.match(markup, /Paddle Cyrillic v5/);
+  assert.match(markup, /Ошибок: 1/);
+  assert.match(markup, /Ошибка поля/);
+  assert.match(markup, /93.0%/);
+  result.fields[0].ocr = { ...ocr, confidence: 2 };
+  assert.equal(parseEgrnFields(result), null);
 });

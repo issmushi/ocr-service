@@ -1,11 +1,17 @@
 from __future__ import annotations
 
+from enum import Enum
 from typing import Literal
 
 from pydantic import BaseModel, Field
 
 from app.core.api_schemas import ErrorSchema
-from app.modules.v1.crop.field_schemas import BoundingBox, ImagePreview
+from app.modules.v1.crop.field_schemas import (
+    BoundingBox,
+    FieldOcrMeta,
+    FieldOcrResult,
+    ImagePreview,
+)
 
 EgrnFieldName = Literal[
     "application_number",
@@ -16,9 +22,28 @@ EgrnFieldName = Literal[
 ]
 
 
+class EgrnOcrModel(str, Enum):
+    NONE = "none"
+    PADDLE = "paddle"
+    PADDLE_CYRILLIC = "paddle-cyrillic"
+
+
+class EgrnFieldOcrResult(FieldOcrResult):
+    model: EgrnOcrModel
+    engine: Literal["paddleocr"]
+
+
+class EgrnFieldOcrMeta(FieldOcrMeta):
+    model: EgrnOcrModel
+    engine: Literal["paddleocr"]
+
+
 class EgrnFieldPreview(ImagePreview):
     name: EgrnFieldName
     label: str
+    ocr: EgrnFieldOcrResult | None = Field(
+        None, description="Сырой текст вырезки. Null при ocr_model=none."
+    )
     bbox: BoundingBox = Field(
         ...,
         description=(
@@ -32,6 +57,7 @@ class EgrnFieldMeta(BaseModel):
     engine: Literal["opencv"] = "opencv"
     model: Literal["egrn-gosuslugi-first-page"] = "egrn-gosuslugi-first-page"
     duration_seconds: float = Field(..., ge=0)
+    ocr: EgrnFieldOcrMeta | None = None
 
 
 class EgrnFieldCropData(BaseModel):

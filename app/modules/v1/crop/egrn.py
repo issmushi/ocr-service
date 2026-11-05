@@ -18,7 +18,11 @@ from app.core.images.validation import (
     validate_image_dimensions,
     validate_image_extension,
 )
+from app.core.model_availability import ensure_ocr_model_enabled
 from app.modules.v1.crop.egrn_layout import FIELD_LABELS, locate_egrn_fields
+from app.modules.v1.crop.egrn_schemas import EgrnOcrModel
+from app.modules.v1.crop.field_ocr import recognize_field_previews
+from app.modules.v1.crop.field_schemas import FieldOcrModel
 
 
 def _prepare_egrn(content: bytes) -> np.ndarray:
@@ -101,8 +105,12 @@ def _crop_egrn_fields(content: bytes) -> dict[str, Any]:
     )
 
 
-async def crop_egrn_fields_upload(image: UploadFile) -> dict[str, Any]:
+async def crop_egrn_fields_upload(
+    image: UploadFile, *, ocr_model: EgrnOcrModel = EgrnOcrModel.NONE
+) -> dict[str, Any]:
     try:
+        if ocr_model != EgrnOcrModel.NONE:
+            ensure_ocr_model_enabled("paddle")
         validate_image_extension(image.filename or "image.jpg")
         await prepare_upload_stream(
             image, max_bytes=settings.ocr_max_image_size_bytes
@@ -110,4 +118,11 @@ async def crop_egrn_fields_upload(image: UploadFile) -> dict[str, Any]:
         content = await image.read()
     finally:
         await image.close()
-    return await asyncio.to_thread(_crop_egrn_fields, content)
+    started = perf_counter()
+    result = await asyncio.to_thread(_crop_egrn_fields, content)
+    data = result["data"]
+    data["meta"]["ocr"] = await recognize_field_previews(
+        data["fields"], FieldOcrModel(ocr_model.value), split_lines=True
+    )
+    data["meta"]["duration_seconds"] = perf_counter() - started
+    return result

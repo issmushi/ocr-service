@@ -15,7 +15,10 @@ from app.core.config import settings
 from app.core.images.uploads import prepare_upload_stream
 from app.core.images.validation import validate_image_extension
 from app.modules.v1.crop.egrn import crop_egrn_bytes, crop_egrn_fields_upload
-from app.modules.v1.crop.egrn_schemas import EgrnFieldCropResponse
+from app.modules.v1.crop.egrn_schemas import (
+    EgrnFieldCropResponse,
+    EgrnOcrModel,
+)
 from app.modules.v1.crop.field_schemas import (
     FieldOcrModel,
     PassportFieldCropResponse,
@@ -63,9 +66,7 @@ ERROR_RESPONSES = {
 )
 async def crop_document_fields(
     response: Response,
-    image: UploadFile = File(
-        ..., description="Фото или скан документа."
-    ),
+    image: UploadFile = File(..., description="Фото или скан документа."),
     crop_document: bool = Form(
         True, description="Найти границы и исправить перспективу документа."
     ),
@@ -169,21 +170,34 @@ async def crop_egrn(
         "Сначала обрезает пустые поля и выравнивает небольшой наклон. "
         "Находит сетку таблиц и вырезает номер заявления, кадастровый номер, "
         "адрес, наименование объекта и дату актуальности. "
-        "Строки сопоставляются с полями по этому макету, OCR не запускается. "
+        "Строки сопоставляются с полями по этому макету. "
+        "ocr_model=none — только вырезки; paddle — Paddle eslav v5; "
+        "paddle-cyrillic — Paddle Cyrillic v5. Обе модели работают на CPU. "
+        "Каждая вырезка читается отдельно, многострочный адрес — построчно. "
+        "Сырой текст, уверенность, время и ошибка поля возвращаются в ocr. "
         "Возвращает страницу, отдельные PNG data URL и координаты на ней. "
         "Номер заявления и дата актуальности включают текстовую подпись. "
         "Ненайденные области перечисляются в missing_fields. "
         "Другие макеты и страницы пока не поддерживаются. "
         "Изображения не сохраняются."
     ),
-    responses={code: ERROR_RESPONSES[code] for code in (400, 413, 422, 500)},
+    responses={
+        code: ERROR_RESPONSES[code] for code in (400, 413, 422, 500, 503)
+    },
 )
 async def crop_egrn_fields(
     response: Response,
     image: UploadFile = File(..., description="Первая страница ЕГРН."),
+    ocr_model: EgrnOcrModel = Form(
+        EgrnOcrModel.NONE,
+        description=(
+            "none — только вырезки; paddle — eslav v5; "
+            "paddle-cyrillic — Cyrillic v5. OCR на CPU."
+        ),
+    ),
 ) -> dict[str, Any]:
     response.headers["Cache-Control"] = "no-store"
-    return await crop_egrn_fields_upload(image)
+    return await crop_egrn_fields_upload(image, ocr_model=ocr_model)
 
 
 @router.post(

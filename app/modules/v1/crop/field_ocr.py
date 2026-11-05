@@ -1,4 +1,4 @@
-"""Read the exact field previews returned by the passport detector."""
+"""Read field previews returned by document crop services."""
 
 from __future__ import annotations
 
@@ -60,13 +60,16 @@ def _text_result(
 
 
 async def recognize_field_previews(
-    fields: list[dict[str, Any]], model: FieldOcrModel
+    fields: list[dict[str, Any]],
+    model: FieldOcrModel,
+    *,
+    split_lines: bool = False,
 ) -> dict[str, Any] | None:
     """Keep crop order and duplicates; isolate failures to each field.
 
     Calls are sequential because the local model runtimes serialize inference.
-    Every OCR input is the lossless displayed PNG, including its padding
-    and rotation. The JPEG document overview is never sent to field OCR.
+    Every OCR input is the lossless displayed PNG. EGRN can request line
+    splitting inside a crop; the page overview is never sent to field OCR.
     """
     if model == FieldOcrModel.NONE:
         for field in fields:
@@ -102,6 +105,7 @@ async def recognize_field_previews(
                     timeout_seconds=(
                         settings.paddle_ocr_full_hard_timeout_seconds
                     ),
+                    **({"split_lines": True} if split_lines else {}),
                 )
             elif model == FieldOcrModel.RUSSIAN_OCR_ACCURATE:
                 result = await russian_runtime.run(

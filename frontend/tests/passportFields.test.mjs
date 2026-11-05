@@ -24,7 +24,12 @@ const parserUrl = await sourceUrl("../src/components/passportFields.ts");
 const { parsePassportFieldCrops } = await import(parserUrl);
 const configUrl = await sourceUrl("../src/config.ts");
 const { toolById, defaultParams } = await import(configUrl);
+const fieldOcrViewUrl = await sourceUrl("../src/components/FieldOcrView.tsx", {
+  "../config": await sourceUrl("../src/config.ts"),
+  "react/jsx-runtime": pathToFileURL(require.resolve("react/jsx-runtime")).href,
+});
 const { PassportFieldsView } = await import(await sourceUrl("../src/components/PassportFieldsView.tsx", {
+  "./FieldOcrView": fieldOcrViewUrl,
   "./passportFields": parserUrl,
   "../config": configUrl,
   react: pathToFileURL(require.resolve("react")).href,
@@ -232,10 +237,14 @@ test("field recognition defaults to CPU Paddle and sends each selected OCR model
   }
 });
 
-test("new CPU alternatives are available only in the passport field crop experiment", () => {
+test("CPU field alternatives are limited to document and EGRN field tools", () => {
   for (const tool of Object.values(toolById)) {
     if (tool.id === "crop-document-fields") continue;
     const values = tool.params.flatMap((param) => param.kind === "select" ? param.options.map((option) => option.value) : []);
+    if (tool.id === "crop-egrn-fields") {
+      assert.deepEqual(values, ["none", "paddle", "paddle-cyrillic"]);
+      continue;
+    }
     assert.ok(!values.includes("paddle-cyrillic"), tool.id);
     assert.ok(!values.includes("russian-ocr-accurate"), tool.id);
   }

@@ -18,6 +18,56 @@ from app.ocr_engine.paddle.factory import (
     CYRILLIC_TEXT_MODEL,
     create_cyrillic_text_recognizer,
 )
+from app.ocr_engine.paddle.lines import split_field_lines
+
+
+def multiline_image():
+    image = np.full((90, 720, 3), 245, np.uint8)
+    for y, text in (
+        (30, "TEST ADDRESS 123, CITY"),
+        (70, "BUILDING 456, APARTMENT 78"),
+    ):
+        cv2.putText(
+            image, text, (7, y), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (30, 30, 30), 2
+        )
+    return image
+
+
+def test_line_split_preserves_pixels_and_single_line_input():
+    image = multiline_image()
+    # A faint scratch between rows must not connect their text bands.
+    cv2.line(image, (700, 28), (715, 85), (80, 80, 80), 1)
+    lines = split_field_lines(image)
+    assert len(lines) == 2
+    np.testing.assert_array_equal(np.vstack(lines), image)
+    assert len(split_field_lines(lines[0])) == 1
+    np.testing.assert_array_equal(split_field_lines(lines[0])[0], lines[0])
+
+
+@pytest.mark.parametrize("cyrillic", [False, True])
+def test_field_models_read_all_address_lines_in_order(cyrillic):
+    ocr, pipeline = recognizer("", 0)
+    pipeline.text_rec_model.predict.return_value = [
+        {"rec_text": "ПЕРВАЯ СТРОКА", "rec_score": 0.95},
+        {"rec_text": "ВТОРАЯ СТРОКА", "rec_score": 0.85},
+    ]
+    image = multiline_image()
+    content = cv2.imencode(".png", image)[1].tobytes()
+    result = (
+        recognize_cyrillic_field_text_bytes(
+            content, recognizer=pipeline.text_rec_model, split_lines=True
+        )
+        if cyrillic
+        else recognize_field_text_bytes(content, ocr=ocr, split_lines=True)
+    )
+    assert result == {
+        "text": "ПЕРВАЯ СТРОКА\nВТОРАЯ СТРОКА",
+        "confidence": 0.85,
+        "device": "cpu",
+    }
+    crops = pipeline.text_rec_model.predict.call_args.args[0]
+    assert len(crops) == 2
+    np.testing.assert_array_equal(np.vstack(crops), image)
 
 
 def image_bytes(image_format: str = "JPEG") -> bytes:

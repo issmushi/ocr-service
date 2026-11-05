@@ -313,3 +313,6 @@ code, pre { font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospac
   .submitted-frames__grid { gap: 5px; }
   .submitted-frame figcaption { padding: 6px; }
 }
+
+.param-row--ocr { align-items: stretch; flex-direction: column; gap: 7px; }
+.param-row--ocr select { width: 100%; }

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import base64
 import unittest
+from unittest.mock import AsyncMock, patch
 
 import cv2
 import numpy as np
@@ -9,7 +10,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.testclient import TestClient
 
-from app.core.errors import AppError, api_error_response
+from app.core.errors import AppError, ErrorCode, api_error_response
 from app.modules.v1.crop.egrn_layout import FIELD_LABELS, locate_egrn_fields
 from app.modules.v1.crop.router import router
 
@@ -171,6 +172,10 @@ class EgrnFieldsRouteTests(unittest.TestCase):
                 data = response.json()["data"]
                 self.assertEqual(data["missing_fields"], [])
                 self.assertEqual(len(data["fields"]), 5)
+                self.assertIsNone(data["meta"]["ocr"])
+                self.assertTrue(
+                    all(field["ocr"] is None for field in data["fields"])
+                )
 
                 def decode(preview):
                     self.assertTrue(
@@ -187,6 +192,91 @@ class EgrnFieldsRouteTests(unittest.TestCase):
                     )
                     self.assertEqual(field["width"], x2 - x1)
                     self.assertEqual(field["height"], y2 - y1)
+
+    def test_both_models_read_exact_pngs_and_isolate_field_failures(self):
+        for model, operation in (
+            ("paddle", "field_text"),
+            ("paddle-cyrillic", "field_text_cyrillic"),
+        ):
+            with (
+                self.subTest(model=model),
+                patch(
+                    "app.modules.v1.crop.egrn.ensure_ocr_model_enabled"
+                ) as enabled,
+                patch(
+                    "app.modules.v1.crop.field_ocr.paddle_runtime.run",
+                    new_callable=AsyncMock,
+                ) as read,
+            ):
+                ok = {
+                    "text": "ТЕСТ\nСТРОКА",
+                    "confidence": 0.9,
+                    "device": "cpu",
+                }
+                read.side_effect = [
+                    ok,
+                    AppError(ErrorCode.OCR_FAILED, "Ошибка поля"),
+                    ok,
+                    ok,
+                    ok,
+                ]
+                source, _ = synthetic_extract()
+                response = self.client.post(
+                    "/v1/ocr/crop/egrn-fields",
+                    files={
+                        "image": ("synthetic.png", encode(source), "image/png")
+                    },
+                    data={"ocr_model": model},
+                )
+                self.assertEqual(response.status_code, 200)
+                enabled.assert_called_once_with("paddle")
+                data = response.json()["data"]
+                self.assertEqual(read.await_count, 5)
+                for field, call in zip(data["fields"], read.await_args_list):
+                    self.assertEqual(
+                        call.args,
+                        (
+                            operation,
+                            base64.b64decode(field["image"].split(",")[1]),
+                        ),
+                    )
+                    self.assertTrue(call.kwargs["split_lines"])
+                    self.assertEqual(field["ocr"]["model"], model)
+                self.assertEqual(data["fields"][1]["ocr"]["status"], "error")
+                self.assertEqual(
+                    data["fields"][2]["ocr"]["text"], "ТЕСТ\nСТРОКА"
+                )
+                self.assertEqual(data["meta"]["ocr"]["failed_fields"], 1)
+
+    def test_disabled_ocr_and_invalid_model(self):
+        source, _ = synthetic_extract()
+        with patch(
+            "app.modules.v1.crop.egrn.ensure_ocr_model_enabled"
+        ) as enabled:
+            enabled.side_effect = AppError(
+                ErrorCode.OCR_ENGINE_UNAVAILABLE, "Отключено"
+            )
+            response = self.client.post(
+                "/v1/ocr/crop/egrn-fields",
+                files={
+                    "image": ("synthetic.png", encode(source), "image/png")
+                },
+                data={"ocr_model": "paddle-cyrillic"},
+            )
+            self.assertEqual(response.status_code, 503)
+            self.assertEqual(
+                response.json()["error"]["code"], "OCR_ENGINE_UNAVAILABLE"
+            )
+            # Crop-only mode must still work without a Paddle installation.
+            enabled.reset_mock()
+            self.assertEqual(self.post(source).status_code, 200)
+            enabled.assert_not_called()
+        response = self.client.post(
+            "/v1/ocr/crop/egrn-fields",
+            files={"image": ("synthetic.png", encode(source), "image/png")},
+            data={"ocr_model": "qwen3-vl-8b"},
+        )
+        self.assertEqual(response.status_code, 422)
 
     def test_unsupported_layout_and_unreadable_image(self):
         response = self.post(np.full((600, 800, 3), 255, np.uint8))

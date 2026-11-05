@@ -18,7 +18,7 @@ export interface PassportFieldOcr {
   error: { code: string; message: string } | null;
 }
 
-interface FieldOcrSummary {
+export interface FieldOcrSummary {
   model: string;
   engine: string;
   duration_seconds: number;
@@ -54,7 +54,7 @@ function isDuration(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value) && value >= 0;
 }
 
-function isFieldOcr(value: unknown): value is PassportFieldOcr {
+export function isFieldOcr(value: unknown): value is PassportFieldOcr {
   if (!isRecord(value)) return false;
   return typeof value.model === "string" && Boolean(value.model.trim())
     && typeof value.engine === "string" && Boolean(value.engine.trim())
@@ -67,7 +67,7 @@ function isFieldOcr(value: unknown): value is PassportFieldOcr {
       && typeof value.error.code === "string" && typeof value.error.message === "string"));
 }
 
-function isOcrSummary(value: unknown): value is FieldOcrSummary {
+export function isOcrSummary(value: unknown): value is FieldOcrSummary {
   if (!isRecord(value)) return false;
   return typeof value.model === "string" && Boolean(value.model.trim())
     && typeof value.engine === "string" && Boolean(value.engine.trim())
