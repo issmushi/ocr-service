@@ -129,6 +129,18 @@ export const tools: ToolDefinition[] = [
     outputHint: "Ответ: обрезанный документ в JPEG",
   },
   {
+    id: "crop-egrn",
+    group: "Обрезка и качество",
+    title: "Обрезка ЕГРН",
+    shortTitle: "Crop EGRN",
+    description: "Убрать пустые поля скана и край сканера, выровнять небольшой наклон. Шапка, таблица, штампы и нижние отметки остаются в одной вырезке. Загрузите одну страницу выписки.",
+    endpoint: "/v1/ocr/crop/egrn",
+    responseKind: "image",
+    imageExtension: "png",
+    params: [],
+    outputHint: "Ответ: вырезка страницы в PNG без JPEG-сжатия",
+  },
+  {
     id: "crop-mrz",
     group: "Обрезка и качество",
     title: "Обрезка MRZ",

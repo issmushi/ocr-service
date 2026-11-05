@@ -8,6 +8,7 @@ export type ToolId =
   | "driver-license"
   | "full-ocr"
   | "crop-document"
+  | "crop-egrn"
   | "crop-mrz"
   | "crop-document-fields"
   | "best-frame";
@@ -49,6 +50,7 @@ export interface ToolDefinition {
   description: string;
   endpoint: string;
   responseKind: ResponseKind;
+  imageExtension?: "jpg" | "png";
   multiple?: boolean;
   maxFiles?: number;
   params: ParamDefinition[];

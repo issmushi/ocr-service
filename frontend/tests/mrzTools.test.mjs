@@ -293,3 +293,31 @@ test("documentation and overview show MRZ Scanner and examples without model", (
   assert.match(overview, /MRZ Scanner читает строки MRZ паспорта или ID-карты/);
   assert.doesNotMatch(overview, /Чтение строк через PaddleOCR|MRZ Scanner или Qwen3-VL/);
 });
+
+test("EGRN crop uploads one scan and handles a downloadable PNG", async (t) => {
+  const originalFetch = globalThis.fetch;
+  t.after(() => { globalThis.fetch = originalFetch; });
+  const tool = toolById["crop-egrn"];
+  const file = new File(["synthetic scan"], "extract.png", { type: "image/png" });
+  globalThis.fetch = async (url, options) => {
+    assert.equal(url, "/v1/ocr/crop/egrn");
+    assert.equal(options.method, "POST");
+    assert.deepEqual([...options.body.keys()], ["image"]);
+    assert.equal(options.body.get("image").name, "extract.png");
+    return new Response(new Uint8Array([137, 80, 78, 71]), {
+      status: 200,
+      headers: { "content-type": "image/png", "cache-control": "no-store" },
+    });
+  };
+  const params = defaultParams(tool);
+  const result = await runTool("", tool, [file], params, new AbortController().signal);
+  t.after(() => URL.revokeObjectURL(result.imageUrl));
+  assert.equal(result.ok, true);
+  assert.equal(result.contentType, "image/png");
+  assert.equal(result.imageBlob.type, "image/png");
+  assert.match(result.imageUrl, /^blob:/);
+  assert.match(buildCurl("", tool, [file], params), /--output 'crop-egrn\.png'/);
+  const docs = renderToStaticMarkup(createElement(DocsPage, { navigate: () => {} }));
+  assert.match(docs, /Обрезка ЕГРН/);
+  assert.match(docs, /\/v1\/ocr\/crop\/egrn/);
+});

@@ -31,7 +31,7 @@ export function buildCurl(
     lines.push(`  -F ${shellQuote(`${key}=${String(value)}`)}`);
   });
   if (tool.responseKind === "image") {
-    lines.push(`  --output ${shellQuote(`${tool.id}.jpg`)}`);
+    lines.push(`  --output ${shellQuote(`${tool.id}.${tool.imageExtension ?? "jpg"}`)}`);
   }
   return lines.map((line, index) => `${index ? "\\\n" : ""}${line}`).join("");
 }

@@ -14,6 +14,7 @@ from app.core.api_schemas import (
 from app.core.config import settings
 from app.core.images.uploads import prepare_upload_stream
 from app.core.images.validation import validate_image_extension
+from app.modules.v1.crop.egrn import crop_egrn_bytes
 from app.modules.v1.crop.field_schemas import (
     FieldOcrModel,
     PassportFieldCropResponse,
@@ -87,6 +88,8 @@ async def crop_document_fields(
 async def _crop_upload(
     image: UploadFile,
     operation: Callable[[bytes], Awaitable[bytes]],
+    *,
+    media_type: str = "image/jpeg",
 ) -> Response:
     filename = image.filename or "image.jpg"
     try:
@@ -100,7 +103,7 @@ async def _crop_upload(
     result = await operation(content)
     return Response(
         content=result,
-        media_type="image/jpeg",
+        media_type=media_type,
         headers={"Cache-Control": "no-store"},
     )
 
@@ -126,6 +129,33 @@ async def crop_document(
     image: UploadFile = File(..., description="Фото документа или скан."),
 ) -> Response:
     return await _crop_upload(image, crop_document_image_bytes)
+
+
+@router.post(
+    "/crop/egrn",
+    response_class=Response,
+    summary="Обрезать пустые поля выписки ЕГРН",
+    description=(
+        "Принимает один скан страницы выписки. Находит печатное содержимое, "
+        "убирает пустые поля и края сканера, выравнивает небольшой наклон "
+        "по линиям таблицы. Сохраняет шапку, таблицу, штампы и нижние отметки "
+        "в одной вырезке. Возвращает PNG в исходном разрешении без "
+        "JPEG-сжатия. OCR не запускается, изображения не сохраняются. "
+        "Предназначен для светлых сканов с тёмным текстом; не проверяет "
+        "тип документа. Если содержимое не найдено, возвращает OCR_FAILED."
+    ),
+    responses={
+        200: {
+            "content": {"image/png": {}},
+            "description": "Печатная область страницы выписки.",
+        },
+        **{code: ERROR_RESPONSES[code] for code in (400, 413, 422, 500)},
+    },
+)
+async def crop_egrn(
+    image: UploadFile = File(..., description="Скан одной страницы ЕГРН."),
+) -> Response:
+    return await _crop_upload(image, crop_egrn_bytes, media_type="image/png")
 
 
 @router.post(
