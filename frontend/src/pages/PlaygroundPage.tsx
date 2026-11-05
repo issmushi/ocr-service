@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboa
 import { buildCurl, runTool } from "../api";
 import { CameraCapture } from "../components/CameraCapture";
 import { FieldsView } from "../components/FieldsView";
+import { EgrnFieldsView } from "../components/EgrnFieldsView";
 import { PassportFieldsView } from "../components/PassportFieldsView";
 import { acceptedFormats, defaultParams, toolById, tools } from "../config";
 import type { ParamValue, RequestResult, ToolDefinition, ToolId } from "../types";
@@ -378,7 +379,7 @@ export function PlaygroundPage({ apiBaseUrl, initialTool, onToolChange }: Props)
           </div>
 
           {running ? (
-            <div className="processing-state" role="status"><div className="scanner-animation"><span /></div><strong>{tool.multiple ? "Сравниваем кадры" : "Ждём ответ API"}</strong><p>{tool.multiple ? "Сервер оценивает резкость, освещение, блики и границы документа." : "Первый запрос может быть дольше, пока модель загружается."}</p><div className="processing-steps"><span className="done">Загрузка</span><span className="active">{tool.multiple ? "Оценка качества" : "Обработка"}</span><span>Ответ</span></div></div>
+            <div className="processing-state" role="status"><div className="scanner-animation"><span /></div><strong>{tool.multiple ? "Сравниваем кадры" : "Ждём ответ API"}</strong><p>{tool.multiple ? "Сервер оценивает резкость, освещение, блики и границы документа." : toolId.startsWith("crop-egrn") ? "Выравниваем страницу и ищем печатные области." : "Первый запрос может быть дольше, пока модель загружается."}</p><div className="processing-steps"><span className="done">Загрузка</span><span className="active">{tool.multiple ? "Оценка качества" : "Обработка"}</span><span>Ответ</span></div></div>
           ) : !result ? (
             <div className="empty-result"><span><Icon name="code" size={28} /></span><strong>Ответ API</strong><p>Добавьте фото и отправьте запрос. Здесь появятся результат и время запроса.</p></div>
           ) : !result.ok ? (
@@ -391,7 +392,7 @@ export function PlaygroundPage({ apiBaseUrl, initialTool, onToolChange }: Props)
           ) : (
             <div className="structured-result">
               <div className="result-tabs" onKeyDown={handleTabListKeyDown} role="tablist">
-                <ResultTabButton active={activeTab === "fields"} id="fields" label={toolId === "crop-document-fields" ? "Вырезки" : "Поля"} onClick={() => setActiveTab("fields")} />
+                <ResultTabButton active={activeTab === "fields"} id="fields" label={toolId === "crop-document-fields" || toolId === "crop-egrn-fields" ? "Вырезки" : "Поля"} onClick={() => setActiveTab("fields")} />
                 {(toolId === "mrz" || mrz.length > 0) && <ResultTabButton active={activeTab === "mrz"} count={mrz.length || undefined} disabled={!mrz.length} id="mrz" label="MRZ" onClick={() => setActiveTab("mrz")} />}
                 {toolId === "mrz" && <ResultTabButton active={activeTab === "normalization"} count={typeof normalization?.corrections_count === "number" ? normalization.corrections_count : undefined} disabled={!normalization} id="normalization" label="Нормализация" onClick={() => setActiveTab("normalization")} />}
                 <ResultTabButton active={activeTab === "meta"} disabled={!meta} id="meta" label="Meta" onClick={() => setActiveTab("meta")} />
@@ -399,7 +400,7 @@ export function PlaygroundPage({ apiBaseUrl, initialTool, onToolChange }: Props)
                 <ResultTabButton active={activeTab === "curl"} id="curl" label="cURL" onClick={() => setActiveTab("curl")} />
               </div>
               <div aria-labelledby={`result-tab-${activeTab}`} className="result-body" id={`result-panel-${activeTab}`} role="tabpanel" tabIndex={0}>
-                {activeTab === "fields" && (toolId === "crop-document-fields" ? <PassportFieldsView data={data} /> : <FieldsView entries={fieldEntries} />)}
+                {activeTab === "fields" && (toolId === "crop-document-fields" ? <PassportFieldsView data={data} /> : toolId === "crop-egrn-fields" ? <EgrnFieldsView data={data} /> : <FieldsView entries={fieldEntries} />)}
                 {activeTab === "mrz" && <MrzView lines={mrz} copied={copied} normalized={resultWasNormalized} onCopy={copy} />}
                 {activeTab === "normalization" && <NormalizationView enabled={resultWasNormalized} value={normalization} />}
                 {activeTab === "meta" && <MetaView meta={meta} clientDuration={result.durationMs} />}

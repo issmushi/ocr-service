@@ -141,6 +141,17 @@ export const tools: ToolDefinition[] = [
     outputHint: "Ответ: вырезка страницы в PNG без JPEG-сжатия",
   },
   {
+    id: "crop-egrn-fields",
+    group: "Обрезка и качество",
+    title: "Поля ЕГРН",
+    shortTitle: "EGRN fields",
+    description: "Вырезать номер заявления, кадастровый номер, адрес, наименование и дату актуальности. Для показанного макета первой страницы выписки Госуслуг. Сначала страница обрезается и выравнивается; текст пока не распознаётся.",
+    endpoint: "/v1/ocr/crop/egrn-fields",
+    responseKind: "json",
+    params: [],
+    outputHint: "Ответ: страница с координатами и пять отдельных вырезок PNG",
+  },
+  {
     id: "crop-mrz",
     group: "Обрезка и качество",
     title: "Обрезка MRZ",

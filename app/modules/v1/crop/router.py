@@ -14,7 +14,8 @@ from app.core.api_schemas import (
 from app.core.config import settings
 from app.core.images.uploads import prepare_upload_stream
 from app.core.images.validation import validate_image_extension
-from app.modules.v1.crop.egrn import crop_egrn_bytes
+from app.modules.v1.crop.egrn import crop_egrn_bytes, crop_egrn_fields_upload
+from app.modules.v1.crop.egrn_schemas import EgrnFieldCropResponse
 from app.modules.v1.crop.field_schemas import (
     FieldOcrModel,
     PassportFieldCropResponse,
@@ -156,6 +157,33 @@ async def crop_egrn(
     image: UploadFile = File(..., description="Скан одной страницы ЕГРН."),
 ) -> Response:
     return await _crop_upload(image, crop_egrn_bytes, media_type="image/png")
+
+
+@router.post(
+    "/crop/egrn-fields",
+    response_model=EgrnFieldCropResponse,
+    summary="Найти и вырезать пять полей выписки ЕГРН",
+    description=(
+        "Первая страница выписки Госуслуг с верхней таблицей из двух строк "
+        "и таблицей характеристик из 15 строк, как в тестовом образце. "
+        "Сначала обрезает пустые поля и выравнивает небольшой наклон. "
+        "Находит сетку таблиц и вырезает номер заявления, кадастровый номер, "
+        "адрес, наименование объекта и дату актуальности. "
+        "Строки сопоставляются с полями по этому макету, OCR не запускается. "
+        "Возвращает страницу, отдельные PNG data URL и координаты на ней. "
+        "Номер заявления и дата актуальности включают текстовую подпись. "
+        "Ненайденные области перечисляются в missing_fields. "
+        "Другие макеты и страницы пока не поддерживаются. "
+        "Изображения не сохраняются."
+    ),
+    responses={code: ERROR_RESPONSES[code] for code in (400, 413, 422, 500)},
+)
+async def crop_egrn_fields(
+    response: Response,
+    image: UploadFile = File(..., description="Первая страница ЕГРН."),
+) -> dict[str, Any]:
+    response.headers["Cache-Control"] = "no-store"
+    return await crop_egrn_fields_upload(image)
 
 
 @router.post(

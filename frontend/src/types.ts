@@ -9,6 +9,7 @@ export type ToolId =
   | "full-ocr"
   | "crop-document"
   | "crop-egrn"
+  | "crop-egrn-fields"
   | "crop-mrz"
   | "crop-document-fields"
   | "best-frame";

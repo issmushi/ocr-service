@@ -1,17 +1,27 @@
 from __future__ import annotations
 
 import asyncio
+import base64
+from time import perf_counter
+from typing import Any
 
 import cv2
 import numpy as np
+from fastapi import UploadFile
 
-from app.core.errors import AppError, ErrorCode
+from app.core.config import settings
+from app.core.errors import AppError, ErrorCode, api_success_response
 from app.core.images.decoding import InvalidImageError, decode_image
 from app.core.images.printed_content import crop_printed_content
-from app.core.images.validation import validate_image_dimensions
+from app.core.images.uploads import prepare_upload_stream
+from app.core.images.validation import (
+    validate_image_dimensions,
+    validate_image_extension,
+)
+from app.modules.v1.crop.egrn_layout import FIELD_LABELS, locate_egrn_fields
 
 
-def _crop_egrn(content: bytes) -> bytes:
+def _prepare_egrn(content: bytes) -> np.ndarray:
     try:
         image = decode_image(content)
     except InvalidImageError as error:
@@ -21,13 +31,16 @@ def _crop_egrn(content: bytes) -> bytes:
     validate_image_dimensions(*image.size)
     source = cv2.cvtColor(np.asarray(image), cv2.COLOR_RGB2BGR)
     try:
-        cropped = crop_printed_content(source)
+        return crop_printed_content(source)
     except ValueError as error:
         raise AppError(
             ErrorCode.OCR_FAILED,
             "Не удалось найти печатное содержимое выписки на изображении",
         ) from error
-    success, encoded = cv2.imencode(".png", cropped)
+
+
+def _png(image: np.ndarray) -> bytes:
+    success, encoded = cv2.imencode(".png", image)
     if not success:
         raise AppError(
             ErrorCode.INTERNAL_ERROR, "Не удалось сохранить вырезку выписки"
@@ -36,4 +49,65 @@ def _crop_egrn(content: bytes) -> bytes:
 
 
 async def crop_egrn_bytes(content: bytes) -> bytes:
-    return await asyncio.to_thread(_crop_egrn, content)
+    return await asyncio.to_thread(lambda: _png(_prepare_egrn(content)))
+
+
+def _preview(image: np.ndarray) -> dict[str, Any]:
+    return {
+        "image": "data:image/png;base64,"
+        + base64.b64encode(_png(image)).decode("ascii"),
+        "width": image.shape[1],
+        "height": image.shape[0],
+    }
+
+
+def _crop_egrn_fields(content: bytes) -> dict[str, Any]:
+    started = perf_counter()
+    document = _prepare_egrn(content)
+    boxes = locate_egrn_fields(document)
+    if not boxes:
+        raise AppError(
+            ErrorCode.OCR_FAILED,
+            "Не найдены поля первой страницы выписки Госуслуг: "
+            "ожидаются верхняя таблица из двух строк и таблица характеристик",
+        )
+    fields = []
+    for name, label in FIELD_LABELS.items():
+        if name not in boxes:
+            continue
+        x1, y1, x2, y2 = boxes[name]
+        fields.append(
+            {
+                "name": name,
+                "label": label,
+                "bbox": [x1, y1, x2, y2],
+                **_preview(document[y1:y2, x1:x2]),
+            }
+        )
+    preview = _preview(document)
+    return api_success_response(
+        {
+            "document": preview,
+            "fields": fields,
+            "missing_fields": [
+                name for name in FIELD_LABELS if name not in boxes
+            ],
+            "meta": {
+                "engine": "opencv",
+                "model": "egrn-gosuslugi-first-page",
+                "duration_seconds": perf_counter() - started,
+            },
+        }
+    )
+
+
+async def crop_egrn_fields_upload(image: UploadFile) -> dict[str, Any]:
+    try:
+        validate_image_extension(image.filename or "image.jpg")
+        await prepare_upload_stream(
+            image, max_bytes=settings.ocr_max_image_size_bytes
+        )
+        content = await image.read()
+    finally:
+        await image.close()
+    return await asyncio.to_thread(_crop_egrn_fields, content)
