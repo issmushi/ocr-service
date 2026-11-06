@@ -1,4 +1,9 @@
 const fieldLabels: Record<string, string> = {
+  application_number: "Номер заявления",
+  cadastral_number: "Кадастровый номер",
+  address: "Адрес объекта",
+  object_name: "Наименование объекта",
+  actuality_date: "Дата актуальности",
   passport_type: "Тип паспорта",
   document_type: "Тип документа",
   document_code: "Код документа",

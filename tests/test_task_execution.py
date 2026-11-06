@@ -68,6 +68,12 @@ class TaskExecutionTests(unittest.IsolatedAsyncioTestCase):
                 {},
             ),
             (
+                TaskOperation.EGRN,
+                "recognize_egrn_upload",
+                {"ocr_model": "paddle"},
+                {"ocr_model": "paddle"},
+            ),
+            (
                 TaskOperation.SNILS,
                 "recognize_snils_upload",
                 {},

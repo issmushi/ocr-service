@@ -4,6 +4,7 @@ export type ToolId =
   | "mrz"
   | "passport-internal"
   | "passport-international"
+  | "egrn"
   | "snils"
   | "driver-license"
   | "full-ocr"

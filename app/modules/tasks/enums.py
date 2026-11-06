@@ -17,6 +17,7 @@ class TaskOperation(StrEnum):
     PASSPORT_MRZ = "passport_mrz"
     PASSPORT_PAGE = "passport_page"
     PASSPORT_INTERNATIONAL = "passport_international"
+    EGRN = "egrn"
     SNILS = "snils"
     DRIVER_LICENSE = "driver_license"
     IDCARD_MRZ = "idcard_mrz"

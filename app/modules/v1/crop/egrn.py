@@ -65,7 +65,7 @@ def _preview(image: np.ndarray) -> dict[str, Any]:
     }
 
 
-def _crop_egrn_fields(content: bytes) -> dict[str, Any]:
+def _crop_egrn_fields(content: bytes, include_page: bool) -> dict[str, Any]:
     started = perf_counter()
     document = _prepare_egrn(content)
     boxes = locate_egrn_fields(document)
@@ -88,25 +88,20 @@ def _crop_egrn_fields(content: bytes) -> dict[str, Any]:
                 **_preview(document[y1:y2, x1:x2]),
             }
         )
-    preview = _preview(document)
-    return api_success_response(
-        {
-            "document": preview,
-            "fields": fields,
-            "missing_fields": [
-                name for name in FIELD_LABELS if name not in boxes
-            ],
-            "meta": {
-                "engine": "opencv",
-                "model": "egrn-gosuslugi-first-page",
-                "duration_seconds": perf_counter() - started,
-            },
-        }
-    )
+    return {
+        "document": _preview(document) if include_page else None,
+        "fields": fields,
+        "missing_fields": [name for name in FIELD_LABELS if name not in boxes],
+        "meta": {
+            "engine": "opencv",
+            "model": "egrn-gosuslugi-first-page",
+            "duration_seconds": perf_counter() - started,
+        },
+    }
 
 
-async def crop_egrn_fields_upload(
-    image: UploadFile, *, ocr_model: EgrnOcrModel = EgrnOcrModel.NONE
+async def read_egrn_fields_upload(
+    image: UploadFile, *, ocr_model: EgrnOcrModel, include_page: bool
 ) -> dict[str, Any]:
     try:
         if ocr_model != EgrnOcrModel.NONE:
@@ -119,10 +114,18 @@ async def crop_egrn_fields_upload(
     finally:
         await image.close()
     started = perf_counter()
-    result = await asyncio.to_thread(_crop_egrn_fields, content)
-    data = result["data"]
+    data = await asyncio.to_thread(_crop_egrn_fields, content, include_page)
     data["meta"]["ocr"] = await recognize_field_previews(
         data["fields"], FieldOcrModel(ocr_model.value), split_lines=True
     )
     data["meta"]["duration_seconds"] = perf_counter() - started
-    return result
+    return data
+
+
+async def crop_egrn_fields_upload(
+    image: UploadFile, *, ocr_model: EgrnOcrModel = EgrnOcrModel.NONE
+) -> dict[str, Any]:
+    data = await read_egrn_fields_upload(
+        image, ocr_model=ocr_model, include_page=True
+    )
+    return api_success_response(data)

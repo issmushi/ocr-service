@@ -30,6 +30,8 @@ from app.modules.v1.russia.driver_license.schemas import (
 from app.modules.v1.russia.driver_license.service import (
     recognize_driver_license_upload,
 )
+from app.modules.v1.russia.egrn.schemas import EgrnModel, EgrnResponse
+from app.modules.v1.russia.egrn.service import recognize_egrn_upload
 from app.modules.v1.russia.snils.schemas import SnilsResponseSchema
 from app.modules.v1.russia.snils.service import recognize_snils_upload
 
@@ -81,6 +83,10 @@ async def execute_task_operation(
         elif operation == TaskOperation.PASSPORT_INTERNATIONAL:
             response = await recognize_passport_international_upload(upload)
             schema = PassportInternationalResponseSchema
+        elif operation == TaskOperation.EGRN:
+            model = EgrnModel(options.get("ocr_model", EgrnModel.CYRILLIC))
+            response = await recognize_egrn_upload(upload, ocr_model=model)
+            schema = EgrnResponse
         elif operation == TaskOperation.SNILS:
             response = await recognize_snils_upload(upload)
             schema = SnilsResponseSchema

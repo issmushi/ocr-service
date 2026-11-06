@@ -32,6 +32,7 @@ from app.modules.tasks.creation import create_image_task
 from app.modules.tasks.enums import TERMINAL_STATUSES, JobStatus, TaskOperation
 from app.modules.tasks.service import get_job, mark_cancelled
 from app.modules.v1.full.schemas import FullOcrModel
+from app.modules.v1.russia.egrn.schemas import EgrnModel
 
 router = APIRouter(prefix="/v1/tasks", tags=["Tasks"])
 
@@ -129,6 +130,25 @@ async def create_passport_international_task(
         image,
         operation=TaskOperation.PASSPORT_INTERNATIONAL,
         options={},
+    )
+
+
+@router.post(
+    "/egrn",
+    status_code=202,
+    response_model=TaskCreatedResponseSchema,
+    summary="Создать задачу распознавания выписки ЕГРН",
+    responses=CREATION_ERRORS,
+)
+async def create_egrn_task(
+    image: UploadFile = File(...),
+    ocr_model: EgrnModel = Form(EgrnModel.CYRILLIC),
+) -> dict[str, Any]:
+    ensure_ocr_model_enabled("paddle")
+    return await create_image_task(
+        image,
+        operation=TaskOperation.EGRN,
+        options={"ocr_model": ocr_model.value},
     )
 
 

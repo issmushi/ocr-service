@@ -241,6 +241,11 @@ test("CPU field alternatives are limited to document and EGRN field tools", () =
   for (const tool of Object.values(toolById)) {
     if (tool.id === "crop-document-fields") continue;
     const values = tool.params.flatMap((param) => param.kind === "select" ? param.options.map((option) => option.value) : []);
+    if (tool.id === "egrn") {
+      assert.deepEqual(values, ["paddle", "paddle-cyrillic"]);
+      assert.equal(defaultParams(tool).ocr_model, "paddle-cyrillic");
+      continue;
+    }
     if (tool.id === "crop-egrn-fields") {
       assert.deepEqual(values, ["none", "paddle", "paddle-cyrillic"]);
       continue;

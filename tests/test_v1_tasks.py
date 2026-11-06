@@ -46,6 +46,8 @@ CASES = [
         {},
         {},
     ),
+    ("egrn", "egrn", {}, {"ocr_model": "paddle-cyrillic"}),
+    ("egrn", "egrn", {"ocr_model": "paddle"}, {"ocr_model": "paddle"}),
     ("snils", "snils", {}, {}),
     ("driver-license", "driver_license", {}, {}),
     ("full", "full_v1", {}, {"model": "paddle"}),

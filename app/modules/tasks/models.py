@@ -35,7 +35,7 @@ class OCRJob(Base):
         CheckConstraint(
             "mode IN ('mrz', 'passport_mrz', 'passport_page', "
             "'passport_international', 'idcard_mrz', "
-            "'snils', 'driver_license', 'full_v1', "
+            "'snils', 'driver_license', 'egrn', 'full_v1', "
             "'crop_document', 'crop_mrz')",
             name="ck_ocr_jobs_mode",
         ),
