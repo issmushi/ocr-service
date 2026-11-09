@@ -36,8 +36,8 @@ class UnifiedMrzNormalizationSchema(PassportMrzNormalizationSchema):
 
 
 class UnifiedMrzDataSchema(BaseModel):
-    mrz: list[str] = Field(
-        ...,
+    mrz: list[str] | None = Field(
+        None,
         min_length=2,
         max_length=3,
         description="Две строки паспорта или две/три строки ID-карты.",
@@ -49,47 +49,48 @@ class UnifiedMrzDataSchema(BaseModel):
             "При normalize=false журнал пустой."
         ),
     )
-    document_type: Literal[
-        "internal_passport", "international_passport", "identity_card"
-    ] = Field(..., description="Распознанный вид документа.")
-    document_code: str | None = Field(..., description="Код документа в MRZ.")
+    document_type: (
+        Literal["internal_passport", "international_passport", "identity_card"]
+        | None
+    ) = Field(None, description="Распознанный вид документа.")
+    document_code: str | None = Field(None, description="Код документа в MRZ.")
     issuing_country: str | None = Field(
-        ..., description="Трёхбуквенный код страны выдачи."
+        None, description="Трёхбуквенный код страны выдачи."
     )
-    surname: str | None = Field(..., description="Фамилия владельца.")
-    name: str | None = Field(..., description="Имя владельца.")
+    surname: str | None = Field(None, description="Фамилия владельца.")
+    name: str | None = Field(None, description="Имя владельца.")
     patronymic: str | None = Field(
-        ..., description="Отчество или дополнительные имена."
+        None, description="Отчество или дополнительные имена."
     )
     sex: Literal["МУЖ.", "ЖЕН."] | None = Field(
-        ..., description="Пол владельца."
+        None, description="Пол владельца."
     )
     date_of_birth: str | None = Field(
-        ..., description="Дата рождения в формате ДД.ММ.ГГГГ."
+        None, description="Дата рождения в формате ДД.ММ.ГГГГ."
     )
     document_series: str | None = Field(
-        ..., description="Серия, если она выделяется для документа."
+        None, description="Серия, если она выделяется для документа."
     )
     document_number: str | None = Field(
-        ..., description="Номер документа без пробелов."
+        None, description="Номер документа без пробелов."
     )
     nationality: str | None = Field(
-        ..., description="Трёхбуквенный код гражданства."
+        None, description="Трёхбуквенный код гражданства."
     )
     issue_date: str | None = Field(
-        ..., description="Дата выдачи в формате ДД.ММ.ГГГГ."
+        None, description="Дата выдачи в формате ДД.ММ.ГГГГ."
     )
     expiry_date: str | None = Field(
-        ..., description="Дата окончания действия в формате ДД.ММ.ГГГГ."
+        None, description="Дата окончания действия в формате ДД.ММ.ГГГГ."
     )
     department_code: str | None = Field(
-        ..., description="Код подразделения, если он доступен."
+        None, description="Код подразделения, если он доступен."
     )
     personal_number: str | None = Field(
-        ..., description="Персональный номер, ИИН или ПИН."
+        None, description="Персональный номер, ИИН или ПИН."
     )
     mrz_valid: bool | None = Field(
-        ...,
+        None,
         description=(
             "Результат проверки контрольных цифр; null для неполной MRZ."
         ),

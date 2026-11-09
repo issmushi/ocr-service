@@ -8,6 +8,7 @@ from pydantic import ValidationError
 
 from app.core.config import settings
 from app.core.errors import AppError, ErrorCode, api_success_response
+from app.core.field_selection import resolve_fields
 from app.core.images.uploads import prepare_upload_stream
 from app.core.images.validation import validate_image_extension
 from app.core.model_availability import ensure_ocr_model_enabled
@@ -15,6 +16,7 @@ from app.modules.v1.crop.service import crop_mrz_bytes
 from app.modules.v1.idcard.parsing import parse_idcard_mrz
 from app.modules.v1.idcard.pipeline import normalize_idcard_mrz
 from app.modules.v1.idcard.profiles import IdcardMrzFormatError
+from app.modules.v1.mrz_api.field_selection import MrzField
 from app.modules.v1.mrz_api.schemas import UnifiedMrzDataSchema
 from app.modules.v1.passport.normalization import (
     PassportHeaderNormalizationError,
@@ -78,8 +80,10 @@ async def recognize_mrz_upload(
     *,
     normalize: bool = True,
     normalization: bool = True,
+    fields: list[str] | None = None,
 ) -> dict[str, Any]:
     """Scan once, then dispatch by the supported document's MRZ header."""
+    selected = resolve_fields(fields, MrzField)
     ensure_ocr_model_enabled("mrz")
     validate_image_extension(image.filename or "image.jpg")
     await prepare_upload_stream(
@@ -132,4 +136,7 @@ async def recognize_mrz_upload(
         raise AppError(
             ErrorCode.OCR_FAILED, "OCR не смог получить пригодный результат"
         ) from error
-    return api_success_response(data.model_dump(mode="json"))
+    values = data.model_dump(mode="json")
+    return api_success_response(
+        {field: values[field] for field in (*selected, "meta")}
+    )

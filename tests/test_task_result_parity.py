@@ -166,8 +166,11 @@ def test_task_result_matches_direct_http_response(
         assert stored["job_id"] == task_id
         if operation == "mrz":
             assert stored["options"] == {
-                key: form.get(key, "true") == "true"
-                for key in ("normalize", "normalization")
+                **{
+                    key: form.get(key, "true") == "true"
+                    for key in ("normalize", "normalization")
+                },
+                "fields": ["all"],
             }
         image_path = Path(stored["image_path"])
         assert image_path.read_bytes() == content

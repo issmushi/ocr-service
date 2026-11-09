@@ -26,18 +26,18 @@ class SnilsDataSchema(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     snils_number: str | None = Field(
-        ..., description="Номер СНИЛС в формате XXX-XXX-XXX YY."
+        None, description="Номер СНИЛС в формате XXX-XXX-XXX YY."
     )
-    surname: str | None = Field(..., description="Фамилия.")
-    name: str | None = Field(..., description="Имя.")
-    patronymic: str | None = Field(..., description="Отчество.")
+    surname: str | None = Field(None, description="Фамилия.")
+    name: str | None = Field(None, description="Имя.")
+    patronymic: str | None = Field(None, description="Отчество.")
     date_of_birth: str | None = Field(
-        ..., description="Дата рождения в формате ДД.ММ.ГГГГ."
+        None, description="Дата рождения в формате ДД.ММ.ГГГГ."
     )
-    birth_place: str | None = Field(..., description="Место рождения.")
-    sex: Literal["МУЖ.", "ЖЕН."] | None = Field(..., description="Пол.")
+    birth_place: str | None = Field(None, description="Место рождения.")
+    sex: Literal["МУЖ.", "ЖЕН."] | None = Field(None, description="Пол.")
     registration_date: str | None = Field(
-        ..., description="Дата регистрации в формате ДД.ММ.ГГГГ."
+        None, description="Дата регистрации в формате ДД.ММ.ГГГГ."
     )
     meta: SnilsMetaSchema = Field(
         ..., description="Использованные OCR-модели и время обработки."

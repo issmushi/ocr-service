@@ -13,6 +13,19 @@ export function passportFieldOcrLabel(model: string): string {
   return passportFieldModels.find((option) => option.value === model)?.label ?? model;
 }
 
+function documentFields(options: [string, string][], mrz = false): ParamDefinition {
+  return {
+    kind: "multiselect",
+    key: "fields",
+    label: mrz ? "Поля в ответе" : "Поля для распознавания",
+    description: mrz
+      ? "MRZ читается целиком для определения формата и контрольных цифр. В JSON попадут только выбранные поля и meta. Журнал появится, если выбран и включён выше."
+      : "Читаются выбранные области и общие для них вырезки. В ответе — выбранные поля и meta. Непрочитанное поле — null; категории могут быть пустым списком.",
+    defaultValue: ["all"],
+    options: [{ value: "all", label: "Все поля" }, ...options.map(([value, label]) => ({ value, label }))],
+  };
+}
+
 const mrzParams: ParamDefinition[] = [
   {
     kind: "toggle",
@@ -28,6 +41,26 @@ const mrzParams: ParamDefinition[] = [
     description: "Добавить в ответ список исправлений. Обработка зависит от normalize.",
     defaultValue: true,
   },
+  documentFields([
+      ["mrz", "MRZ"],
+      ["normalization", "Журнал нормализации"],
+      ["document_type", "Тип документа"],
+      ["document_code", "Код документа"],
+      ["issuing_country", "Страна выдачи"],
+      ["surname", "Фамилия"],
+      ["name", "Имя"],
+      ["patronymic", "Отчество"],
+      ["sex", "Пол"],
+      ["date_of_birth", "Дата рождения"],
+      ["document_series", "Серия документа"],
+      ["document_number", "Номер документа"],
+      ["nationality", "Гражданство"],
+      ["issue_date", "Дата выдачи"],
+      ["expiry_date", "Срок действия"],
+      ["department_code", "Код подразделения"],
+      ["personal_number", "Персональный номер"],
+      ["mrz_valid", "MRZ валидна"]
+    ], true),
 ];
 
 export const tools: ToolDefinition[] = [
@@ -83,8 +116,29 @@ export const tools: ToolDefinition[] = [
     description: "Распознать визуальные поля загранпаспорта РФ на фото с помощью Russian OCR.",
     endpoint: "/v1/ocr/passport/international",
     responseKind: "json",
-    params: [],
-    outputHint: "Ответ: поля загранпаспорта, MRZ при наличии и meta",
+    params: [documentFields([
+      ["mrz", "MRZ"],
+      ["passport_type", "Тип паспорта"],
+      ["document_code", "Код документа"],
+      ["issuing_country", "Страна выдачи"],
+      ["surname", "Фамилия"],
+      ["name", "Имя"],
+      ["patronymic", "Отчество"],
+      ["surname_latin", "Фамилия (латиницей)"],
+      ["name_latin", "Имя (латиницей)"],
+      ["patronymic_latin", "Отчество (латиницей)"],
+      ["sex", "Пол"],
+      ["date_of_birth", "Дата рождения"],
+      ["birth_place_ru", "Место рождения (RU)"],
+      ["birth_place_en", "Место рождения (EN)"],
+      ["passport_number", "Номер паспорта"],
+      ["nationality", "Гражданство"],
+      ["issue_date", "Дата выдачи"],
+      ["expiry_date", "Срок действия"],
+      ["Issue_organization_ru", "Кем выдан"],
+      ["issue_organization_code", "Код органа выдачи"]
+    ])],
+    outputHint: "Ответ: выбранные поля и meta",
   },
   {
     id: "snils",
@@ -94,8 +148,17 @@ export const tools: ToolDefinition[] = [
     description: "Распознать СНИЛС: Russian OCR находит поля, Paddle Cyrillic перечитывает номер и даты на вырезках.",
     endpoint: "/v1/ocr/snils",
     responseKind: "json",
-    params: [],
-    outputHint: "Ответ: номер СНИЛС, ФИО, дата и место рождения, пол, дата регистрации и meta",
+    params: [documentFields([
+      ["snils_number", "Номер СНИЛС"],
+      ["surname", "Фамилия"],
+      ["name", "Имя"],
+      ["patronymic", "Отчество"],
+      ["date_of_birth", "Дата рождения"],
+      ["birth_place", "Место рождения"],
+      ["sex", "Пол"],
+      ["registration_date", "Дата регистрации"]
+    ])],
+    outputHint: "Ответ: выбранные поля и meta",
   },
   {
     id: "egrn",
@@ -112,8 +175,14 @@ export const tools: ToolDefinition[] = [
       description: "Распознавание найденных полей на CPU.",
       defaultValue: "paddle-cyrillic",
       options: passportFieldModels.filter((option) => ["paddle", "paddle-cyrillic"].includes(option.value)),
-    }],
-    outputHint: "Ответ: пять полей выписки и время обработки",
+    }, documentFields([
+      ["application_number", "Номер заявления"],
+      ["cadastral_number", "Кадастровый номер"],
+      ["address", "Адрес объекта"],
+      ["object_name", "Наименование объекта"],
+      ["actuality_date", "Дата актуальности"]
+    ])],
+    outputHint: "Ответ: выбранные поля и meta",
   },
   {
     id: "driver-license",
@@ -123,8 +192,28 @@ export const tools: ToolDefinition[] = [
     description: "Распознать российское водительское удостоверение по фото: Russian OCR читает поля, Paddle при необходимости уточняет даты.",
     endpoint: "/v1/ocr/driver-license",
     responseKind: "json",
-    params: [],
-    outputHint: "Ответ: ФИО, номер удостоверения, даты, категории и meta",
+    params: [documentFields([
+      ["license_series", "Серия удостоверения"],
+      ["license_number", "Номер удостоверения"],
+      ["surname", "Фамилия"],
+      ["name", "Имя"],
+      ["patronymic", "Отчество"],
+      ["surname_latin", "Фамилия (латиницей)"],
+      ["name_latin", "Имя (латиницей)"],
+      ["patronymic_latin", "Отчество (латиницей)"],
+      ["date_of_birth", "Дата рождения"],
+      ["birth_place_ru", "Место рождения (RU)"],
+      ["birth_place_en", "Место рождения (EN)"],
+      ["issue_date", "Дата выдачи"],
+      ["expiry_date", "Срок действия"],
+      ["issue_organization_ru", "Кем выдан"],
+      ["issue_organization_en", "Кем выдан (латиницей)"],
+      ["department_code", "Код подразделения"],
+      ["residence_region_ru", "Регион проживания"],
+      ["residence_region_en", "Регион проживания (латиницей)"],
+      ["categories", "Категории"]
+    ])],
+    outputHint: "Ответ: выбранные поля и meta",
   },
   {
     id: "full-ocr",

@@ -10,9 +10,13 @@ from app.core.api_schemas import (
     OCR_FAILED_RESPONSE,
     OCR_TIMEOUT_RESPONSE,
 )
+from app.core.field_selection import VISUAL_FIELDS_DESCRIPTION
 from app.modules.v1.passport.field_selection import (
     FIELDS_DESCRIPTION,
     PassportInternalFields,
+)
+from app.modules.v1.passport.international_fields import (
+    PassportInternationalFields,
 )
 from app.modules.v1.passport.schemas import (
     PassportInternalResponseSchema,
@@ -73,6 +77,7 @@ async def recognize_passport_internal(
 @router.post(
     "/passport/international",
     response_model=PassportInternationalResponseSchema,
+    response_model_exclude_unset=True,
     summary="Распознать загранпаспорт РФ",
     description=(
         "Принимает фото загранпаспорта РФ и распознаёт визуальные поля "
@@ -84,7 +89,12 @@ async def recognize_passport_internal(
     responses={
         400: COMMON_ERROR_RESPONSES[400],
         413: COMMON_ERROR_RESPONSES[413],
-        422: OCR_FAILED_RESPONSE,
+        422: {
+            **OCR_FAILED_RESPONSE,
+            "description": (
+                "OCR_FAILED или VALIDATION_ERROR: неверный список fields."
+            ),
+        },
         503: OCR_ENGINE_UNAVAILABLE_RESPONSE,
         504: OCR_TIMEOUT_RESPONSE,
         500: COMMON_ERROR_RESPONSES[500],
@@ -95,5 +105,9 @@ async def recognize_passport_international(
         ...,
         description="Фото загранпаспорта РФ.",
     ),
+    fields: Annotated[
+        PassportInternationalFields,
+        Form(description=VISUAL_FIELDS_DESCRIPTION),
+    ] = ["all"],
 ) -> dict[str, Any]:
-    return await recognize_passport_international_upload(image)
+    return await recognize_passport_international_upload(image, fields=fields)

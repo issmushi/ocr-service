@@ -47,17 +47,17 @@ test("unified MRZ tool sends only image and processing flags, with no model sele
   assert.equal(tool.group, "MRZ");
   assert.deepEqual(tools.filter((item) => item.group === "MRZ").map((item) => item.id), ["mrz"]);
   assert.equal(tools.some((item) => item.id === "passport-mrz" || item.id === "idcard-mrz"), false);
-  assert.deepEqual(defaultParams(tool), { normalize: true, normalization: true });
-  assert.deepEqual(tool.params.map((param) => param.key), ["normalize", "normalization"]);
-  assert.ok(tool.params.every((param) => param.kind === "toggle"));
+  assert.deepEqual(defaultParams(tool), { normalize: true, normalization: true, fields: ["all"] });
+  assert.deepEqual(tool.params.map((param) => param.key), ["normalize", "normalization", "fields"]);
+  assert.ok(tool.params.slice(0, 2).every((param) => param.kind === "toggle"));
   assert.match(tool.description, /MRZ Scanner/);
 
-  for (const params of [defaultParams(tool), { normalize: false, normalization: false }]) {
+  for (const params of [defaultParams(tool), { normalize: false, normalization: false, fields: ["all"] }]) {
     globalThis.fetch = async (url, options) => {
       assert.equal(url, "/v1/ocr/mrz");
       assert.equal(options.method, "POST");
       assert.equal(options.signal, controller.signal);
-      assert.deepEqual([...options.body.keys()], ["image", "normalize", "normalization"]);
+      assert.deepEqual([...options.body.keys()], ["image", "normalize", "normalization", "fields"]);
       assert.equal(await options.body.get("image").text(), "synthetic");
       for (const [key, value] of Object.entries(params)) assert.equal(options.body.get(key), String(value));
       assert.equal(options.body.has("model"), false);
@@ -114,8 +114,8 @@ test("Russian international passport sends only image and exposes its own task r
   assert.equal(tool.endpoint, "/v1/ocr/passport/international");
   assert.equal(tool.group, "Россия");
   assert.match(tool.description, /Russian OCR/);
-  assert.deepEqual(tool.params, []);
-  assert.deepEqual(defaultParams(tool), {});
+  assert.deepEqual(tool.params.map((param) => param.key), ["fields"]);
+  assert.deepEqual(defaultParams(tool), { fields: ["all"] });
 
   const file = new File(["synthetic"], "passport.jpg", { type: "image/jpeg" });
   const originalFetch = globalThis.fetch;
@@ -123,10 +123,10 @@ test("Russian international passport sends only image and exposes its own task r
   globalThis.fetch = async (url, options) => {
     assert.equal(url, "/v1/ocr/passport/international");
     assert.equal(options.method, "POST");
-    assert.deepEqual([...options.body.keys()], ["image"]);
+    assert.deepEqual([...options.body.keys()], ["image", "fields"]);
     return new Response(JSON.stringify({ success: true, data: { passport_type: "international", mrz: null }, error: null }), { headers: { "content-type": "application/json" } });
   };
-  assert.equal((await runTool("", tool, [file], {}, new AbortController().signal)).ok, true);
+  assert.equal((await runTool("", tool, [file], defaultParams(tool), new AbortController().signal)).ok, true);
 
   const curl = buildCurl("http://localhost:8000", tool, [file], {});
   assert.match(curl, /\/v1\/ocr\/passport\/international/);
@@ -153,8 +153,8 @@ test("SNILS sends one image, shows its fields, and documents the task route", as
   assert.equal(tool.endpoint, "/v1/ocr/snils");
   assert.equal(tool.group, "Россия");
   assert.match(tool.description, /Paddle Cyrillic/);
-  assert.deepEqual(tool.params, []);
-  assert.deepEqual(defaultParams(tool), {});
+  assert.deepEqual(tool.params.map((param) => param.key), ["fields"]);
+  assert.deepEqual(defaultParams(tool), { fields: ["all"] });
 
   const file = new File(["synthetic"], "snils.jpg", { type: "image/jpeg" });
   const originalFetch = globalThis.fetch;
@@ -162,7 +162,7 @@ test("SNILS sends one image, shows its fields, and documents the task route", as
   globalThis.fetch = async (url, options) => {
     assert.equal(url, "/v1/ocr/snils");
     assert.equal(options.method, "POST");
-    assert.deepEqual([...options.body.keys()], ["image"]);
+    assert.deepEqual([...options.body.keys()], ["image", "fields"]);
     return new Response(JSON.stringify({
       success: true,
       data: { snils_number: "000-000-000 00", date_of_birth: "01.01.2000", meta: { engine: "russian-ocr" } },
@@ -196,8 +196,8 @@ test("Russian driver license sends one image and shows its fields", async (t) =>
   assert.equal(tool.endpoint, "/v1/ocr/driver-license");
   assert.equal(tool.group, "Россия");
   assert.match(tool.description, /Russian OCR/);
-  assert.deepEqual(tool.params, []);
-  assert.deepEqual(defaultParams(tool), {});
+  assert.deepEqual(tool.params.map((param) => param.key), ["fields"]);
+  assert.deepEqual(defaultParams(tool), { fields: ["all"] });
 
   const file = new File(["synthetic"], "driver-license.jpg", { type: "image/jpeg" });
   const originalFetch = globalThis.fetch;
@@ -205,7 +205,7 @@ test("Russian driver license sends one image and shows its fields", async (t) =>
   globalThis.fetch = async (url, options) => {
     assert.equal(url, "/v1/ocr/driver-license");
     assert.equal(options.method, "POST");
-    assert.deepEqual([...options.body.keys()], ["image"]);
+    assert.deepEqual([...options.body.keys()], ["image", "fields"]);
     assert.equal(await options.body.get("image").text(), "synthetic");
     return new Response(JSON.stringify({
       success: true,
@@ -328,21 +328,28 @@ test("EGRN crop uploads one scan and handles a downloadable PNG", async (t) => {
 });
 
 
-test("selected passport fields use repeated multipart keys in requests and cURL", async (t) => {
+test("all document tools send selected fields as repeated multipart keys and cURL flags", async (t) => {
   const previous = globalThis.fetch;
   t.after(() => { globalThis.fetch = previous; });
-  const tool = toolById["passport-internal"];
-  const fields = ["surname", "passport_number"];
-  const file = new File(["synthetic"], "passport.png");
-  globalThis.fetch = async (_url, options) => {
-    assert.deepEqual(options.body.getAll("fields"), fields);
-    return new Response(JSON.stringify({ success: true, data: { surname: null }, error: null }), { headers: { "content-type": "application/json" } });
-  };
-  assert.equal((await runTool("", tool, [file], { fields }, new AbortController().signal)).ok, true);
-  const curl = buildCurl("", tool, [file], { fields });
-  assert.match(curl, /-F 'fields=surname'/);
-  assert.match(curl, /-F 'fields=passport_number'/);
-  assert.doesNotMatch(curl, /fields=all/);
+  const file = new File(["synthetic"], "document.png");
+  for (const id of ["passport-internal", "passport-international", "snils", "driver-license", "egrn", "mrz"]) {
+    const tool = toolById[id];
+    const selector = tool.params.find((param) => param.key === "fields");
+    assert.equal(selector.kind, "multiselect");
+    assert.deepEqual(defaultParams(tool).fields, ["all"]);
+    const fields = selector.options.filter((option) => option.value !== "all").slice(0, 2).map((option) => option.value);
+    assert.equal(fields.length, 2);
+    globalThis.fetch = async (url, options) => {
+      assert.equal(url, tool.endpoint);
+      assert.deepEqual(options.body.getAll("fields"), fields);
+      return new Response(JSON.stringify({ success: true, data: { [fields[0]]: null }, error: null }), { headers: { "content-type": "application/json" } });
+    };
+    const params = { ...defaultParams(tool), fields };
+    assert.equal((await runTool("", tool, [file], params, new AbortController().signal)).ok, true);
+    const curl = buildCurl("", tool, [file], params);
+    for (const field of fields) assert.ok(curl.includes(`-F 'fields=${field}'`));
+    assert.doesNotMatch(curl, /fields=all/);
+  }
 });
 
 test("field selection keeps all exclusive and shows an empty-selection warning", async () => {

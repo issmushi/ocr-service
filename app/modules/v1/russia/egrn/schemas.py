@@ -18,11 +18,11 @@ class EgrnMeta(BaseModel):
 
 
 class EgrnData(BaseModel):
-    application_number: str | None
-    cadastral_number: str | None
-    address: str | None
-    object_name: str | None
-    actuality_date: str | None
+    application_number: str | None = None
+    cadastral_number: str | None = None
+    address: str | None = None
+    object_name: str | None = None
+    actuality_date: str | None = None
     meta: EgrnMeta
 
 

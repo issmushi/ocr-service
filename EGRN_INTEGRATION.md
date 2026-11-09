@@ -14,6 +14,9 @@ OCR Service 3.1.0 читает пять полей первой страницы
 | --- | --- | --- |
 | `image` | Да | Файл с именем и расширением JPG/JPEG, PNG, BMP, WebP или одностраничный TIF/TIFF. |
 | `ocr_model` | Нет | `paddle-cyrillic` (по умолчанию) или `paddle` (eslav). Обе модели работают на CPU. |
+| `fields` | Нет | Список нужных полей. По умолчанию `all`. Допустимы `application_number`, `cadastral_number`, `address`, `object_name`, `actuality_date`. |
+
+Передавайте несколько одноимённых `fields` или список через запятую. `all` используется отдельно. В OCR попадают только выбранные вырезки; поиск страницы и разметки выполняется целиком. В ответе остаются выбранные поля и `meta`. Неизвестные названия, пустой список и сочетание `all` с другими полями возвращают `422 VALIDATION_ERROR`.
 
 Лимиты текущего сервера — до **75 МиБ** на файл, до **12 000 пикселей** по каждой стороне и до **50 млн пикселей** суммарно.
 
@@ -56,7 +59,17 @@ curl --fail-with-body -sS "$OCR_BASE_URL/v1/ocr/egrn" \
 | `actuality_date` | Дата из подписи «Данные актуальны на» в формате `ДД.ММ.ГГГГ`. |
 | `meta` | Движок, выбранная модель и длительность обработки в секундах без ожидания в очереди. |
 
-Каждое из пяти значений может быть `null`. При частичном распознавании успешный ответ содержит прочитанные значения. Если ни одного пригодного значения нет, API возвращает ошибку. Перед использованием проверьте поля, обязательные для вашего приложения. OCR может вернуть неполный адрес или ошибиться в символе даже при HTTP 200.
+Каждое выбранное значение может быть `null`. Незапрошенные поля отсутствуют. При `all` (или явном выборе всех пяти полей), если ни одного пригодного значения нет, API возвращает ошибку. При выборе части полей успешный ответ может содержать только `null`: это означает, что нужные поля не найдены или не прочитаны. Ошибки чтения изображения, неподдерживаемый макет и сбой OCR остаются ошибками. Перед использованием проверьте поля, обязательные для вашего приложения. OCR может вернуть неполный адрес или ошибиться в символе даже при HTTP 200.
+
+Например, только кадастровый номер и адрес:
+
+```sh
+curl --fail-with-body -sS "$OCR_BASE_URL/v1/ocr/egrn" \
+  -F 'image=@scan.png' \
+  -F 'fields=cadastral_number' -F 'fields=address'
+```
+
+Те же `fields` можно передать при создании задачи; готовый результат сохранит выбранный состав полей.
 
 ## Обработка через очередь
 
@@ -112,7 +125,9 @@ def unpack(response):
     return body["data"]
 
 
-def recognize_egrn(path, *, queued=False, model="paddle-cyrillic", wait_seconds=120):
+def recognize_egrn(
+    path, *, queued=False, model="paddle-cyrillic", fields=None, wait_seconds=120
+):
     path = Path(path)
     route = "/v1/tasks/egrn" if queued else "/v1/ocr/egrn"
     with requests.Session() as client:
@@ -120,7 +135,7 @@ def recognize_egrn(path, *, queued=False, model="paddle-cyrillic", wait_seconds=
             data = unpack(client.post(
                 BASE + route,
                 files={"image": (path.name, stream)},
-                data={"ocr_model": model},
+                data={"ocr_model": model, "fields": ["all"] if fields is None else fields},
                 timeout=(5, 90),
             ))
         if not queued:
@@ -155,7 +170,7 @@ def recognize_egrn(path, *, queued=False, model="paddle-cyrillic", wait_seconds=
 | --- | --- | --- |
 | 400 | `UNSUPPORTED_FORMAT`, `IMAGE_READ_ERROR`, `EMPTY_IMAGE` | Проверить расширение, формат и содержимое файла. |
 | 413 | `IMAGE_TOO_LARGE` | Уменьшить файл или разрешение. |
-| 422 | `VALIDATION_ERROR` | Проверить имя поля `image`, значение `ocr_model` и формат UUID. |
+| 422 | `VALIDATION_ERROR` | Проверить `image`, `ocr_model`, список `fields` и формат UUID. |
 | 422 | `OCR_FAILED` | Проверить страницу, макет и качество скана. |
 | 404 | `TASK_NOT_FOUND` | Проверить идентификатор и адрес сервера. |
 | 409 | `TASK_NOT_READY`, `TASK_CANCELLED` | Проверить статус перед запросом результата. |

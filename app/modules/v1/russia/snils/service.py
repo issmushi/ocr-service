@@ -11,6 +11,7 @@ from pydantic import ValidationError
 
 from app.core.config import settings
 from app.core.errors import AppError, ErrorCode, api_success_response
+from app.core.field_selection import resolve_fields
 from app.core.images.uploads import prepare_upload_stream
 from app.core.images.validation import (
     validate_image_bytes,
@@ -19,6 +20,8 @@ from app.core.images.validation import (
 from app.core.model_availability import ensure_ocr_model_enabled
 from app.modules.paddle.runtime import paddle_runtime
 from app.modules.russian.runtime import russian_runtime
+from app.modules.russian.snils import SNILS_OCR_FIELDS, SNILS_PADDLE_FIELDS
+from app.modules.v1.russia.snils.field_selection import SnilsField
 from app.modules.v1.russia.snils.parsing import snils_fields
 from app.modules.v1.russia.snils.schemas import SnilsDataSchema
 
@@ -37,10 +40,15 @@ async def _read_cyrillic_crop(content: bytes) -> str | None:
     return text.strip() or None
 
 
-async def recognize_snils_upload(image: UploadFile) -> dict[str, Any]:
+async def recognize_snils_upload(
+    image: UploadFile, *, fields: list[str] | None = None
+) -> dict[str, Any]:
     """Read a SNILS card and re-read its exact date/number rectangles."""
+    selected = resolve_fields(fields, SnilsField)
+    selected_labels = {SNILS_OCR_FIELDS[field] for field in selected}
     ensure_ocr_model_enabled("russian-ocr")
-    ensure_ocr_model_enabled("paddle")
+    if SNILS_PADDLE_FIELDS.intersection(selected):
+        ensure_ocr_model_enabled("paddle")
     validate_image_extension(image.filename or "image.jpg")
     await prepare_upload_stream(
         image, max_bytes=settings.ocr_max_image_size_bytes
@@ -53,6 +61,7 @@ async def recognize_snils_upload(image: UploadFile) -> dict[str, Any]:
         "snils",
         content,
         timeout_seconds=settings.russian_ocr_document_hard_timeout_seconds,
+        fields=selected,
     )
     if not isinstance(result, dict) or not str(
         result.get("doctype") or ""
@@ -68,6 +77,8 @@ async def recognize_snils_upload(image: UploadFile) -> dict[str, Any]:
     readings: dict[str, str | None] = {}
     paddle_used = False
     for name in ("Licence_number", *DATE_FIELDS):
+        if name not in selected_labels:
+            continue
         crop = crops.get(name)
         if not isinstance(crop, bytes) or not crop:
             continue
@@ -75,14 +86,15 @@ async def recognize_snils_upload(image: UploadFile) -> dict[str, Any]:
         readings[name] = await _read_cyrillic_crop(crop)
 
     try:
+        values = snils_fields(
+            raw_ocr,
+            number_text=readings.get("Licence_number"),
+            birth_date_text=readings.get("Birth_date"),
+            issue_date_text=readings.get("Issue_date"),
+        )
         data = SnilsDataSchema.model_validate(
             {
-                **snils_fields(
-                    raw_ocr,
-                    number_text=readings.get("Licence_number"),
-                    birth_date_text=readings.get("Birth_date"),
-                    issue_date_text=readings.get("Issue_date"),
-                ),
+                **{field: values[field] for field in selected},
                 "meta": {
                     "engine": (
                         "russian-docs-ocr+paddleocr"
@@ -102,4 +114,6 @@ async def recognize_snils_upload(image: UploadFile) -> dict[str, Any]:
         raise AppError(
             ErrorCode.OCR_FAILED, "OCR не смог получить пригодный результат"
         ) from error
-    return api_success_response(data.model_dump(mode="json"))
+    return api_success_response(
+        data.model_dump(mode="json", exclude_unset=True)
+    )

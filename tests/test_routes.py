@@ -63,7 +63,7 @@ class RouteTests(unittest.TestCase):
         body = schema["components"]["schemas"][body_name]
         self.assertEqual(
             set(body["properties"]),
-            {"image", "normalize", "normalization"},
+            {"image", "normalize", "normalization", "fields"},
         )
         self.assertEqual(body["required"], ["image"])
         image = body["properties"]["image"]
@@ -74,10 +74,20 @@ class RouteTests(unittest.TestCase):
             self.assertIs(body["properties"][flag]["default"], True)
         data = schema["components"]["schemas"]["UnifiedMrzDataSchema"]
         fields = data["properties"]
-        self.assertEqual(fields["mrz"]["minItems"], 2)
-        self.assertEqual(fields["mrz"]["maxItems"], 3)
+        mrz_schema = next(
+            value
+            for value in fields["mrz"]["anyOf"]
+            if value.get("type") == "array"
+        )
+        self.assertEqual(mrz_schema["minItems"], 2)
+        self.assertEqual(mrz_schema["maxItems"], 3)
+        types = next(
+            value["enum"]
+            for value in fields["document_type"]["anyOf"]
+            if "enum" in value
+        )
         self.assertEqual(
-            set(fields["document_type"]["enum"]),
+            set(types),
             {
                 "internal_passport",
                 "international_passport",
@@ -144,7 +154,7 @@ class RouteTests(unittest.TestCase):
         recognize.assert_awaited_once()
         self.assertEqual(
             recognize.await_args.kwargs,
-            {"normalize": True, "normalization": True},
+            {"normalize": True, "normalization": True, "fields": ["all"]},
         )
 
     def test_unified_mrz_forwards_disabled_flags(self) -> None:
@@ -165,7 +175,7 @@ class RouteTests(unittest.TestCase):
         self.assertEqual(response.json(), expected)
         self.assertEqual(
             recognize.await_args.kwargs,
-            {"normalize": False, "normalization": False},
+            {"normalize": False, "normalization": False, "fields": ["all"]},
         )
 
     def test_unified_mrz_rejects_invalid_flags_before_ocr(self) -> None:

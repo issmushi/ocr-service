@@ -8,7 +8,9 @@ from fastapi.testclient import TestClient
 from PIL import Image
 
 from app.core.config import settings
+from app.core.field_selection import resolve_fields
 from app.main import app
+from app.modules.v1.russia.snils.field_selection import SnilsField
 
 PATH = "/v1/ocr/snils"
 SERVICE = "app.modules.v1.russia.snils.service"
@@ -97,6 +99,7 @@ def test_snils_uses_paddle_on_detected_crops_and_recovers_number(
         "snils",
         image_bytes,
         timeout_seconds=settings.russian_ocr_document_hard_timeout_seconds,
+        fields=resolve_fields(None, SnilsField),
     )
     assert [call.args[1] for call in paddle_run.await_args_list] == [
         b"number-crop",
@@ -248,7 +251,7 @@ def test_snils_openapi_is_under_russia_and_accepts_one_image_only():
     body = schema["components"]["schemas"][
         request_schema["$ref"].rsplit("/", 1)[-1]
     ]
-    assert set(body["properties"]) == {"image"}
+    assert set(body["properties"]) == {"image", "fields"}
     assert body["required"] == ["image"]
     assert (
         operation["responses"]["200"]["content"]["application/json"]["schema"][

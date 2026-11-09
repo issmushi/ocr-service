@@ -212,7 +212,7 @@ class PassportInternationalDataSchema(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     mrz: list[str] | None = Field(
-        ...,
+        None,
         min_length=2,
         max_length=2,
         description=(
@@ -220,47 +220,47 @@ class PassportInternationalDataSchema(BaseModel):
         ),
     )
     passport_type: Literal["international"] = Field(
-        ..., description="Заграничный паспорт РФ."
+        "international", description="Заграничный паспорт РФ."
     )
-    document_code: Literal["P"] = Field(..., description="Тип документа.")
+    document_code: Literal["P"] = Field("P", description="Тип документа.")
     issuing_country: Literal["RUS"] = Field(
-        ..., description="Государство выдачи."
+        "RUS", description="Государство выдачи."
     )
-    surname: str | None = Field(..., description="Фамилия кириллицей.")
-    name: str | None = Field(..., description="Имя кириллицей.")
-    patronymic: str | None = Field(..., description="Отчество кириллицей.")
-    surname_latin: str | None = Field(..., description="Фамилия латиницей.")
-    name_latin: str | None = Field(..., description="Имя латиницей.")
+    surname: str | None = Field(None, description="Фамилия кириллицей.")
+    name: str | None = Field(None, description="Имя кириллицей.")
+    patronymic: str | None = Field(None, description="Отчество кириллицей.")
+    surname_latin: str | None = Field(None, description="Фамилия латиницей.")
+    name_latin: str | None = Field(None, description="Имя латиницей.")
     patronymic_latin: str | None = Field(
-        ..., description="Отчество латиницей, если указано."
+        None, description="Отчество латиницей, если указано."
     )
     sex: Literal["МУЖ.", "ЖЕН."] | None = Field(
-        ..., description="Пол владельца."
+        None, description="Пол владельца."
     )
     date_of_birth: str | None = Field(
-        ..., description="Дата рождения в формате ДД.ММ.ГГГГ."
+        None, description="Дата рождения в формате ДД.ММ.ГГГГ."
     )
     birth_place_ru: str | None = Field(
-        ..., description="Место рождения на русском."
+        None, description="Место рождения на русском."
     )
     birth_place_en: str | None = Field(
-        ..., description="Место рождения на английском."
+        None, description="Место рождения на английском."
     )
     passport_number: str | None = Field(
-        ..., description="Полный номер загранпаспорта без пробелов."
+        None, description="Полный номер загранпаспорта без пробелов."
     )
-    nationality: Literal["RUS"] = Field(..., description="Гражданство.")
+    nationality: Literal["RUS"] = Field("RUS", description="Гражданство.")
     issue_date: str | None = Field(
-        ..., description="Дата выдачи в формате ДД.ММ.ГГГГ."
+        None, description="Дата выдачи в формате ДД.ММ.ГГГГ."
     )
     expiry_date: str | None = Field(
-        ..., description="Дата окончания действия в формате ДД.ММ.ГГГГ."
+        None, description="Дата окончания действия в формате ДД.ММ.ГГГГ."
     )
     Issue_organization_ru: str | None = Field(
-        ..., description="Орган, выдавший загранпаспорт."
+        None, description="Орган, выдавший загранпаспорт."
     )
     issue_organization_code: str | None = Field(
-        ..., description="Код органа, выдавшего загранпаспорт."
+        None, description="Код органа, выдавшего загранпаспорт."
     )
     meta: PassportInternationalOcrMetaSchema = Field(
         ..., description="Движок RussianDocsOCR и время распознавания."

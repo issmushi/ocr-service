@@ -21,8 +21,15 @@ from app.core.errors import (
     api_success_response,
     decode_error,
 )
+from app.core.field_selection import (
+    MRZ_FIELDS_DESCRIPTION,
+    VISUAL_FIELDS_DESCRIPTION,
+    resolve_fields,
+    validate_fields,
+)
 from app.core.infrastructure.storage import delete_upload
 from app.core.model_availability import ensure_ocr_model_enabled
+from app.modules.russian.snils import SNILS_PADDLE_FIELDS
 from app.modules.tasks.api_schemas import (
     TaskCancelledResponseSchema,
     TaskCreatedResponseSchema,
@@ -32,12 +39,23 @@ from app.modules.tasks.creation import create_image_task
 from app.modules.tasks.enums import TERMINAL_STATUSES, JobStatus, TaskOperation
 from app.modules.tasks.service import get_job, mark_cancelled
 from app.modules.v1.full.schemas import FullOcrModel
+from app.modules.v1.mrz_api.field_selection import MrzField, MrzFields
 from app.modules.v1.passport.field_selection import (
     FIELDS_DESCRIPTION,
     PassportInternalFields,
     validate_internal_fields,
 )
+from app.modules.v1.passport.international_fields import (
+    PassportInternationalField,
+    PassportInternationalFields,
+)
+from app.modules.v1.russia.driver_license.field_selection import (
+    DriverLicenseField,
+    DriverLicenseFields,
+)
+from app.modules.v1.russia.egrn.field_selection import EgrnField, EgrnFields
 from app.modules.v1.russia.egrn.schemas import EgrnModel
+from app.modules.v1.russia.snils.field_selection import SnilsField, SnilsFields
 
 router = APIRouter(prefix="/v1/tasks", tags=["Tasks"])
 
@@ -88,7 +106,11 @@ async def create_mrz_task(
     image: UploadFile = File(...),
     normalize: bool = Form(True),
     normalization: bool = Form(True),
+    fields: Annotated[MrzFields, Form(description=MRZ_FIELDS_DESCRIPTION)] = [
+        "all"
+    ],
 ) -> dict[str, Any]:
+    selected = validate_fields(fields, MrzField)
     ensure_ocr_model_enabled("mrz")
     return await create_image_task(
         image,
@@ -96,6 +118,7 @@ async def create_mrz_task(
         options={
             "normalize": normalize,
             "normalization": normalization,
+            "fields": selected,
         },
     )
 
@@ -131,12 +154,17 @@ async def create_passport_internal_task(
 )
 async def create_passport_international_task(
     image: UploadFile = File(...),
+    fields: Annotated[
+        PassportInternationalFields,
+        Form(description=VISUAL_FIELDS_DESCRIPTION),
+    ] = ["all"],
 ) -> dict[str, Any]:
+    selected = validate_fields(fields, PassportInternationalField)
     ensure_ocr_model_enabled("russian-ocr")
     return await create_image_task(
         image,
         operation=TaskOperation.PASSPORT_INTERNATIONAL,
-        options={},
+        options={"fields": selected},
     )
 
 
@@ -150,12 +178,16 @@ async def create_passport_international_task(
 async def create_egrn_task(
     image: UploadFile = File(...),
     ocr_model: EgrnModel = Form(EgrnModel.CYRILLIC),
+    fields: Annotated[
+        EgrnFields, Form(description=VISUAL_FIELDS_DESCRIPTION)
+    ] = ["all"],
 ) -> dict[str, Any]:
+    selected = validate_fields(fields, EgrnField)
     ensure_ocr_model_enabled("paddle")
     return await create_image_task(
         image,
         operation=TaskOperation.EGRN,
-        options={"ocr_model": ocr_model.value},
+        options={"ocr_model": ocr_model.value, "fields": selected},
     )
 
 
@@ -168,13 +200,18 @@ async def create_egrn_task(
 )
 async def create_snils_task(
     image: UploadFile = File(...),
+    fields: Annotated[
+        SnilsFields, Form(description=VISUAL_FIELDS_DESCRIPTION)
+    ] = ["all"],
 ) -> dict[str, Any]:
+    selected = validate_fields(fields, SnilsField)
     ensure_ocr_model_enabled("russian-ocr")
-    ensure_ocr_model_enabled("paddle")
+    if SNILS_PADDLE_FIELDS.intersection(resolve_fields(selected, SnilsField)):
+        ensure_ocr_model_enabled("paddle")
     return await create_image_task(
         image,
         operation=TaskOperation.SNILS,
-        options={},
+        options={"fields": selected},
     )
 
 
@@ -187,12 +224,16 @@ async def create_snils_task(
 )
 async def create_driver_license_task(
     image: UploadFile = File(...),
+    fields: Annotated[
+        DriverLicenseFields, Form(description=VISUAL_FIELDS_DESCRIPTION)
+    ] = ["all"],
 ) -> dict[str, Any]:
+    selected = validate_fields(fields, DriverLicenseField)
     ensure_ocr_model_enabled("russian-ocr")
     return await create_image_task(
         image,
         operation=TaskOperation.DRIVER_LICENSE,
-        options={},
+        options={"fields": selected},
     )
 
 

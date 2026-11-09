@@ -84,17 +84,25 @@ async def execute_task_operation(
             )
             schema = PassportInternalResponseSchema
         elif operation == TaskOperation.PASSPORT_INTERNATIONAL:
-            response = await recognize_passport_international_upload(upload)
+            response = await recognize_passport_international_upload(
+                upload, fields=options.get("fields")
+            )
             schema = PassportInternationalResponseSchema
         elif operation == TaskOperation.EGRN:
             model = EgrnModel(options.get("ocr_model", EgrnModel.CYRILLIC))
-            response = await recognize_egrn_upload(upload, ocr_model=model)
+            response = await recognize_egrn_upload(
+                upload, ocr_model=model, fields=options.get("fields")
+            )
             schema = EgrnResponse
         elif operation == TaskOperation.SNILS:
-            response = await recognize_snils_upload(upload)
+            response = await recognize_snils_upload(
+                upload, fields=options.get("fields")
+            )
             schema = SnilsResponseSchema
         elif operation == TaskOperation.DRIVER_LICENSE:
-            response = await recognize_driver_license_upload(upload)
+            response = await recognize_driver_license_upload(
+                upload, fields=options.get("fields")
+            )
             schema = DriverLicenseResponseSchema
         elif operation == TaskOperation.FULL_V1:
             if "model" in options:
@@ -107,7 +115,7 @@ async def execute_task_operation(
             "format": "json",
             "response": schema.model_validate(response).model_dump(
                 mode="json",
-                exclude_unset=operation == TaskOperation.PASSPORT_PAGE,
+                exclude_unset=operation != TaskOperation.FULL_V1,
             ),
         }
     finally:

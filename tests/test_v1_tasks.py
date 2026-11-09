@@ -31,6 +31,7 @@ CASES = [
         {
             "normalize": True,
             "normalization": True,
+            "fields": ["all"],
         },
     ),
     (
@@ -43,12 +44,17 @@ CASES = [
         "passport/international",
         "passport_international",
         {},
-        {},
+        {"fields": ["all"]},
     ),
-    ("egrn", "egrn", {}, {"ocr_model": "paddle-cyrillic"}),
-    ("egrn", "egrn", {"ocr_model": "paddle"}, {"ocr_model": "paddle"}),
-    ("snils", "snils", {}, {}),
-    ("driver-license", "driver_license", {}, {}),
+    ("egrn", "egrn", {}, {"ocr_model": "paddle-cyrillic", "fields": ["all"]}),
+    (
+        "egrn",
+        "egrn",
+        {"ocr_model": "paddle"},
+        {"ocr_model": "paddle", "fields": ["all"]},
+    ),
+    ("snils", "snils", {}, {"fields": ["all"]}),
+    ("driver-license", "driver_license", {}, {"fields": ["all"]}),
     ("full", "full_v1", {}, {"model": "paddle"}),
     ("crop/document", "crop_document", {}, {}),
     ("crop/mrz", "crop_mrz", {}, {}),
@@ -161,6 +167,7 @@ def test_mrz_custom_flags_are_saved_as_booleans(
     assert create.await_args.kwargs["options"] == {
         "normalize": False,
         "normalization": False,
+        "fields": ["all"],
     }
 
 
@@ -172,7 +179,7 @@ def test_mrz_task_schema_has_no_model_choice(client):
         "properties"
     ]
 
-    assert set(fields) == {"image", "normalize", "normalization"}
+    assert set(fields) == {"image", "normalize", "normalization", "fields"}
 
 
 def test_obsolete_mrz_model_and_crop_form_are_not_persisted(
@@ -187,6 +194,7 @@ def test_obsolete_mrz_model_and_crop_form_are_not_persisted(
     assert create.await_args.kwargs["options"] == {
         "normalize": True,
         "normalization": True,
+        "fields": ["all"],
     }
 
 
@@ -234,7 +242,7 @@ def test_international_passport_task_exposes_only_image(
     fields = schema["components"]["schemas"][body["$ref"].split("/")[-1]][
         "properties"
     ]
-    assert set(fields) == {"image"}
+    assert set(fields) == {"image", "fields"}
 
     create, _ = persistence
     response = post_task(
@@ -244,7 +252,7 @@ def test_international_passport_task_exposes_only_image(
         {"model": "qwen3-vl-8b", "crop": "false"},
     )
     assert response.status_code == 202
-    assert create.await_args.kwargs["options"] == {}
+    assert create.await_args.kwargs["options"] == {"fields": ["all"]}
 
 
 def test_snils_task_exposes_only_image(client, image_content, persistence):
@@ -254,7 +262,7 @@ def test_snils_task_exposes_only_image(client, image_content, persistence):
     fields = schema["components"]["schemas"][body["$ref"].split("/")[-1]][
         "properties"
     ]
-    assert set(fields) == {"image"}
+    assert set(fields) == {"image", "fields"}
 
     create, _ = persistence
     response = post_task(
@@ -264,7 +272,7 @@ def test_snils_task_exposes_only_image(client, image_content, persistence):
         {"model": "qwen3-vl-8b", "crop": "false"},
     )
     assert response.status_code == 202
-    assert create.await_args.kwargs["options"] == {}
+    assert create.await_args.kwargs["options"] == {"fields": ["all"]}
 
 
 def test_driver_license_task_exposes_only_image(
@@ -278,7 +286,7 @@ def test_driver_license_task_exposes_only_image(
     fields = schema["components"]["schemas"][body["$ref"].split("/")[-1]][
         "properties"
     ]
-    assert set(fields) == {"image"}
+    assert set(fields) == {"image", "fields"}
 
     create, _ = persistence
     response = post_task(
@@ -288,7 +296,7 @@ def test_driver_license_task_exposes_only_image(
         {"model": "qwen3-vl-8b", "crop": "false"},
     )
     assert response.status_code == 202
-    assert create.await_args.kwargs["options"] == {}
+    assert create.await_args.kwargs["options"] == {"fields": ["all"]}
 
 
 def test_old_passport_page_task_route_is_removed(

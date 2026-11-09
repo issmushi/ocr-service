@@ -65,7 +65,11 @@ def _preview(image: np.ndarray) -> dict[str, Any]:
     }
 
 
-def _crop_egrn_fields(content: bytes, include_page: bool) -> dict[str, Any]:
+def _crop_egrn_fields(
+    content: bytes,
+    include_page: bool,
+    selected_fields: tuple[str, ...] | None = None,
+) -> dict[str, Any]:
     started = perf_counter()
     document = _prepare_egrn(content)
     boxes = locate_egrn_fields(document)
@@ -76,8 +80,11 @@ def _crop_egrn_fields(content: bytes, include_page: bool) -> dict[str, Any]:
             "ожидаются верхняя таблица из двух строк и таблица характеристик",
         )
     fields = []
+    selected = set(
+        FIELD_LABELS if selected_fields is None else selected_fields
+    )
     for name, label in FIELD_LABELS.items():
-        if name not in boxes:
+        if name not in boxes or name not in selected:
             continue
         x1, y1, x2, y2 = boxes[name]
         fields.append(
@@ -91,7 +98,11 @@ def _crop_egrn_fields(content: bytes, include_page: bool) -> dict[str, Any]:
     return {
         "document": _preview(document) if include_page else None,
         "fields": fields,
-        "missing_fields": [name for name in FIELD_LABELS if name not in boxes],
+        "missing_fields": [
+            name
+            for name in FIELD_LABELS
+            if name in selected and name not in boxes
+        ],
         "meta": {
             "engine": "opencv",
             "model": "egrn-gosuslugi-first-page",
@@ -101,7 +112,11 @@ def _crop_egrn_fields(content: bytes, include_page: bool) -> dict[str, Any]:
 
 
 async def read_egrn_fields_upload(
-    image: UploadFile, *, ocr_model: EgrnOcrModel, include_page: bool
+    image: UploadFile,
+    *,
+    ocr_model: EgrnOcrModel,
+    include_page: bool,
+    fields: tuple[str, ...] | None = None,
 ) -> dict[str, Any]:
     try:
         if ocr_model != EgrnOcrModel.NONE:
@@ -114,7 +129,12 @@ async def read_egrn_fields_upload(
     finally:
         await image.close()
     started = perf_counter()
-    data = await asyncio.to_thread(_crop_egrn_fields, content, include_page)
+    data = await asyncio.to_thread(
+        _crop_egrn_fields,
+        content,
+        include_page,
+        **({"selected_fields": fields} if fields is not None else {}),
+    )
     data["meta"]["ocr"] = await recognize_field_previews(
         data["fields"], FieldOcrModel(ocr_model.value), split_lines=True
     )

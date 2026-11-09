@@ -10,8 +10,12 @@ from PIL import Image
 
 from app.core.config import settings
 from app.core.errors import AppError, ErrorCode
+from app.core.field_selection import resolve_fields
 from app.main import app
 from app.modules.v1.passport.field_selection import INTERNAL_FIELDS
+from app.modules.v1.passport.international_fields import (
+    PassportInternationalField,
+)
 
 PATH = "/v1/ocr/passport/international"
 INTERNAL_PATH = "/v1/ocr/passport/internal"
@@ -110,6 +114,7 @@ def test_international_endpoint_returns_visual_fields_and_original_mrz(
         "passport_international",
         image_bytes,
         timeout_seconds=settings.russian_ocr_document_hard_timeout_seconds,
+        fields=resolve_fields(None, PassportInternationalField),
     )
 
 
@@ -240,7 +245,7 @@ def test_international_openapi_is_under_russia_with_image_only():
     body = schema["components"]["schemas"][
         request_schema["$ref"].rsplit("/", 1)[-1]
     ]
-    assert set(body["properties"]) == {"image"}
+    assert set(body["properties"]) == {"image", "fields"}
     assert body["required"] == ["image"]
     assert (
         operation["responses"]["200"]["content"]["application/json"]["schema"][

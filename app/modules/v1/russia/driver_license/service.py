@@ -12,6 +12,7 @@ from pydantic import ValidationError
 
 from app.core.config import settings
 from app.core.errors import AppError, ErrorCode, api_success_response
+from app.core.field_selection import resolve_fields
 from app.core.images.uploads import prepare_upload_stream
 from app.core.images.validation import (
     validate_image_bytes,
@@ -19,7 +20,11 @@ from app.core.images.validation import (
 )
 from app.core.model_availability import ensure_ocr_model_enabled
 from app.modules.paddle.runtime import paddle_runtime
+from app.modules.russian.driver_license import DRIVER_LICENSE_OCR_FIELDS
 from app.modules.russian.runtime import russian_runtime
+from app.modules.v1.russia.driver_license.field_selection import (
+    DriverLicenseField,
+)
 from app.modules.v1.russia.driver_license.parsing import (
     driver_license_fields,
     parse_driver_license_date,
@@ -35,7 +40,7 @@ MIN_FALLBACK_CONFIDENCE = 0.8
 
 
 async def _recover_invalid_dates(
-    raw_ocr: dict[str, Any], crops: Any
+    raw_ocr: dict[str, Any], crops: Any, selected_labels: set[str]
 ) -> tuple[dict[str, str], bool]:
     """Re-read only damaged date patches with the optional Cyrillic model."""
     if not isinstance(crops, dict) or not settings.is_model_enabled("paddle"):
@@ -43,6 +48,8 @@ async def _recover_invalid_dates(
     replacements: dict[str, str] = {}
     paddle_used = False
     for name in DATE_FIELDS:
+        if name not in selected_labels:
+            continue
         if parse_driver_license_date(raw_ocr.get(name)) is not None:
             continue
         crop = crops.get(name)
@@ -75,8 +82,12 @@ async def _recover_invalid_dates(
     return replacements, paddle_used
 
 
-async def recognize_driver_license_upload(image: UploadFile) -> dict[str, Any]:
+async def recognize_driver_license_upload(
+    image: UploadFile, *, fields: list[str] | None = None
+) -> dict[str, Any]:
     """Find, orient and read one Russian driving licence photo."""
+    selected = resolve_fields(fields, DriverLicenseField)
+    selected_labels = {DRIVER_LICENSE_OCR_FIELDS[field] for field in selected}
     ensure_ocr_model_enabled("russian-ocr")
     validate_image_extension(image.filename or "image.jpg")
     await prepare_upload_stream(
@@ -90,6 +101,7 @@ async def recognize_driver_license_upload(image: UploadFile) -> dict[str, Any]:
         "driver_license",
         content,
         timeout_seconds=settings.russian_ocr_document_hard_timeout_seconds,
+        fields=selected,
     )
     if not isinstance(result, dict) or not str(
         result.get("doctype") or ""
@@ -102,13 +114,14 @@ async def recognize_driver_license_upload(image: UploadFile) -> dict[str, Any]:
     if not isinstance(raw_ocr, dict):
         raise AppError(ErrorCode.OCR_FAILED, "Некорректный ответ OCR прав")
     replacements, paddle_used = await _recover_invalid_dates(
-        raw_ocr, result.get("crops")
+        raw_ocr, result.get("crops"), selected_labels
     )
 
     try:
+        values = driver_license_fields({**raw_ocr, **replacements})
         data = DriverLicenseDataSchema.model_validate(
             {
-                **driver_license_fields({**raw_ocr, **replacements}),
+                **{field: values[field] for field in selected},
                 "meta": {
                     "engine": (
                         "russian-docs-ocr+paddleocr"
@@ -128,4 +141,6 @@ async def recognize_driver_license_upload(image: UploadFile) -> dict[str, Any]:
         raise AppError(
             ErrorCode.OCR_FAILED, "OCR не смог получить пригодный результат"
         ) from error
-    return api_success_response(data.model_dump(mode="json"))
+    return api_success_response(
+        data.model_dump(mode="json", exclude_unset=True)
+    )

@@ -4,6 +4,7 @@ import re
 from datetime import date
 from typing import Any
 
+from app.modules.russian.field_selection import ocr_fields_for
 from app.ocr_engine.russian.recognizer import (
     decode_image_bytes,
     recognize_image,
@@ -23,6 +24,30 @@ INTERNAL_PASSPORT_OCR_FIELDS = {
     "issue_date": "Issue_date",
     "department_code": "Issue_organisation_code",
     "Issue_organization_ru": "Issue_organization_ru",
+}
+
+INTERNATIONAL_PASSPORT_OCR_FIELDS = {
+    "mrz": "MRZ",
+    "passport_type": None,
+    "document_code": None,
+    "issuing_country": None,
+    "nationality": None,
+    # Preserve the existing Latin fallback for missing Cyrillic readings.
+    "surname": ("Last_name_ru", "Last_name_en"),
+    "name": ("First_name_ru", "First_name_en"),
+    "patronymic": ("Middle_name_ru", "Middle_name_en"),
+    "surname_latin": "Last_name_en",
+    "name_latin": "First_name_en",
+    "patronymic_latin": "Middle_name_en",
+    "sex": ("Sex_ru", "Sex_en"),
+    "date_of_birth": "Birth_date",
+    "birth_place_ru": "Birth_place_ru",
+    "birth_place_en": "Birth_place_en",
+    "passport_number": "Licence_number",
+    "issue_date": "Issue_date",
+    "expiry_date": "Expiration_date",
+    "Issue_organization_ru": "Issue_organization_ru",
+    "issue_organization_code": "Issue_organisation_code",
 }
 
 
@@ -201,15 +226,12 @@ def recognize_passport_text_bytes(
     """Return RussianDocsOCR fields for the requested Russian passport type."""
     if passport_kind not in {"internal", "international"}:
         raise ValueError(f"Unsupported passport kind: {passport_kind}")
-    if passport_kind == "internal":
-        selected = INTERNAL_PASSPORT_OCR_FIELDS if fields is None else fields
-        kwargs["ocr_fields"] = tuple(
-            dict.fromkeys(
-                INTERNAL_PASSPORT_OCR_FIELDS[field]
-                for field in selected
-                if INTERNAL_PASSPORT_OCR_FIELDS[field] is not None
-            )
-        )
+    mapping = (
+        INTERNAL_PASSPORT_OCR_FIELDS
+        if passport_kind == "internal"
+        else INTERNATIONAL_PASSPORT_OCR_FIELDS
+    )
+    kwargs["ocr_fields"] = ocr_fields_for(mapping, fields)
     image = decode_image_bytes(content)
     height, width = image.shape[:2]
     result = recognize_image(image, pipeline=pipeline, **kwargs)

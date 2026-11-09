@@ -3,7 +3,9 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from fastapi.testclient import TestClient
 
+from app.core.field_selection import resolve_fields
 from app.main import app
+from app.modules.v1.russia.egrn.field_selection import EgrnField
 from app.modules.v1.russia.egrn.service import field_value
 
 
@@ -49,6 +51,7 @@ def test_partial_result_contains_only_document_values_and_meta():
     assert read.await_args.kwargs == {
         "ocr_model": "paddle-cyrillic",
         "include_page": False,
+        "fields": resolve_fields(None, EgrnField),
     }
     assert response.json()["data"] == {
         "application_number": "00042",

@@ -1,9 +1,11 @@
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 import numpy as np
 import pytest
 
+from app.modules.russian.driver_license import recognize_driver_license_bytes
 from app.modules.russian.passport import recognize_passport_text_bytes
+from app.modules.russian.snils import recognize_snils_bytes
 from app.ocr_engine.russian.vendor.document_processing import Pipeline
 from app.ocr_engine.russian.vendor.document_processing.pipeline import options
 from tests.russian.test_engine_adapter import image_bytes
@@ -112,3 +114,85 @@ def test_public_selection_reaches_engine_with_shared_number_crop(
     pipeline.process_img.return_value.doctype = "INTPASSPORT_2011"
     recognize_passport_text_bytes(image_bytes(), pipeline, fields=fields)
     assert pipeline.process_img.call_args.kwargs["ocr_fields"] == expected
+
+
+@pytest.mark.parametrize(
+    "fields,expected",
+    [
+        (("surname_latin",), ("Last_name_en",)),
+        (("surname",), ("Last_name_ru", "Last_name_en")),
+        (("sex",), ("Sex_ru", "Sex_en")),
+        (("birth_place_en",), ("Birth_place_en",)),
+        (("passport_type", "nationality"), ()),
+    ],
+)
+def test_international_selection_preserves_only_needed_fallbacks(
+    fields, expected
+):
+    pipeline = Mock()
+    pipeline.process_img.return_value.ocr = {}
+    pipeline.process_img.return_value.doctype = "EXTPASSPORT_2011"
+    recognize_passport_text_bytes(
+        image_bytes(), pipeline, passport_kind="international", fields=fields
+    )
+    assert pipeline.process_img.call_args.kwargs["ocr_fields"] == expected
+
+
+@pytest.mark.parametrize(
+    "function,module,fields,labels,crops",
+    [
+        (
+            recognize_snils_bytes,
+            "snils",
+            ("surname",),
+            ("Last_name_ru",),
+            set(),
+        ),
+        (
+            recognize_snils_bytes,
+            "snils",
+            ("date_of_birth",),
+            (),
+            {"Birth_date"},
+        ),
+        (
+            recognize_snils_bytes,
+            "snils",
+            ("snils_number",),
+            ("Licence_number",),
+            {"Licence_number"},
+        ),
+        (
+            recognize_driver_license_bytes,
+            "driver_license",
+            ("surname",),
+            ("Last_name_ru",),
+            set(),
+        ),
+        (
+            recognize_driver_license_bytes,
+            "driver_license",
+            ("expiry_date",),
+            ("Expiration_date",),
+            {"Expiration_date"},
+        ),
+        (
+            recognize_driver_license_bytes,
+            "driver_license",
+            ("license_number", "license_series"),
+            ("Licence_number",),
+            set(),
+        ),
+    ],
+)
+def test_unneeded_crops_not_exported_to_second_ocr(
+    function, module, fields, labels, crops
+):
+    pipeline = Mock()
+    pipeline.process_img.return_value.ocr = {}
+    with patch(
+        f"app.modules.russian.{module}.extract_field_crops", return_value={}
+    ) as extract:
+        function(image_bytes(), pipeline, fields=fields)
+    assert pipeline.process_img.call_args.kwargs["ocr_fields"] == labels
+    assert extract.call_args.args[1] == crops
