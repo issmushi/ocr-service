@@ -17,6 +17,7 @@ from app.core.images.validation import (
 from app.core.model_availability import ensure_ocr_model_enabled
 from app.modules.russian.passport import passport_mrz_lines
 from app.modules.russian.runtime import russian_runtime
+from app.modules.v1.passport.field_selection import resolve_internal_fields
 from app.modules.v1.passport.parsing import (
     normalize_visual_international_passport_data,
     normalize_visual_passport_data,
@@ -46,6 +47,7 @@ async def _recognize_russian_passport_upload(
     image: UploadFile,
     *,
     operation: str,
+    fields: tuple[str, ...] | None = None,
 ) -> tuple[dict[str, Any], float]:
     ensure_ocr_model_enabled("russian-ocr")
     validate_image_extension(image.filename or "image.jpg")
@@ -60,6 +62,7 @@ async def _recognize_russian_passport_upload(
         operation,
         content,
         timeout_seconds=settings.russian_ocr_document_hard_timeout_seconds,
+        **({"fields": fields} if fields is not None else {}),
     )
     duration_seconds = perf_counter() - started
     if not isinstance(result, dict):
@@ -72,31 +75,24 @@ async def _recognize_russian_passport_upload(
 
 async def recognize_passport_internal_upload(
     image: UploadFile,
+    *,
+    fields: list[str] | None = None,
 ) -> dict[str, Any]:
     """Read an internal Russian passport through RussianDocsOCR."""
+    selected = resolve_internal_fields(fields)
     result, duration_seconds = await _recognize_russian_passport_upload(
-        image, operation="passport_text"
+        image, operation="passport_text", fields=selected
     )
     try:
         passport_data = normalize_visual_passport_data(result.get("passport"))
-        visual_fields = (
-            "surname",
-            "name",
-            "patronymic",
-            "sex",
-            "date_of_birth",
-            "birth_place_ru",
-            "passport_series",
-            "passport_number",
-            "issue_date",
-            "department_code",
-            "Issue_organization_ru",
-        )
+        available = {
+            **passport_data,
+            "mrz": passport_mrz_lines(result.get("mrz")),
+            "passport_type": "internal",
+        }
         data = PassportInternalDataSchema.model_validate(
             {
-                "mrz": passport_mrz_lines(result.get("mrz")),
-                "passport_type": "internal",
-                **{field: passport_data[field] for field in visual_fields},
+                **{field: available[field] for field in selected},
                 "meta": _passport_ocr_meta("russian-ocr", duration_seconds),
             }
         )
@@ -105,7 +101,9 @@ async def recognize_passport_internal_upload(
             ErrorCode.OCR_FAILED,
             "OCR не смог получить пригодный результат",
         ) from error
-    return api_success_response(data.model_dump(mode="json"))
+    return api_success_response(
+        data.model_dump(mode="json", exclude_unset=True)
+    )
 
 
 async def recognize_passport_international_upload(

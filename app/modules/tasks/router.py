@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import base64
 from datetime import datetime
-from typing import Any
+from typing import Annotated, Any
 from uuid import UUID
 
 from fastapi import APIRouter, File, Form, Path, Response, UploadFile
@@ -32,6 +32,11 @@ from app.modules.tasks.creation import create_image_task
 from app.modules.tasks.enums import TERMINAL_STATUSES, JobStatus, TaskOperation
 from app.modules.tasks.service import get_job, mark_cancelled
 from app.modules.v1.full.schemas import FullOcrModel
+from app.modules.v1.passport.field_selection import (
+    FIELDS_DESCRIPTION,
+    PassportInternalFields,
+    validate_internal_fields,
+)
 from app.modules.v1.russia.egrn.schemas import EgrnModel
 
 router = APIRouter(prefix="/v1/tasks", tags=["Tasks"])
@@ -104,12 +109,16 @@ async def create_mrz_task(
 )
 async def create_passport_internal_task(
     image: UploadFile = File(...),
+    fields: Annotated[
+        PassportInternalFields, Form(description=FIELDS_DESCRIPTION)
+    ] = ["all"],
 ) -> dict[str, Any]:
+    selected = validate_internal_fields(fields)
     ensure_ocr_model_enabled("russian-ocr")
     return await create_image_task(
         image,
         operation=TaskOperation.PASSPORT_PAGE,
-        options={},
+        options={"fields": selected},
     )
 
 

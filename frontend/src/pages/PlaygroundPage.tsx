@@ -1,3 +1,4 @@
+import { FieldSelection } from "../components/FieldSelection";
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { buildCurl, runTool } from "../api";
 import { CameraCapture } from "../components/CameraCapture";
@@ -344,7 +345,9 @@ export function PlaygroundPage({ apiBaseUrl, initialTool, onToolChange }: Props)
             <div className="params-section">
               <div className="subheading"><span>Параметры</span><button onClick={() => { invalidateResult(); setParams(defaultParams(tool)); }} type="button">Сбросить</button></div>
               <div className="params-list">
-                {tool.params.map((param) => param.kind === "select" ? (
+                {tool.params.map((param) => param.kind === "multiselect" ? (
+                  <FieldSelection key={param.key} param={param} value={Array.isArray(params[param.key]) ? params[param.key] as string[] : []} onChange={(value) => updateParam(param.key, value)} />
+                ) : param.kind === "select" ? (
                   <label className={`param-row param-row--select${param.key === "ocr_model" ? " param-row--ocr" : ""}`} key={param.key}>
                     <span><strong>{param.label}</strong><small>{param.description}</small></span>
                     <select value={String(params[param.key])} onChange={(event) => updateParam(param.key, event.target.value)}>
@@ -367,7 +370,7 @@ export function PlaygroundPage({ apiBaseUrl, initialTool, onToolChange }: Props)
             {running ? (
               <button className="button button--danger" onClick={stop} type="button"><Icon name="stop" size={17} />Прервать ожидание</button>
             ) : (
-              <button className="button button--primary" disabled={!files.length} onClick={() => void submit()} type="button"><Icon name="play" size={17} />{tool.multiple ? "Выбрать лучший кадр" : "Запустить"}</button>
+              <button className="button button--primary" disabled={!files.length || tool.params.some((param) => param.kind === "multiselect" && !(params[param.key] as string[]).length)} onClick={() => void submit()} type="button"><Icon name="play" size={17} />{tool.multiple ? "Выбрать лучший кадр" : "Запустить"}</button>
             )}
           </div>
         </section>

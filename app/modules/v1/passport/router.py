@@ -1,14 +1,18 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import Annotated, Any
 
-from fastapi import APIRouter, File, UploadFile
+from fastapi import APIRouter, File, Form, UploadFile
 
 from app.core.api_schemas import (
     COMMON_ERROR_RESPONSES,
     OCR_ENGINE_UNAVAILABLE_RESPONSE,
     OCR_FAILED_RESPONSE,
     OCR_TIMEOUT_RESPONSE,
+)
+from app.modules.v1.passport.field_selection import (
+    FIELDS_DESCRIPTION,
+    PassportInternalFields,
 )
 from app.modules.v1.passport.schemas import (
     PassportInternalResponseSchema,
@@ -25,21 +29,30 @@ router = APIRouter(tags=["Russia"])
 @router.post(
     "/passport/internal",
     response_model=PassportInternalResponseSchema,
+    response_model_exclude_unset=True,
     summary="Распознать внутренний паспорт РФ",
     description=(
         "Принимает фото внутреннего паспорта РФ и распознаёт его через "
         "RussianDocsOCR. Движок сам находит и выравнивает документ. "
-        "Ответ содержит все текстовые поля основного разворота: ФИО, пол, "
+        "Доступны текстовые поля основного разворота: ФИО, пол, "
         "дату и место рождения (birth_place_ru), серию и номер, дату выдачи, "
         "код подразделения и «Кем выдан» (Issue_organization_ru). "
         "В meta указано время распознавания. "
         "Поле mrz содержит две строки, если RussianDocsOCR распознал их, "
-        "иначе null. Нераспознанные визуальные поля также равны null."
+        "иначе null. Нераспознанные визуальные поля также равны null. "
+        "fields ограничивает распознавание и ответ выбранными полями; "
+        "по умолчанию all. meta возвращается всегда."
     ),
     responses={
         400: COMMON_ERROR_RESPONSES[400],
         413: COMMON_ERROR_RESPONSES[413],
-        422: OCR_FAILED_RESPONSE,
+        422: {
+            **OCR_FAILED_RESPONSE,
+            "description": (
+                "OCR_FAILED: непригодный результат распознавания; "
+                "VALIDATION_ERROR: некорректный список fields."
+            ),
+        },
         503: OCR_ENGINE_UNAVAILABLE_RESPONSE,
         504: OCR_TIMEOUT_RESPONSE,
         500: COMMON_ERROR_RESPONSES[500],
@@ -50,8 +63,11 @@ async def recognize_passport_internal(
         ...,
         description="Фото внутреннего паспорта РФ.",
     ),
+    fields: Annotated[
+        PassportInternalFields, Form(description=FIELDS_DESCRIPTION)
+    ] = ["all"],
 ) -> dict[str, Any]:
-    return await recognize_passport_internal_upload(image)
+    return await recognize_passport_internal_upload(image, fields=fields)
 
 
 @router.post(

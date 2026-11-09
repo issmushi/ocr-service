@@ -55,7 +55,7 @@ class TaskExecutionTests(unittest.IsolatedAsyncioTestCase):
                 TaskOperation.PASSPORT_PAGE,
                 "recognize_passport_internal_upload",
                 {},
-                {},
+                {"fields": None},
             ),
             (
                 TaskOperation.PASSPORT_INTERNATIONAL,
@@ -164,7 +164,7 @@ class TaskExecutionTests(unittest.IsolatedAsyncioTestCase):
             result = await execute_task_operation(
                 job(TaskOperation.PASSPORT_PAGE, options), b"original-image"
             )
-        self.assertEqual(handler.await_args.kwargs, {})
+        self.assertEqual(handler.await_args.kwargs, {"fields": None})
         self.assertEqual(
             options, {"page": 3, "model": "qwen3-vl-8b", "crop": False}
         )

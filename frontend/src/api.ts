@@ -28,7 +28,8 @@ export function buildCurl(
     lines.push(`  -F ${shellQuote(`image=@/path/to/${prefix}${displayName}`)}`);
   });
   Object.entries(params).forEach(([key, value]) => {
-    lines.push(`  -F ${shellQuote(`${key}=${String(value)}`)}`);
+    const values = Array.isArray(value) ? (value.length ? value : [""]) : [value];
+    values.forEach((item) => lines.push(`  -F ${shellQuote(`${key}=${String(item)}`)}`));
   });
   if (tool.responseKind === "image") {
     lines.push(`  --output ${shellQuote(`${tool.id}.${tool.imageExtension ?? "jpg"}`)}`);
@@ -66,7 +67,10 @@ export async function runTool(
 ): Promise<RequestResult> {
   const form = new FormData();
   files.forEach((file) => form.append("image", file, file.name));
-  Object.entries(params).forEach(([key, value]) => form.append(key, String(value)));
+  Object.entries(params).forEach(([key, value]) => {
+    const values = Array.isArray(value) ? (value.length ? value : [""]) : [value];
+    values.forEach((item) => form.append(key, String(item)));
+  });
 
   const started = performance.now();
   let response: Response;

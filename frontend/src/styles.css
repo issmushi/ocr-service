@@ -316,3 +316,11 @@ code, pre { font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospac
 
 .param-row--ocr { align-items: stretch; flex-direction: column; gap: 7px; }
 .param-row--ocr select { width: 100%; }
+
+.field-selection { min-width: 0; margin: 0; padding: 12px 18px 16px; border: 0; }
+.field-selection legend { padding: 12px 0 0; color: #34454d; font-size: 11px; font-weight: 600; }
+.field-selection p { margin: 0 0 10px; color: #68767d; font-size: 10px; line-height: 1.5; }
+.field-selection__options { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 9px 12px; }
+.field-selection__options label { display: flex; align-items: center; gap: 7px; font-size: 11px; cursor: pointer; }
+.field-selection input { margin: 0; accent-color: var(--teal); }
+.field-selection p[role="alert"] { margin: 10px 0 0; color: #b34635; }

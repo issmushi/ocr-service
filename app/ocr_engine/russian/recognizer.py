@@ -27,8 +27,14 @@ def recognize_image(
     *,
     device: str = "cpu",
     img_size: int = 1500,
+    ocr_fields: tuple[str, ...] | None = None,
 ) -> Any:
     """Return raw output; document normalization belongs to modules."""
     if pipeline is None:
         pipeline = create_pipeline(device=device)
-    return pipeline.process_img(image, img_size=img_size, check_quality=False)
+    return pipeline.process_img(
+        image,
+        img_size=img_size,
+        check_quality=False,
+        **({"ocr_fields": ocr_fields} if ocr_fields is not None else {}),
+    )

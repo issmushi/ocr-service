@@ -12,6 +12,9 @@ from PIL import Image
 from app.core.config import settings
 from app.core.errors import AppError, ErrorCode
 from app.main import app
+from app.modules.v1.passport.field_selection import (
+    INTERNAL_FIELDS as SELECTABLE_FIELDS,
+)
 
 PATH = "/v1/ocr/passport/internal"
 SERVICE = "app.modules.v1.passport.service"
@@ -126,6 +129,7 @@ class PassportV1InternalServiceTests(unittest.TestCase):
             "passport_text",
             IMAGE_BYTES,
             timeout_seconds=settings.russian_ocr_document_hard_timeout_seconds,
+            fields=SELECTABLE_FIELDS,
         )
 
     def test_empty_ocr_result_keeps_nullable_fields(self) -> None:
@@ -287,7 +291,7 @@ class PassportV1InternalServiceTests(unittest.TestCase):
         self.assertEqual(response.status_code, 422)
         self.assertEqual(response.json()["error"]["code"], "OCR_FAILED")
 
-    def test_openapi_documents_image_only_and_issuer_field(self) -> None:
+    def test_openapi_documents_selectable_fields_and_issuer(self) -> None:
         schema = app.openapi()
         self.assertIn(PATH, schema["paths"])
         self.assertNotIn("/v1/ocr/passport/page", schema["paths"])
@@ -298,7 +302,7 @@ class PassportV1InternalServiceTests(unittest.TestCase):
         body_schema = schema["components"]["schemas"][
             request["$ref"].rsplit("/", 1)[-1]
         ]
-        self.assertEqual(set(body_schema["properties"]), {"image"})
+        self.assertEqual(set(body_schema["properties"]), {"image", "fields"})
         self.assertEqual(body_schema["required"], ["image"])
         image_schema = body_schema["properties"]["image"]
         self.assertEqual(image_schema["type"], "string")
@@ -325,8 +329,14 @@ class PassportV1InternalServiceTests(unittest.TestCase):
         self.assertEqual(set(data_schema["properties"]), INTERNAL_FIELDS)
         self.assertTrue(MRZ_ONLY_FIELDS.isdisjoint(data_schema["properties"]))
         self.assertIn("Issue_organization_ru", data_schema["properties"])
-        self.assertIn("Issue_organization_ru", data_schema["required"])
-        self.assertIn("birth_place_ru", data_schema["required"])
+        self.assertEqual(data_schema["required"], ["meta"])
+        self.assertEqual(
+            body_schema["properties"]["fields"]["default"], ["all"]
+        )
+        self.assertEqual(body_schema["properties"]["fields"]["type"], "array")
+        enum_ref = body_schema["properties"]["fields"]["items"]["$ref"]
+        enum = schema["components"]["schemas"][enum_ref.rsplit("/", 1)[-1]]
+        self.assertEqual(set(enum["enum"]), set(SELECTABLE_FIELDS) | {"all"})
         self.assertIn(
             "Кем выдан",
             data_schema["properties"]["Issue_organization_ru"]["description"],

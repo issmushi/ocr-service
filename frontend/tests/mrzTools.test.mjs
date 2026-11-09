@@ -71,12 +71,12 @@ test("unified MRZ tool sends only image and processing flags, with no model sele
   }
 });
 
-test("internal passport sends only image and uses Russian OCR", async (t) => {
+test("internal passport defaults to all fields and uses Russian OCR", async (t) => {
   const tool = toolById["passport-internal"];
   assert.equal(tool.endpoint, "/v1/ocr/passport/internal");
   assert.match(tool.description, /Russian OCR/);
-  assert.deepEqual(tool.params, []);
-  assert.deepEqual(defaultParams(tool), {});
+  assert.deepEqual(tool.params.map((param) => param.key), ["fields"]);
+  assert.deepEqual(defaultParams(tool), { fields: ["all"] });
 
   const file = new File(["synthetic"], "passport.jpg", { type: "image/jpeg" });
   const originalFetch = globalThis.fetch;
@@ -84,7 +84,8 @@ test("internal passport sends only image and uses Russian OCR", async (t) => {
   globalThis.fetch = async (url, options) => {
     assert.equal(url, "/v1/ocr/passport/internal");
     assert.equal(options.method, "POST");
-    assert.deepEqual([...options.body.keys()], ["image"]);
+    assert.deepEqual([...options.body.keys()], ["image", "fields"]);
+    assert.deepEqual(options.body.getAll("fields"), ["all"]);
     assert.equal(await options.body.get("image").text(), "synthetic");
     return new Response(JSON.stringify({ success: true, data: { Issue_organization_ru: "МВД России", birth_place_ru: "Г. ПРИМЕРСК" }, error: null }), { headers: { "content-type": "application/json" } });
   };
@@ -324,4 +325,33 @@ test("EGRN crop uploads one scan and handles a downloadable PNG", async (t) => {
   const docs = renderToStaticMarkup(createElement(DocsPage, { navigate: () => {} }));
   assert.match(docs, /Обрезка ЕГРН/);
   assert.match(docs, /\/v1\/ocr\/crop\/egrn/);
+});
+
+
+test("selected passport fields use repeated multipart keys in requests and cURL", async (t) => {
+  const previous = globalThis.fetch;
+  t.after(() => { globalThis.fetch = previous; });
+  const tool = toolById["passport-internal"];
+  const fields = ["surname", "passport_number"];
+  const file = new File(["synthetic"], "passport.png");
+  globalThis.fetch = async (_url, options) => {
+    assert.deepEqual(options.body.getAll("fields"), fields);
+    return new Response(JSON.stringify({ success: true, data: { surname: null }, error: null }), { headers: { "content-type": "application/json" } });
+  };
+  assert.equal((await runTool("", tool, [file], { fields }, new AbortController().signal)).ok, true);
+  const curl = buildCurl("", tool, [file], { fields });
+  assert.match(curl, /-F 'fields=surname'/);
+  assert.match(curl, /-F 'fields=passport_number'/);
+  assert.doesNotMatch(curl, /fields=all/);
+});
+
+test("field selection keeps all exclusive and shows an empty-selection warning", async () => {
+  const { FieldSelection, toggleFieldSelection } = await import(await sourceUrl("../src/components/FieldSelection.tsx", reactImports));
+  assert.deepEqual(toggleFieldSelection(["all"], "surname"), ["surname"]);
+  assert.deepEqual(toggleFieldSelection(["surname"], "name"), ["surname", "name"]);
+  assert.deepEqual(toggleFieldSelection(["surname", "name"], "all"), ["all"]);
+  assert.deepEqual(toggleFieldSelection(["surname"], "surname"), []);
+  const html = renderToStaticMarkup(createElement(FieldSelection, { param: toolById["passport-internal"].params[0], value: [], onChange() {} }));
+  assert.match(html, /role="alert"/);
+  assert.match(html, /Выберите хотя бы одно поле/);
 });

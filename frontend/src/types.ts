@@ -17,7 +17,7 @@ export type ToolId =
 
 export type ResponseKind = "json" | "image";
 
-export type ParamValue = string | boolean;
+export type ParamValue = string | boolean | string[];
 
 export interface SelectOption {
   value: string;
@@ -42,7 +42,16 @@ export interface ToggleParam {
   defaultValue: boolean;
 }
 
-export type ParamDefinition = SelectParam | ToggleParam;
+export interface MultiselectParam {
+  kind: "multiselect";
+  key: string;
+  label: string;
+  description: string;
+  defaultValue: string[];
+  options: SelectOption[];
+}
+
+export type ParamDefinition = SelectParam | ToggleParam | MultiselectParam;
 
 export interface ToolDefinition {
   id: ToolId;

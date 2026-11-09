@@ -9,6 +9,22 @@ from app.ocr_engine.russian.recognizer import (
     recognize_image,
 )
 
+INTERNAL_PASSPORT_OCR_FIELDS = {
+    "mrz": "MRZ",
+    "passport_type": None,
+    "surname": "Last_name_ru",
+    "name": "First_name_ru",
+    "patronymic": "Middle_name_ru",
+    "sex": "Sex_ru",
+    "date_of_birth": "Birth_date",
+    "birth_place_ru": "Birth_place_ru",
+    "passport_series": "Licence_number",
+    "passport_number": "Licence_number",
+    "issue_date": "Issue_date",
+    "department_code": "Issue_organisation_code",
+    "Issue_organization_ru": "Issue_organization_ru",
+}
+
 
 def normalize_date(value: Any) -> str | None:
     """Normalize common RussianDocsOCR date outputs to ISO date format."""
@@ -179,11 +195,21 @@ def recognize_passport_text_bytes(
     pipeline: Any | None = None,
     *,
     passport_kind: str = "internal",
+    fields: tuple[str, ...] | None = None,
     **kwargs: Any,
 ) -> dict[str, Any]:
     """Return RussianDocsOCR fields for the requested Russian passport type."""
     if passport_kind not in {"internal", "international"}:
         raise ValueError(f"Unsupported passport kind: {passport_kind}")
+    if passport_kind == "internal":
+        selected = INTERNAL_PASSPORT_OCR_FIELDS if fields is None else fields
+        kwargs["ocr_fields"] = tuple(
+            dict.fromkeys(
+                INTERNAL_PASSPORT_OCR_FIELDS[field]
+                for field in selected
+                if INTERNAL_PASSPORT_OCR_FIELDS[field] is not None
+            )
+        )
     image = decode_image_bytes(content)
     height, width = image.shape[:2]
     result = recognize_image(image, pipeline=pipeline, **kwargs)

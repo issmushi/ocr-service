@@ -79,7 +79,9 @@ async def execute_task_operation(
         elif operation == TaskOperation.PASSPORT_PAGE:
             # Old queued jobs may contain page/model/crop options. The internal
             # passport endpoint now always runs RussianDocsOCR on the image.
-            response = await recognize_passport_internal_upload(upload)
+            response = await recognize_passport_internal_upload(
+                upload, fields=options.get("fields")
+            )
             schema = PassportInternalResponseSchema
         elif operation == TaskOperation.PASSPORT_INTERNATIONAL:
             response = await recognize_passport_international_upload(upload)
@@ -104,7 +106,8 @@ async def execute_task_operation(
         return {
             "format": "json",
             "response": schema.model_validate(response).model_dump(
-                mode="json"
+                mode="json",
+                exclude_unset=operation == TaskOperation.PASSPORT_PAGE,
             ),
         }
     finally:

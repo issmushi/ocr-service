@@ -11,6 +11,7 @@ from PIL import Image
 from app.core.config import settings
 from app.core.errors import AppError, ErrorCode
 from app.main import app
+from app.modules.v1.passport.field_selection import INTERNAL_FIELDS
 
 PATH = "/v1/ocr/passport/international"
 INTERNAL_PATH = "/v1/ocr/passport/internal"
@@ -225,6 +226,7 @@ def test_international_endpoint_does_not_change_internal_contract(
         "passport_text",
         image_bytes,
         timeout_seconds=settings.russian_ocr_document_hard_timeout_seconds,
+        fields=INTERNAL_FIELDS,
     )
 
 

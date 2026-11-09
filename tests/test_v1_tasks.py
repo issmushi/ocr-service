@@ -37,7 +37,7 @@ CASES = [
         "passport/internal",
         "passport_page",
         {},
-        {},
+        {"fields": ["all"]},
     ),
     (
         "passport/international",
@@ -199,7 +199,7 @@ def test_full_custom_model(client, image_content, persistence):
     assert create.await_args.kwargs["options"] == {"model": "qwen3-vl-8b"}
 
 
-def test_internal_passport_task_exposes_only_image_and_ignores_old_options(
+def test_internal_passport_task_exposes_fields_and_ignores_old_options(
     client, image_content, persistence
 ):
     schema = client.get("/openapi.json").json()
@@ -210,7 +210,7 @@ def test_internal_passport_task_exposes_only_image_and_ignores_old_options(
     fields = schema["components"]["schemas"][body["$ref"].split("/")[-1]][
         "properties"
     ]
-    assert set(fields) == {"image"}
+    assert set(fields) == {"image", "fields"}
 
     create, _ = persistence
     response = post_task(
@@ -220,7 +220,7 @@ def test_internal_passport_task_exposes_only_image_and_ignores_old_options(
         {"page": "3", "model": "qwen3-vl-8b", "crop": "false"},
     )
     assert response.status_code == 202
-    assert create.await_args.kwargs["options"] == {}
+    assert create.await_args.kwargs["options"] == {"fields": ["all"]}
 
 
 def test_international_passport_task_exposes_only_image(

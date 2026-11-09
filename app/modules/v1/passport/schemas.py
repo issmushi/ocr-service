@@ -153,12 +153,12 @@ class PassportMrzNormalizationSchema(BaseModel):
 
 
 class PassportInternalDataSchema(BaseModel):
-    """Fields read from the visual page of an internal Russian passport."""
+    """Selected visual fields of an internal Russian passport."""
 
     model_config = ConfigDict(extra="forbid")
 
     mrz: list[str] | None = Field(
-        ...,
+        None,
         min_length=2,
         max_length=2,
         description=(
@@ -166,34 +166,34 @@ class PassportInternalDataSchema(BaseModel):
         ),
     )
     passport_type: Literal["internal"] = Field(
-        ..., description="Внутренний паспорт РФ."
+        "internal", description="Внутренний паспорт РФ."
     )
-    surname: str | None = Field(..., description="Фамилия владельца.")
-    name: str | None = Field(..., description="Имя владельца.")
-    patronymic: str | None = Field(..., description="Отчество владельца.")
+    surname: str | None = Field(None, description="Фамилия владельца.")
+    name: str | None = Field(None, description="Имя владельца.")
+    patronymic: str | None = Field(None, description="Отчество владельца.")
     sex: Literal["МУЖ.", "ЖЕН."] | None = Field(
-        ..., description="Пол владельца."
+        None, description="Пол владельца."
     )
     date_of_birth: str | None = Field(
-        ..., description="Дата рождения в формате ДД.ММ.ГГГГ."
+        None, description="Дата рождения в формате ДД.ММ.ГГГГ."
     )
     birth_place_ru: str | None = Field(
-        ..., description="Место рождения, как указано во внутреннем паспорте."
+        None, description="Место рождения, как указано во внутреннем паспорте."
     )
     passport_series: str | None = Field(
-        ..., description="Четырёхзначная серия паспорта."
+        None, description="Четырёхзначная серия паспорта."
     )
     passport_number: str | None = Field(
-        ..., description="Шестизначный номер паспорта."
+        None, description="Шестизначный номер паспорта."
     )
     issue_date: str | None = Field(
-        ..., description="Дата выдачи в формате ДД.ММ.ГГГГ."
+        None, description="Дата выдачи в формате ДД.ММ.ГГГГ."
     )
     department_code: str | None = Field(
-        ..., description="Код подразделения в формате XXX-XXX."
+        None, description="Код подразделения в формате XXX-XXX."
     )
     Issue_organization_ru: str | None = Field(
-        ..., description="Кем выдан внутренний паспорт РФ."
+        None, description="Кем выдан внутренний паспорт РФ."
     )
     meta: PassportInternalOcrMetaSchema = Field(
         ..., description="Движок RussianDocsOCR и время распознавания."

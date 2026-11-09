@@ -28,6 +28,12 @@ from app.workers.ocr_worker import execute_ocr_job
             False,
         ),
         ("passport/internal", {}, False),
+        (
+            "passport/internal",
+            {"fields": ["surname", "birth_place_ru", "issue_date"]},
+            False,
+        ),
+        ("passport/internal", {"fields": "all"}, False),
         ("passport/international", {}, False),
         ("mrz", {}, True),
         (
@@ -204,6 +210,11 @@ def test_task_result_matches_direct_http_response(
             )
         if operation == "passport/internal":
             data = completed.json()["data"]
+            if isinstance(form.get("fields"), list):
+                assert set(data) == set(form["fields"]) | {"meta"}
+                assert data["issue_date"] is None
+                assert data["birth_place_ru"] == "Г. ПРИМЕРСК"
+                return
             assert set(data) == {
                 "mrz",
                 "passport_type",

@@ -199,6 +199,7 @@ class Pipeline(DocumentsStage, PagesStage, FieldsStage, MrzReadingStage,
             low_quality=True,
             docconf=0.5,
             img_size=1500,
+            ocr_fields=None,
 
         ) -> PipelineResults:
         """
@@ -213,6 +214,7 @@ class Pipeline(DocumentsStage, PagesStage, FieldsStage, MrzReadingStage,
             low_quality: Whether to process low quality images.
             docconf: Minimum doc confidence threshold.
             img_size: Resize image to this size for processing.
+            ocr_fields: Allowed OCR labels, or None for all document fields.
 
         Returns:
             PipelineResults with extracted information. With documents found in
@@ -223,7 +225,8 @@ class Pipeline(DocumentsStage, PagesStage, FieldsStage, MrzReadingStage,
         if check_quality:
             raise ValueError("Quality and anti-spoofing stages are not included in the embedded engine")
         options = dict(ocr=ocr, get_doc_borders=get_doc_borders, find_text_fields=find_text_fields,
-                       check_quality=check_quality, low_quality=low_quality, docconf=docconf)
+                       check_quality=check_quality, low_quality=low_quality, docconf=docconf,
+                       ocr_fields=ocr_fields)
         self._start_document()
         frame = self._load_image(img_path)
         documents = self._find_documents(frame, img_size)
@@ -239,6 +242,7 @@ class Pipeline(DocumentsStage, PagesStage, FieldsStage, MrzReadingStage,
             low_quality=True,
             docconf=0.5,
             img_size=1500,
+            ocr_fields=None,
     ) -> List[PipelineResults]:
         """Read EVERY document in the frame (issue #26), not only the largest.
 
@@ -256,7 +260,8 @@ class Pipeline(DocumentsStage, PagesStage, FieldsStage, MrzReadingStage,
         if check_quality:
             raise ValueError("Quality and anti-spoofing stages are not included in the embedded engine")
         options = dict(ocr=ocr, get_doc_borders=get_doc_borders, find_text_fields=find_text_fields,
-                       check_quality=check_quality, low_quality=low_quality, docconf=docconf)
+                       check_quality=check_quality, low_quality=low_quality, docconf=docconf,
+                       ocr_fields=ocr_fields)
         self._start_document()
         frame = self._load_image(img_path)
         documents = self._find_documents(frame, img_size)
@@ -271,7 +276,8 @@ class Pipeline(DocumentsStage, PagesStage, FieldsStage, MrzReadingStage,
         return out
 
     def _process_document(self, img, ocr=True, get_doc_borders=True, find_text_fields=True,
-                          check_quality=False, low_quality=True, docconf=0.5) -> PipelineResults:
+                          check_quality=False, low_quality=True, docconf=0.5,
+                          ocr_fields=None) -> PipelineResults:
         """Everything after the image is prepared: type, borders, fields, reading."""
         self._emit('prepare', img)
 
@@ -340,6 +346,14 @@ class Pipeline(DocumentsStage, PagesStage, FieldsStage, MrzReadingStage,
         parts = doc_type.rsplit('_', maxsplit=1)
         doc_type, year = (parts[0], parts[1]) if len(parts) == 2 else (parts[0], None)
         self.ocr_options = OCROptionsClass.make_options(doc_type)
+        if ocr_fields is not None:
+            # Fresh instance lists for this document: never mutate class defaults
+            # or carry a previous request's selection into the shared pipeline.
+            allowed = set(ocr_fields)
+            for attribute in ('ru_fields', 'en_fields', 'needed_split'):
+                setattr(self.ocr_options, attribute,
+                        [name for name in getattr(self.ocr_options, attribute)
+                         if name in allowed])
         self._doc_year = year
 
         # This service uses document geometry and OCR without quality gates.
