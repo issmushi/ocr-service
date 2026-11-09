@@ -76,7 +76,6 @@ def _raw_lines(result: Any) -> list[str]:
 async def recognize_mrz_upload(
     image: UploadFile,
     *,
-    crop: bool = True,
     normalize: bool = True,
     normalization: bool = True,
 ) -> dict[str, Any]:
@@ -87,12 +86,9 @@ async def recognize_mrz_upload(
         image, max_bytes=settings.ocr_max_image_size_bytes
     )
     content = await image.read()
-    if crop:
-        content = await crop_mrz_bytes(content)
+    content = await crop_mrz_bytes(content)
 
     started = perf_counter()
-    # This operation returns text rows for both a cropped zone and a full
-    # image; the scanner can locate MRZ itself when crop=false.
     raw_result = await mrz_scanner_runtime.run(
         "mrz_crop_text",
         content,

@@ -31,12 +31,10 @@ class TaskExecutionTests(unittest.IsolatedAsyncioTestCase):
                 TaskOperation.MRZ,
                 "recognize_mrz_upload",
                 {
-                    "crop": False,
                     "normalize": False,
                     "normalization": True,
                 },
                 {
-                    "crop": False,
                     "normalize": False,
                     "normalization": True,
                 },
@@ -45,12 +43,10 @@ class TaskExecutionTests(unittest.IsolatedAsyncioTestCase):
                 TaskOperation.PASSPORT_MRZ,
                 "recognize_mrz_upload",
                 {
-                    "crop": False,
                     "normalize": False,
                     "normalization": True,
                 },
                 {
-                    "crop": False,
                     "normalize": False,
                     "normalization": True,
                 },
@@ -89,12 +85,10 @@ class TaskExecutionTests(unittest.IsolatedAsyncioTestCase):
                 TaskOperation.IDCARD_MRZ,
                 "recognize_mrz_upload",
                 {
-                    "crop": True,
                     "normalize": True,
                     "normalization": False,
                 },
                 {
-                    "crop": True,
                     "normalize": True,
                     "normalization": False,
                 },
@@ -136,24 +130,27 @@ class TaskExecutionTests(unittest.IsolatedAsyncioTestCase):
                 self.assertTrue(received[0].file.closed)
                 self.assertEqual(options, original_options)
 
-    async def test_previously_queued_mrz_tasks_discard_model_choice(self):
-        """Old tasks retain flags and now execute through the fixed scanner."""
+    async def test_previously_queued_mrz_tasks_discard_model_and_crop(self):
+        """Old tasks keep normalization flags and automatically crop MRZ."""
         response = {"success": True, "data": None, "error": None}
-        flags = {"crop": False, "normalize": False, "normalization": True}
+        flags = {"normalize": False, "normalization": True}
         for operation, handler_name in (
+            (TaskOperation.MRZ, "recognize_mrz_upload"),
             (TaskOperation.PASSPORT_MRZ, "recognize_mrz_upload"),
             (TaskOperation.IDCARD_MRZ, "recognize_mrz_upload"),
         ):
             for model in ("mrz", "paddle", "qwen3-vl-8b", "removed-model"):
                 with self.subTest(operation=operation, stored_model=model):
-                    options = {"model": model, **flags}
+                    options = {"model": model, "crop": False, **flags}
                     handler = AsyncMock(return_value=response)
                     with patch(f"{EXECUTION}.{handler_name}", handler):
                         result = await execute_task_operation(
                             job(operation, options), b"original-image"
                         )
                     self.assertEqual(handler.await_args.kwargs, flags)
-                    self.assertEqual(options, {"model": model, **flags})
+                    self.assertEqual(
+                        options, {"model": model, "crop": False, **flags}
+                    )
                     self.assertEqual(
                         result, {"format": "json", "response": response}
                     )

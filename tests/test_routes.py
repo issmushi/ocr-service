@@ -63,13 +63,13 @@ class RouteTests(unittest.TestCase):
         body = schema["components"]["schemas"][body_name]
         self.assertEqual(
             set(body["properties"]),
-            {"image", "crop", "normalize", "normalization"},
+            {"image", "normalize", "normalization"},
         )
         self.assertEqual(body["required"], ["image"])
         image = body["properties"]["image"]
         self.assertEqual(image["type"], "string")
         self.assertEqual(image["format"], "binary")
-        for flag in ("crop", "normalize", "normalization"):
+        for flag in ("normalize", "normalization"):
             self.assertEqual(body["properties"][flag]["type"], "boolean")
             self.assertIs(body["properties"][flag]["default"], True)
         data = schema["components"]["schemas"]["UnifiedMrzDataSchema"]
@@ -144,7 +144,7 @@ class RouteTests(unittest.TestCase):
         recognize.assert_awaited_once()
         self.assertEqual(
             recognize.await_args.kwargs,
-            {"crop": True, "normalize": True, "normalization": True},
+            {"normalize": True, "normalization": True},
         )
 
     def test_unified_mrz_forwards_disabled_flags(self) -> None:
@@ -156,7 +156,6 @@ class RouteTests(unittest.TestCase):
             response = self.client.post(
                 "/v1/ocr/mrz",
                 data={
-                    "crop": "false",
                     "normalize": "false",
                     "normalization": "false",
                 },
@@ -166,11 +165,11 @@ class RouteTests(unittest.TestCase):
         self.assertEqual(response.json(), expected)
         self.assertEqual(
             recognize.await_args.kwargs,
-            {"crop": False, "normalize": False, "normalization": False},
+            {"normalize": False, "normalization": False},
         )
 
     def test_unified_mrz_rejects_invalid_flags_before_ocr(self) -> None:
-        for flag in ("crop", "normalize", "normalization"):
+        for flag in ("normalize", "normalization"):
             with self.subTest(flag=flag):
                 recognize = AsyncMock()
                 with patch(

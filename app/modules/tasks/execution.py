@@ -71,8 +71,9 @@ async def execute_task_operation(
             TaskOperation.PASSPORT_MRZ,
             TaskOperation.IDCARD_MRZ,
         }:
-            # Previously queued tasks may still store a model choice.
+            # Previously queued tasks may still store model/crop options.
             options.pop("model", None)
+            options.pop("crop", None)
             response = await recognize_mrz_upload(upload, **options)
             schema = UnifiedMrzResponseSchema
         elif operation == TaskOperation.PASSPORT_PAGE:

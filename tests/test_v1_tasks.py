@@ -29,7 +29,6 @@ CASES = [
         "mrz",
         {},
         {
-            "crop": True,
             "normalize": True,
             "normalization": True,
         },
@@ -153,7 +152,6 @@ def test_mrz_custom_flags_are_saved_as_booleans(
         "mrz",
         image_content,
         {
-            "crop": "false",
             "normalize": "false",
             "normalization": "false",
         },
@@ -161,7 +159,6 @@ def test_mrz_custom_flags_are_saved_as_booleans(
 
     assert response.status_code == 202
     assert create.await_args.kwargs["options"] == {
-        "crop": False,
         "normalize": False,
         "normalization": False,
     }
@@ -175,20 +172,19 @@ def test_mrz_task_schema_has_no_model_choice(client):
         "properties"
     ]
 
-    assert set(fields) == {"image", "crop", "normalize", "normalization"}
+    assert set(fields) == {"image", "normalize", "normalization"}
 
 
-def test_obsolete_mrz_model_form_is_not_persisted(
+def test_obsolete_mrz_model_and_crop_form_are_not_persisted(
     client, image_content, persistence
 ):
     create, _ = persistence
     response = post_task(
-        client, "mrz", image_content, {"model": "qwen3-vl-8b"}
+        client, "mrz", image_content, {"model": "qwen3-vl-8b", "crop": "false"}
     )
 
     assert response.status_code == 202
     assert create.await_args.kwargs["options"] == {
-        "crop": True,
         "normalize": True,
         "normalization": True,
     }
@@ -319,7 +315,6 @@ def test_old_mrz_task_routes_are_removed(
 @pytest.mark.parametrize(
     ("path", "form"),
     [
-        ("mrz", {"crop": "sometimes"}),
         ("mrz", {"normalize": "sometimes"}),
         ("full", {"model": "mrz"}),
     ],

@@ -47,17 +47,17 @@ test("unified MRZ tool sends only image and processing flags, with no model sele
   assert.equal(tool.group, "MRZ");
   assert.deepEqual(tools.filter((item) => item.group === "MRZ").map((item) => item.id), ["mrz"]);
   assert.equal(tools.some((item) => item.id === "passport-mrz" || item.id === "idcard-mrz"), false);
-  assert.deepEqual(defaultParams(tool), { crop: true, normalize: true, normalization: true });
-  assert.deepEqual(tool.params.map((param) => param.key), ["crop", "normalize", "normalization"]);
+  assert.deepEqual(defaultParams(tool), { normalize: true, normalization: true });
+  assert.deepEqual(tool.params.map((param) => param.key), ["normalize", "normalization"]);
   assert.ok(tool.params.every((param) => param.kind === "toggle"));
   assert.match(tool.description, /MRZ Scanner/);
 
-  for (const params of [defaultParams(tool), { crop: false, normalize: false, normalization: false }]) {
+  for (const params of [defaultParams(tool), { normalize: false, normalization: false }]) {
     globalThis.fetch = async (url, options) => {
       assert.equal(url, "/v1/ocr/mrz");
       assert.equal(options.method, "POST");
       assert.equal(options.signal, controller.signal);
-      assert.deepEqual([...options.body.keys()], ["image", "crop", "normalize", "normalization"]);
+      assert.deepEqual([...options.body.keys()], ["image", "normalize", "normalization"]);
       assert.equal(await options.body.get("image").text(), "synthetic");
       for (const [key, value] of Object.entries(params)) assert.equal(options.body.get(key), String(value));
       assert.equal(options.body.has("model"), false);
@@ -66,7 +66,7 @@ test("unified MRZ tool sends only image and processing flags, with no model sele
     assert.equal((await runTool("", tool, [file], params, controller.signal)).ok, true);
     const curl = buildCurl("http://localhost:8000", tool, [file], params);
     assert.ok(curl.includes(tool.endpoint));
-    assert.doesNotMatch(curl, /model=/);
+    assert.doesNotMatch(curl, /(?:model|crop)=/);
     for (const [key, value] of Object.entries(params)) assert.ok(curl.includes(`-F '${key}=${value}'`));
   }
 });
@@ -287,7 +287,7 @@ test("documentation and overview show MRZ Scanner and examples without model", (
   const request = overview.match(/class="hero-console__body">([\s\S]*?)<div class="console-divider"/)?.[1];
   assert.ok(request);
   assert.doesNotMatch(request, />model</);
-  assert.match(request, />crop</);
+  assert.doesNotMatch(request, />crop</);
   assert.match(overview, /POST \/v1\/ocr\/mrz/);
   assert.doesNotMatch(overview, /\/v1\/ocr\/(?:passport|idcard)\/mrz/);
   assert.match(overview, /MRZ Scanner читает строки MRZ паспорта или ID-карты/);

@@ -40,7 +40,6 @@ def _raw(lines: list[str]) -> dict[str, Any]:
 def _post(
     raw_result: Any,
     *,
-    crop: bool = False,
     normalize: bool = True,
     normalization: bool = True,
     extra_data: dict[str, str] | None = None,
@@ -65,7 +64,6 @@ def _post(
         ),
     ):
         form = {
-            "crop": str(crop).lower(),
             "normalize": str(normalize).lower(),
             "normalization": str(normalization).lower(),
             **(extra_data or {}),
@@ -78,21 +76,17 @@ def _post(
     return response, mocks
 
 
-def _assert_scanner(mocks: dict[str, AsyncMock], *, crop: bool) -> None:
-    if crop:
-        mocks["crop"].assert_awaited_once_with(b"fake-image")
-    else:
-        mocks["crop"].assert_not_awaited()
+def _assert_scanner(mocks: dict[str, AsyncMock]) -> None:
+    mocks["crop"].assert_awaited_once_with(b"fake-image")
     mocks["scanner"].assert_awaited_once_with(
         "mrz_crop_text",
-        b"cropped-mrz" if crop else b"fake-image",
+        b"cropped-mrz",
         timeout_seconds=17.0,
     )
 
 
-@pytest.mark.parametrize("crop", (False, True))
-def test_passport_crop_modes_use_the_same_scanner_and_unified_fields(crop):
-    response, mocks = _post(_raw(PASSPORT_MRZ), crop=crop)
+def test_passport_is_cropped_before_scanner_and_returns_unified_fields():
+    response, mocks = _post(_raw(PASSPORT_MRZ))
 
     assert response.status_code == 200, response.text
     data = response.json()["data"]
@@ -110,7 +104,7 @@ def test_passport_crop_modes_use_the_same_scanner_and_unified_fields(crop):
     assert "passport_type" not in data
     assert "passport_series" not in data
     assert "passport_number" not in data
-    _assert_scanner(mocks, crop=crop)
+    _assert_scanner(mocks)
 
 
 def test_internal_passport_mrz_uses_the_same_document_type_field():
@@ -124,7 +118,7 @@ def test_internal_passport_mrz_uses_the_same_document_type_field():
     assert data["surname"] == "ИВАНОВ"
     assert data["document_number"] is None
     assert data["normalization"]["issues"][0]["line"] == 2
-    _assert_scanner(mocks, crop=False)
+    _assert_scanner(mocks)
 
 
 def test_valid_internal_passport_keeps_series_and_number():
@@ -136,7 +130,7 @@ def test_valid_internal_passport_keeps_series_and_number():
     assert data["document_series"] == "45 15"
     assert data["document_number"] == "123456"
     assert data["mrz_valid"] is True
-    _assert_scanner(mocks, crop=False)
+    _assert_scanner(mocks)
 
 
 @pytest.mark.parametrize("normalize", (False, True))
@@ -166,20 +160,18 @@ def test_passport_normalize_and_report_flags_are_independent(
             assert data["normalization"] == EMPTY_REPORT
     if not normalization:
         assert data["normalization"] is None
-    _assert_scanner(mocks, crop=False)
+    _assert_scanner(mocks)
 
 
-@pytest.mark.parametrize("crop", (False, True))
-def test_obsolete_model_form_cannot_change_mrz_engine(crop):
+def test_obsolete_model_and_crop_form_cannot_change_mrz_processing():
     response, mocks = _post(
         _raw(PASSPORT_MRZ),
-        crop=crop,
-        extra_data={"model": "qwen3-vl-8b"},
+        extra_data={"model": "qwen3-vl-8b", "crop": "false"},
     )
 
     assert response.status_code == 200, response.text
     assert response.json()["data"]["meta"]["model"] == "mrz"
-    _assert_scanner(mocks, crop=crop)
+    _assert_scanner(mocks)
 
 
 def test_crop_failure_stops_before_scanner():
@@ -230,7 +222,7 @@ def test_unrecognized_or_invalid_mrz_returns_ocr_failed(raw_result):
 
     assert response.status_code == 422
     assert response.json()["error"]["code"] == "OCR_FAILED"
-    _assert_scanner(mocks, crop=False)
+    _assert_scanner(mocks)
 
 
 @pytest.mark.parametrize(
@@ -247,12 +239,17 @@ def test_unrecognized_or_invalid_mrz_returns_ocr_failed(raw_result):
 )
 def test_scanner_errors_keep_public_error_envelope(code, status, message):
     scanner = AsyncMock(side_effect=AppError(code, message))
-    with patch(
-        "app.modules.v1.mrz_api.service.mrz_scanner_runtime.run", scanner
+    with (
+        patch(
+            "app.modules.v1.mrz_api.service.crop_mrz_bytes",
+            AsyncMock(return_value=b"cropped-mrz"),
+        ),
+        patch(
+            "app.modules.v1.mrz_api.service.mrz_scanner_runtime.run", scanner
+        ),
     ):
         response = TestClient(app).post(
             PATH,
-            data={"crop": "false"},
             files={"image": ("passport.jpg", b"fake-image", "image/jpeg")},
         )
 

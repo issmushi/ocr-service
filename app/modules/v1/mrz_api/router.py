@@ -23,8 +23,8 @@ router = APIRouter(tags=["MRZ"])
     description=(
         "Распознаёт MRZ через MRZ Scanner и автоматически определяет вид "
         "поддерживаемого документа: внутренний или заграничный паспорт, "
-        "ID-карта. При crop=true сначала вырезает MRZ; при crop=false "
-        "передаёт сканеру исходное изображение. normalize=true применяет "
+        "ID-карта. Перед распознаванием автоматически вырезает MRZ. "
+        "normalize=true применяет "
         "правила исправления для распознанного вида документа. "
         "normalization=true возвращает журнал исправлений; false — null. "
         "Ответ содержит две или три MRZ-строки и общие поля документа."
@@ -42,7 +42,6 @@ async def recognize_mrz(
     image: UploadFile = File(
         ..., description="Изображение паспорта или ID-карты с MRZ."
     ),
-    crop: bool = Form(True, description="Вырезать MRZ перед распознаванием."),
     normalize: bool = Form(
         True, description="Исправлять и дополнять символы MRZ."
     ),
@@ -55,7 +54,6 @@ async def recognize_mrz(
 ) -> dict[str, Any]:
     return await recognize_mrz_upload(
         image,
-        crop=crop,
         normalize=normalize,
         normalization=normalization,
     )

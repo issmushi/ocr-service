@@ -40,7 +40,6 @@ def test_openapi_exposes_normalization_switches_without_model_selection():
     body = schema["components"]["schemas"][reference.rsplit("/", 1)[-1]]
     assert set(body["properties"]) == {
         "image",
-        "crop",
         "normalize",
         "normalization",
     }
@@ -142,11 +141,9 @@ def test_bytes_pipelines_propagate_normalization_switch(engine):
         )
 
 
-@pytest.mark.parametrize("crop", (False, True))
 @pytest.mark.parametrize("normalize", (False, True))
 @pytest.mark.parametrize("normalization", (False, True))
 def test_scanner_normalization_and_report_switches_are_independent(
-    crop,
     normalize,
     normalization,
 ):
@@ -170,7 +167,6 @@ def test_scanner_normalization_and_report_switches_are_independent(
         response = TestClient(app).post(
             PATH,
             data={
-                "crop": str(crop).lower(),
                 "normalize": str(normalize).lower(),
                 "normalization": str(normalization).lower(),
             },
@@ -180,13 +176,10 @@ def test_scanner_normalization_and_report_switches_are_independent(
     assert response.status_code == 200, response.text
     mrz_run.assert_awaited_once_with(
         "mrz_crop_text",
-        b"crop" if crop else b"image",
+        b"crop",
         timeout_seconds=settings.mrz_scanner_document_hard_timeout_seconds,
     )
-    if crop:
-        crop_mrz.assert_awaited_once_with(b"image")
-    else:
-        crop_mrz.assert_not_awaited()
+    crop_mrz.assert_awaited_once_with(b"image")
     data = response.json()["data"]
     assert data["meta"]["engine"] == "mrz-scanner"
     assert data["meta"]["model"] == "mrz"
@@ -209,8 +202,7 @@ def test_scanner_normalization_and_report_switches_are_independent(
         assert data["normalization"] is None
 
 
-@pytest.mark.parametrize("crop", (False, True))
-def test_disabled_normalization_does_not_repair_unknown_header(crop):
+def test_disabled_normalization_does_not_repair_unknown_header():
     raw = ["<ARMHAYRAPETYAN<<ARAM".ljust(43, "<"), RAW_MRZ[1]]
     raw_text = {"items": [{"text": "\n".join(raw)}]}
 
@@ -231,7 +223,6 @@ def test_disabled_normalization_does_not_repair_unknown_header(crop):
         response = TestClient(app).post(
             PATH,
             data={
-                "crop": str(crop).lower(),
                 "normalize": "false",
             },
             files={"image": ("passport.jpg", b"image", "image/jpeg")},

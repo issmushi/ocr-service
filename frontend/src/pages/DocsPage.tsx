@@ -87,7 +87,7 @@ const taskOperations = [
 export function DocsPage({ navigate }: Props) {
   const [active, setActive] = useState("quickstart");
   const [copied, setCopied] = useState(false);
-  const curl = `BASE_URL=http://127.0.0.1:8000\ncurl -X POST "$BASE_URL/v1/ocr/mrz" \\\n  -F 'image=@passport.jpg' \\\n  -F 'crop=true' \\\n  -F 'normalize=true' \\\n  -F 'normalization=true'`;
+  const curl = `BASE_URL=http://127.0.0.1:8000\ncurl -X POST "$BASE_URL/v1/ocr/mrz" \\\n  -F 'image=@passport.jpg' \\\n  -F 'normalize=true' \\\n  -F 'normalization=true'`;
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -169,7 +169,6 @@ export function DocsPage({ navigate }: Props) {
             <div className="callout callout--info"><Icon name="info" /><div><strong>СНИЛС</strong><p><code>/v1/ocr/snils</code> принимает одно фото в поле <code>image</code>, без параметров модели. Russian OCR находит документ и поля, а Paddle Cyrillic перечитывает вырезки номера и дат. Если вырезки даты нет или её не удалось прочитать, соответствующее поле возвращается как <code>null</code>. Ответ содержит <code>snils_number</code>, <code>surname</code>, <code>name</code>, <code>patronymic</code>, <code>date_of_birth</code>, <code>birth_place</code>, <code>sex</code>, <code>registration_date</code> и <code>meta</code>. Другие нераспознанные поля тоже возвращаются как <code>null</code>.</p></div></div>
             <div className="callout callout--info"><Icon name="info" /><div><strong>Водительское удостоверение РФ</strong><p><code>/v1/ocr/driver-license</code> принимает одно фото лицевой стороны в поле <code>image</code> и использует Russian OCR без параметра модели. Если дата прочитана с ошибкой, её вырезку может перепроверить Paddle Cyrillic. Ответ содержит ФИО на русском и латинице, <code>license_series</code>, <code>license_number</code>, даты рождения, выдачи и окончания действия, место рождения, орган выдачи, регион проживания, <code>categories</code> и <code>meta</code>. Нераспознанные поля равны <code>null</code>, а список категорий может быть пустым.</p></div></div>
             <div className="parameter-grid">
-              <div><strong><code>crop</code></strong><p>Для MRZ: при true выравнивает документ и вырезает MRZ перед OCR. При false движок получает исходное изображение.</p></div>
               <div><strong><code>normalize</code></strong><p>При true исправляет символы и дополняет MRZ по правилам страны. При false только удаляет пробелы, приводит текст к верхнему регистру и выбирает строки.</p></div>
               <div><strong><code>normalization</code></strong><p>При true возвращает журнал исправлений, при false — null в data.normalization. На исправление MRZ не влияет.</p></div>
               <div><strong><code>model</code></strong><p>Выбирает модель для «Всего текста». Для запросов к Qwen она должна быть включена и запущена на сервере. Эндпоинты паспортов РФ, СНИЛС и водительского удостоверения используют фиксированные модели и не принимают параметр model. Единый MRZ-эндпоинт использует MRZ Scanner и не принимает параметр model.</p></div>
@@ -205,7 +204,7 @@ export function DocsPage({ navigate }: Props) {
             <div className="vertical-pipeline">
               {[
                 ["01", "Проверка файла", "Сервис проверяет расширение, чтение изображения, количество страниц, размеры и число пикселей."],
-                ["02", "Подготовка", "При crop=true находит границы документа, исправляет перспективу и ориентацию, затем вырезает MRZ."],
+                ["02", "Подготовка", "Автоматически находит границы документа, исправляет перспективу и ориентацию, затем вырезает MRZ."],
                 ["03", "OCR", "MRZ Scanner распознаёт строки паспорта или ID-карты. Из строк удаляются пробелы, буквы переводятся в верхний регистр, затем выбираются две или три строки по формату MRZ."],
                 ["04", "Определение формата", "По заголовку определяется страна и формат документа. Для неизвестного формата парсер не выбирается."],
                 ["05", "Нормализация", "При normalize=true символы исправляются по правилам страны с учётом позиции в строке. Каждая замена и вставка записывается в журнал."],

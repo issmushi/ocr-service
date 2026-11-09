@@ -22,7 +22,6 @@ from app.workers.ocr_worker import execute_ocr_job
         (
             "mrz",
             {
-                "crop": "false",
                 "normalize": "false",
                 "normalization": "false",
             },
@@ -34,7 +33,6 @@ from app.workers.ocr_worker import execute_ocr_job
         (
             "mrz",
             {
-                "crop": "false",
                 "normalize": "false",
                 "normalization": "false",
             },
@@ -162,7 +160,7 @@ def test_task_result_matches_direct_http_response(
         if operation == "mrz":
             assert stored["options"] == {
                 key: form.get(key, "true") == "true"
-                for key in ("crop", "normalize", "normalization")
+                for key in ("normalize", "normalization")
             }
         image_path = Path(stored["image_path"])
         assert image_path.read_bytes() == content

@@ -16,7 +16,7 @@ const stats = [
 
 const stages: { icon: IconName; title: string; text: string }[] = [
   { icon: "image", title: "Файл", text: "Проверка формата файла, его размера и числа пикселей." },
-  { icon: "crop", title: "Обрезка", text: "При crop=true: поиск документа, выравнивание и обрезка MRZ." },
+  { icon: "crop", title: "Обрезка", text: "Автоматический поиск документа, выравнивание и обрезка MRZ." },
   { icon: "scan", title: "Распознавание", text: "MRZ Scanner читает строки MRZ паспорта или ID-карты." },
   { icon: "spark", title: "Нормализация", text: "При normalize=true: замены похожих символов и дополнение MRZ по правилам страны." },
   { icon: "code", title: "Ответ", text: "MRZ, поля документа, список исправлений и meta с моделью и временем обработки." },
@@ -49,8 +49,8 @@ export function OverviewPage({ health, navigate }: Props) {
           </div>
           <div className="hero-console__body">
             <div className="code-line"><span className="code-num">01</span><span className="code-key">image</span><span className="code-muted">passport.jpg</span></div>
-            <div className="code-line"><span className="code-num">02</span><span className="code-key">crop</span><span className="code-bool">true</span></div>
-            <div className="code-line"><span className="code-num">03</span><span className="code-key">normalize</span><span className="code-bool">true</span></div>
+            <div className="code-line"><span className="code-num">02</span><span className="code-key">normalize</span><span className="code-bool">true</span></div>
+            <div className="code-line"><span className="code-num">03</span><span className="code-key">normalization</span><span className="code-bool">true</span></div>
             <div className="console-divider" />
             <div className="code-line"><span className="code-num">04</span><span className="code-punctuation">&#123;</span></div>
             <div className="code-line code-indent"><span className="code-num">05</span><span className="code-key">"success"</span><span className="code-bool">true</span><span className="code-punctuation">,</span></div>

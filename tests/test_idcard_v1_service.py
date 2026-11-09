@@ -101,7 +101,6 @@ def _post_idcard(
     lines: list[str],
     *,
     extra_data: dict[str, str] | None = None,
-    crop: bool = False,
     normalize: bool = True,
     normalization: bool = True,
 ) -> tuple[Any, dict[str, AsyncMock]]:
@@ -132,7 +131,6 @@ def _post_idcard(
         ),
     ):
         data = {
-            "crop": str(crop).lower(),
             "normalize": str(normalize).lower(),
             "normalization": str(normalization).lower(),
         }
@@ -147,14 +145,9 @@ def _post_idcard(
 
 def _assert_mrz_runtime(
     mocks: dict[str, AsyncMock],
-    *,
-    crop: bool,
 ) -> None:
-    content = b"cropped-mrz" if crop else b"fake-image"
-    if crop:
-        mocks["crop"].assert_awaited_once_with(b"fake-image")
-    else:
-        mocks["crop"].assert_not_awaited()
+    content = b"cropped-mrz"
+    mocks["crop"].assert_awaited_once_with(b"fake-image")
     mocks["mrz"].assert_awaited_once_with(
         "mrz_crop_text",
         content,
@@ -167,15 +160,12 @@ def client() -> TestClient:
     return TestClient(app)
 
 
-@pytest.mark.parametrize("crop", (False, True))
-def test_mrz_scanner_crop_modes_return_the_same_document(
+def test_idcard_is_cropped_before_scanner(
     client: TestClient,
-    crop: bool,
 ) -> None:
     response, mocks = _post_idcard(
         client,
         KAZ_TD2,
-        crop=crop,
     )
 
     assert response.status_code == 200, response.text
@@ -193,7 +183,7 @@ def test_mrz_scanner_crop_modes_return_the_same_document(
         },
         "error": None,
     }
-    _assert_mrz_runtime(mocks, crop=crop)
+    _assert_mrz_runtime(mocks)
 
 
 @pytest.mark.parametrize(
@@ -379,7 +369,7 @@ def test_old_model_parameter_cannot_select_another_engine(
     assert response.status_code == 200, response.text
     assert response.json()["data"]["meta"]["model"] == "mrz"
     assert response.json()["data"]["meta"]["engine"] == "mrz-scanner"
-    _assert_mrz_runtime(mocks, crop=False)
+    _assert_mrz_runtime(mocks)
 
 
 def test_openapi_documents_mrz_scanner_flags_and_response_fields() -> None:
@@ -394,9 +384,9 @@ def test_openapi_documents_mrz_scanner_flags_and_response_fields() -> None:
     assert properties["image"]["type"] == "string"
     assert properties["image"]["format"] == "binary"
     assert body_schema["required"] == ["image"]
-    assert set(properties) == {"image", "crop", "normalize", "normalization"}
+    assert set(properties) == {"image", "normalize", "normalization"}
     assert "IdcardOcrModel" not in schema["components"]["schemas"]
-    for flag in ("crop", "normalize", "normalization"):
+    for flag in ("normalize", "normalization"):
         assert properties[flag]["type"] == "boolean"
         assert properties[flag]["default"] is True
 
@@ -438,7 +428,6 @@ def test_request_defaults_enable_crop_normalization_and_report(
     response, mocks = _post_idcard(
         client,
         KAZ_TD1,
-        crop=True,
     )
 
     assert response.status_code == 200, response.text
@@ -448,4 +437,4 @@ def test_request_defaults_enable_crop_normalization_and_report(
         "model": "mrz",
         "duration_seconds": 0.25,
     }
-    _assert_mrz_runtime(mocks, crop=True)
+    _assert_mrz_runtime(mocks)

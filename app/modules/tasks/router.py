@@ -81,7 +81,6 @@ TASK_ERRORS = {
 )
 async def create_mrz_task(
     image: UploadFile = File(...),
-    crop: bool = Form(True),
     normalize: bool = Form(True),
     normalization: bool = Form(True),
 ) -> dict[str, Any]:
@@ -90,7 +89,6 @@ async def create_mrz_task(
         image,
         operation=TaskOperation.MRZ,
         options={
-            "crop": crop,
             "normalize": normalize,
             "normalization": normalization,
         },

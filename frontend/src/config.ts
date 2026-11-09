@@ -16,13 +16,6 @@ export function passportFieldOcrLabel(model: string): string {
 const mrzParams: ParamDefinition[] = [
   {
     kind: "toggle",
-    key: "crop",
-    label: "Найти MRZ",
-    description: "Обрезать документ и выделить MRZ перед распознаванием.",
-    defaultValue: true,
-  },
-  {
-    kind: "toggle",
     key: "normalize",
     label: "Нормализовать",
     description: "Применить замены символов и дополнение MRZ по правилам страны.",
