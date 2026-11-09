@@ -36,7 +36,7 @@ CASES = [
         "surname",
         "birth_place_en",
     ),
-    ("egrn", "egrn", EgrnField, "application_number", "address"),
+    ("egrn", "egrn", EgrnField, "area", "claims"),
     ("mrz", "mrz", MrzField, "surname", "department_code"),
 ]
 
@@ -64,8 +64,8 @@ def test_selected_fields_survive_direct_and_queued_serialization(
     raw_egrn = {
         "fields": [
             {
-                "name": "application_number",
-                "ocr": {"text": "00042", "status": "success", "error": None},
+                "name": "area",
+                "ocr": {"text": "40.5", "status": "success", "error": None},
             }
         ],
         "meta": {"duration_seconds": 0},
@@ -301,11 +301,21 @@ def test_paddle_only_reads_requested_date(path, doctype):
     client.close()
 
 
-def test_egrn_selection_happens_before_paddle():
+@pytest.mark.parametrize(
+    "selected",
+    [
+        ["address"],
+        ["area", "cadastral_value"],
+        ["cultural_heritage", "claims", "specialized_housing"],
+        ["all"],
+    ],
+)
+def test_egrn_selection_happens_before_paddle(selected):
     image, _ = synthetic_extract()
+    expected = list(resolve_fields(selected, EgrnField))
 
     async def recognize(fields, *_args, **_kwargs):
-        assert [field["name"] for field in fields] == ["address"]
+        assert [field["name"] for field in fields] == expected
         for field in fields:
             field["ocr"] = {
                 "text": "ТЕСТОВЫЙ АДРЕС",
@@ -323,12 +333,18 @@ def test_egrn_selection_happens_before_paddle():
     ):
         client = TestClient(app)
         response = client.post(
-            "/v1/ocr/egrn", files=FILES, data={"fields": "address"}
+            "/v1/ocr/egrn", files=FILES, data={"fields": selected}
         )
         client.close()
     assert response.status_code == 200, response.text
-    assert set(response.json()["data"]) == {"address", "meta"}
-    assert response.json()["data"]["address"] == "ТЕСТОВЫЙ АДРЕС"
+    data = response.json()["data"]
+    assert set(data) == set(expected) | {"meta"}
+    for field in expected:
+        assert data[field] == (
+            None
+            if field in {"application_number", "actuality_date"}
+            else "ТЕСТОВЫЙ АДРЕС"
+        )
     paddle.assert_awaited_once()
 
 

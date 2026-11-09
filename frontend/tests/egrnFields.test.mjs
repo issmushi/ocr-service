@@ -29,6 +29,9 @@ const { EgrnFieldsView, parseEgrnFields } = await import(await sourceUrl("../src
 }));
 const { toolById, defaultParams } = await import(await sourceUrl("../src/config.ts"));
 const { runTool } = await import(await sourceUrl("../src/api.ts"));
+const { FieldsView } = await import(await sourceUrl("../src/components/FieldsView.tsx", {
+  "react/jsx-runtime": pathToFileURL(require.resolve("react/jsx-runtime")).href,
+}));
 const names = [
   "application_number", "object_type", "cadastral_number",
   "cadastral_quarter_number", "cadastral_number_assignment_date",
@@ -38,6 +41,31 @@ const names = [
   "claims", "specialized_housing", "actuality_date",
 ];
 const image = "data:image/png;base64,iVBORw0KGgo=";
+
+test("structured EGRN offers all 19 fields and sends only the selected names", async (t) => {
+  const previous = globalThis.fetch;
+  t.after(() => { globalThis.fetch = previous; });
+  const tool = toolById.egrn;
+  const selector = tool.params.find((param) => param.key === "fields");
+  assert.deepEqual(selector.options.map((option) => option.value), ["all", ...names]);
+  assert.deepEqual(defaultParams(tool).fields, ["all"]);
+  const fields = ["area", "cadastral_value", "claims"];
+  globalThis.fetch = async (url, options) => {
+    assert.equal(url, "/v1/ocr/egrn");
+    assert.deepEqual(options.body.getAll("fields"), fields);
+    assert.equal(options.body.get("ocr_model"), "paddle-cyrillic");
+    return Response.json({ success: true, data: { area: "40.5", cadastral_value: "1000000.00", claims: "Данные отсутствуют" }, error: null });
+  };
+  const response = await runTool("", tool, [new File(["synthetic"], "scan.png")], { ...defaultParams(tool), fields }, new AbortController().signal);
+  assert.equal(response.ok, true);
+  const markup = renderToStaticMarkup(createElement(FieldsView, { entries: Object.entries(response.json.data) }));
+  assert.match(markup, /Площадь, м²/);
+  assert.match(markup, /Кадастровая стоимость, руб\./);
+  assert.match(markup, /Сведения о правопритязаниях/);
+  assert.match(markup, /Данные отсутствуют/);
+  assert.doesNotMatch(markup, /Номер заявления/);
+});
+
 function sample() {
   return {
     document: { image, width: 600, height: 1400 },
