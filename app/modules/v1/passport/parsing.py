@@ -187,7 +187,11 @@ def _internal_passport_identity(
 
 def normalize_visual_passport_data(values: Any) -> dict[str, Any]:
     """Normalize visual OCR fields to the public passport contract."""
-    data = {**empty_passport_mrz_data(), "Issue_organization_ru": None}
+    data = {
+        **empty_passport_mrz_data(),
+        "Issue_organization_ru": None,
+        "birth_place_ru": None,
+    }
     if not isinstance(values, dict):
         return data
 
@@ -221,6 +225,7 @@ def normalize_visual_passport_data(values: Any) -> dict[str, Any]:
             "patronymic": _text_or_none(values.get("patronymic")),
             "sex": sex,
             "date_of_birth": _public_date(values.get("date_of_birth")),
+            "birth_place_ru": _text_or_none(values.get("birth_place_ru")),
             "passport_series": passport_series,
             "passport_number": passport_number,
             "nationality": _country_code(values.get("nationality")),

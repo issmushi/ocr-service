@@ -40,6 +40,7 @@ class PassportTests(unittest.TestCase):
             "Middle_name_ru": None,
             "Licence_number": "12 34 567890",
             "Issue_organization_ru": "  ОТДЕЛОМ МВД РОССИИ  ",
+            "Birth_place_ru": "  Г. ПРИМЕРСК  ",
         }
         result = recognize_passport_text_bytes(
             image_bytes(),
@@ -80,6 +81,12 @@ class PassportTests(unittest.TestCase):
                         "box": None,
                         "detection_confidence": None,
                     },
+                    {
+                        "text": "Г. ПРИМЕРСК",
+                        "confidence": None,
+                        "box": None,
+                        "detection_confidence": None,
+                    },
                 ],
                 "image_width": 48,
                 "image_height": 32,
@@ -93,6 +100,7 @@ class PassportTests(unittest.TestCase):
                     "patronymic": None,
                     "sex": None,
                     "date_of_birth": None,
+                    "birth_place_ru": "Г. ПРИМЕРСК",
                     "passport_series": "1234",
                     "passport_number": "567890",
                     "nationality": "RUS",
@@ -209,6 +217,7 @@ class PassportTests(unittest.TestCase):
                 "patronymic": "IVANOVICH",
                 "sex": "M",
                 "date_of_birth": "1990-03-02",
+                "birth_place_ru": None,
                 "passport_series": None,
                 "passport_number": "123456789",
                 "nationality": "RUS",

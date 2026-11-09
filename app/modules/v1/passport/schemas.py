@@ -177,6 +177,9 @@ class PassportInternalDataSchema(BaseModel):
     date_of_birth: str | None = Field(
         ..., description="Дата рождения в формате ДД.ММ.ГГГГ."
     )
+    birth_place_ru: str | None = Field(
+        ..., description="Место рождения, как указано во внутреннем паспорте."
+    )
     passport_series: str | None = Field(
         ..., description="Четырёхзначная серия паспорта."
     )

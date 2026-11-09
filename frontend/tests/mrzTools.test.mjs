@@ -86,11 +86,15 @@ test("internal passport sends only image and uses Russian OCR", async (t) => {
     assert.equal(options.method, "POST");
     assert.deepEqual([...options.body.keys()], ["image"]);
     assert.equal(await options.body.get("image").text(), "synthetic");
-    return new Response(JSON.stringify({ success: true, data: { Issue_organization_ru: "МВД России" }, error: null }), { headers: { "content-type": "application/json" } });
+    return new Response(JSON.stringify({ success: true, data: { Issue_organization_ru: "МВД России", birth_place_ru: "Г. ПРИМЕРСК" }, error: null }), { headers: { "content-type": "application/json" } });
   };
   const result = await runTool("", tool, [file], defaultParams(tool), new AbortController().signal);
   assert.equal(result.ok, true);
   assert.equal(result.json.data.Issue_organization_ru, "МВД России");
+  assert.equal(result.json.data.birth_place_ru, "Г. ПРИМЕРСК");
+  const fields = renderToStaticMarkup(createElement(FieldsView, { entries: Object.entries(result.json.data) }));
+  assert.match(fields, /Место рождения/);
+  assert.match(fields, /Г. ПРИМЕРСК/);
 
   const curl = buildCurl("http://localhost:8000", tool, [file], defaultParams(tool));
   assert.match(curl, /\/v1\/ocr\/passport\/internal/);

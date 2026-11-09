@@ -85,6 +85,7 @@ async def recognize_passport_internal_upload(
             "patronymic",
             "sex",
             "date_of_birth",
+            "birth_place_ru",
             "passport_series",
             "passport_number",
             "issue_date",

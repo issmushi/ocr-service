@@ -118,6 +118,7 @@ def test_task_result_matches_direct_http_response(
                             "surname": "ТЕСТОВ",
                             "name": "ТЕСТ",
                             "date_of_birth": "15.01.1990",
+                            "birth_place_ru": "Г. ПРИМЕРСК",
                             "Issue_organization_ru": "ГУ МВД ПО МОСКВЕ",
                         }
                     }
@@ -211,6 +212,7 @@ def test_task_result_matches_direct_http_response(
                 "patronymic",
                 "sex",
                 "date_of_birth",
+                "birth_place_ru",
                 "passport_series",
                 "passport_number",
                 "issue_date",
@@ -220,3 +222,4 @@ def test_task_result_matches_direct_http_response(
             }
             assert data["mrz"] is None
             assert data["Issue_organization_ru"] == ("ГУ МВД ПО МОСКВЕ")
+            assert data["birth_place_ru"] == "Г. ПРИМЕРСК"

@@ -27,6 +27,7 @@ EMPTY_PASSPORT_DATA = {
     "patronymic": None,
     "sex": None,
     "date_of_birth": None,
+    "birth_place_ru": None,
     "passport_series": None,
     "passport_number": None,
     "issue_date": None,
@@ -77,6 +78,7 @@ class PassportV1InternalServiceTests(unittest.TestCase):
                 "patronymic": "ТЕСТОВИЧ",
                 "sex": "M",
                 "date_of_birth": "1990-01-15",
+                "birth_place_ru": "  Г. ПРИМЕРСК  ",
                 "passport_series": "4515",
                 "passport_number": "123456",
                 "nationality": "RUS",
@@ -110,6 +112,7 @@ class PassportV1InternalServiceTests(unittest.TestCase):
                     patronymic="ТЕСТОВИЧ",
                     sex="МУЖ.",
                     date_of_birth="15.01.1990",
+                    birth_place_ru="Г. ПРИМЕРСК",
                     passport_series="45 15",
                     passport_number="123456",
                     issue_date="20.06.2015",
@@ -144,6 +147,7 @@ class PassportV1InternalServiceTests(unittest.TestCase):
         self.assertIsNone(body["error"])
         self.assertIsNone(body["data"]["Issue_organization_ru"])
         self.assertIsNone(body["data"]["surname"])
+        self.assertIsNone(body["data"]["birth_place_ru"])
         self.assertNotIn("items", body["data"])
         self.assertEqual(set(body["data"]), INTERNAL_FIELDS)
         self.assertGreaterEqual(body["data"]["meta"]["duration_seconds"], 0)
@@ -168,13 +172,19 @@ class PassportV1InternalServiceTests(unittest.TestCase):
         with patch(
             f"{SERVICE}.russian_runtime.run",
             new=AsyncMock(
-                return_value={"passport": {"Issue_organization_ru": "  "}}
+                return_value={
+                    "passport": {
+                        "Issue_organization_ru": "  ",
+                        "birth_place_ru": "  ",
+                    }
+                }
             ),
         ):
             response = self.client.post(PATH, files=FILES)
 
         self.assertEqual(response.status_code, 200)
         self.assertIsNone(response.json()["data"]["Issue_organization_ru"])
+        self.assertIsNone(response.json()["data"]["birth_place_ru"])
 
     def test_upload_errors_do_not_call_ocr(self) -> None:
         for files, status, code in (
@@ -316,6 +326,7 @@ class PassportV1InternalServiceTests(unittest.TestCase):
         self.assertTrue(MRZ_ONLY_FIELDS.isdisjoint(data_schema["properties"]))
         self.assertIn("Issue_organization_ru", data_schema["properties"])
         self.assertIn("Issue_organization_ru", data_schema["required"])
+        self.assertIn("birth_place_ru", data_schema["required"])
         self.assertIn(
             "Кем выдан",
             data_schema["properties"]["Issue_organization_ru"]["description"],

@@ -157,6 +157,7 @@ def normalize_passport_text_result(
             ocr_result.get("Sex_ru") or ocr_result.get("Sex_en")
         ),
         "date_of_birth": normalize_date(ocr_result.get("Birth_date")),
+        "birth_place_ru": normalize_text(ocr_result.get("Birth_place_ru")),
         "passport_series": passport_series,
         "passport_number": passport_number,
         "nationality": nationality,
@@ -243,9 +244,6 @@ def recognize_passport_text_bytes(
                 "name_latin": normalize_text(raw_ocr.get("First_name_en")),
                 "patronymic_latin": normalize_text(
                     raw_ocr.get("Middle_name_en")
-                ),
-                "birth_place_ru": normalize_text(
-                    raw_ocr.get("Birth_place_ru")
                 ),
                 "birth_place_en": normalize_text(
                     raw_ocr.get("Birth_place_en")
