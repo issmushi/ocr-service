@@ -85,6 +85,26 @@ def test_engine_failure_remains_an_error_for_integrators():
     assert response.json()["error"] == error
 
 
+def test_all_fields_still_fails_when_no_recognition_values_are_available():
+    # Crop supports more fields than the current structured OCR contract.
+    raw = {"fields": [], "meta": {"duration_seconds": 0.1}}
+    with patch(
+        "app.modules.v1.russia.egrn.service.read_egrn_fields_upload",
+        new=AsyncMock(return_value=raw),
+    ):
+        client = TestClient(app)
+        files = {"image": ("example.png", b"fixture")}
+        response = client.post("/v1/ocr/egrn", files=files)
+        assert response.status_code == 422
+        assert response.json()["error"]["code"] == "OCR_FAILED"
+        partial = client.post(
+            "/v1/ocr/egrn", files=files, data={"fields": "address"}
+        )
+        assert partial.status_code == 200
+        assert set(partial.json()["data"]) == {"address", "meta"}
+        assert partial.json()["data"]["address"] is None
+
+
 @pytest.mark.parametrize(
     "name,text,expected",
     [

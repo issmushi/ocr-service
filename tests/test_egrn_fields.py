@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import base64
 import unittest
+from typing import get_args
 from unittest.mock import AsyncMock, patch
 
 import cv2
@@ -12,6 +13,7 @@ from fastapi.testclient import TestClient
 
 from app.core.errors import AppError, ErrorCode, api_error_response
 from app.modules.v1.crop.egrn_layout import FIELD_LABELS, locate_egrn_fields
+from app.modules.v1.crop.egrn_schemas import EgrnFieldName
 from app.modules.v1.crop.router import router
 
 
@@ -68,6 +70,50 @@ def encode(image: np.ndarray) -> bytes:
 
 
 class EgrnLayoutTests(unittest.TestCase):
+    def test_each_table_value_stays_in_its_row_without_labels(self):
+        image, _ = synthetic_extract()
+        boxes = locate_egrn_fields(image)
+        main_fields = [
+            "cadastral_quarter_number",
+            "cadastral_number_assignment_date",
+            "previous_registration_number",
+            "address",
+            "floor",
+            "area",
+            "purpose",
+            "object_name",
+            "residential_premises_type",
+            "cadastral_value",
+            "parent_cadastral_numbers",
+            "cadastral_engineer",
+            "cultural_heritage",
+            "claims",
+            "specialized_housing",
+        ]
+        cells = [("object_type", 100, 140), ("cadastral_number", 140, 180)]
+        top = 240
+        for index, name in enumerate(main_fields):
+            bottom = top + (70 if index == 3 else 40)
+            cells.append((name, top, bottom))
+            top = bottom
+        for name, top, bottom in cells:
+            with self.subTest(field=name):
+                x1, y1, x2, y2 = boxes[name]
+                self.assertGreater(x1, 695)
+                self.assertLess(x2, 1580)
+                self.assertGreater(y1, top)
+                self.assertLess(y2, bottom)
+        self.assertEqual(set(get_args(EgrnFieldName)), set(boxes))
+
+    def test_empty_area_does_not_capture_label_or_neighbour(self):
+        image, _ = synthetic_extract()
+        # The area row follows the taller address and the floor row.
+        image[471:509, 701:1575] = 245
+        boxes = locate_egrn_fields(image)
+        self.assertNotIn("area", boxes)
+        self.assertIn("floor", boxes)
+        self.assertIn("purpose", boxes)
+
     def test_tracks_real_rows_when_multiline_address_grows(self):
         for height in (70, 110):
             with self.subTest(address_height=height):
@@ -123,7 +169,7 @@ class EgrnLayoutTests(unittest.TestCase):
                     )
                 )
 
-    def test_blurred_downsampled_scan_keeps_all_five_regions(self):
+    def test_blurred_downsampled_scan_keeps_all_regions(self):
         image, _ = synthetic_extract()
         blurred = cv2.GaussianBlur(image, (3, 3), 0.6)
         small = cv2.resize(
@@ -171,7 +217,7 @@ class EgrnFieldsRouteTests(unittest.TestCase):
                 self.assertEqual(response.headers["cache-control"], "no-store")
                 data = response.json()["data"]
                 self.assertEqual(data["missing_fields"], [])
-                self.assertEqual(len(data["fields"]), 5)
+                self.assertEqual(len(data["fields"]), 19)
                 self.assertIsNone(data["meta"]["ocr"])
                 self.assertTrue(
                     all(field["ocr"] is None for field in data["fields"])
@@ -216,9 +262,7 @@ class EgrnFieldsRouteTests(unittest.TestCase):
                 read.side_effect = [
                     ok,
                     AppError(ErrorCode.OCR_FAILED, "Ошибка поля"),
-                    ok,
-                    ok,
-                    ok,
+                    *([ok] * 17),
                 ]
                 source, _ = synthetic_extract()
                 response = self.client.post(
@@ -231,7 +275,7 @@ class EgrnFieldsRouteTests(unittest.TestCase):
                 self.assertEqual(response.status_code, 200)
                 enabled.assert_called_once_with("paddle")
                 data = response.json()["data"]
-                self.assertEqual(read.await_count, 5)
+                self.assertEqual(read.await_count, 19)
                 for field, call in zip(data["fields"], read.await_args_list):
                     self.assertEqual(
                         call.args,

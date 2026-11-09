@@ -5,9 +5,23 @@ import { isFieldOcr, isOcrSummary, type PassportFieldOcr, type FieldOcrSummary }
 
 const fieldLabels = {
   application_number: "Номер заявления",
+  object_type: "Вид объекта",
   cadastral_number: "Кадастровый номер",
+  cadastral_quarter_number: "Номер кадастрового квартала",
+  cadastral_number_assignment_date: "Дата присвоения кадастрового номера",
+  previous_registration_number: "Ранее присвоенный учётный номер",
   address: "Адрес (местоположение)",
+  floor: "Номер, тип этажа",
+  area: "Площадь, м²",
+  purpose: "Назначение",
   object_name: "Наименование объекта",
+  residential_premises_type: "Вид жилого помещения",
+  cadastral_value: "Кадастровая стоимость, руб.",
+  parent_cadastral_numbers: "Кадастровые номера содержащих объектов",
+  cadastral_engineer: "Сведения о кадастровом инженере",
+  cultural_heritage: "Сведения о включении в реестр культурного наследия",
+  claims: "Сведения о правопритязаниях",
+  specialized_housing: "Отнесение к специализированному жилищному фонду",
   actuality_date: "Дата актуальности",
 } as const;
 
@@ -50,7 +64,7 @@ export function parseEgrnFields(value: unknown): Result | null {
     if (!fieldName(name) || names.has(name)) return null;
     names.add(name);
   }
-  return names.size === 5 ? value as unknown as Result : null;
+  return names.size === Object.keys(fieldLabels).length ? value as unknown as Result : null;
 }
 
 export function EgrnFieldsView({ data }: { data: unknown }) {
@@ -59,7 +73,7 @@ export function EgrnFieldsView({ data }: { data: unknown }) {
   const { document, fields, missing_fields: missing, meta } = result;
   const badge = Math.min(document.width, document.height) / 35;
   return <div className="passport-fields">
-    <div className="passport-fields__summary"><strong>Найдено участков: {fields.length} из 5</strong><span>Обработка: {meta.duration_seconds.toFixed(2)} с</span></div>
+    <div className="passport-fields__summary"><strong>Найдено участков: {fields.length} из {Object.keys(fieldLabels).length}</strong><span>Обработка: {meta.duration_seconds.toFixed(2)} с</span></div>
     <p className="passport-fields__note">Первая страница выписки Госуслуг. Рамки показывают точные границы вырезок на выровненной странице. {meta.ocr ? "Каждая вырезка распознаётся отдельно, без нормализации." : "Распознавание текста выключено."}</p>
     {meta.ocr && <div className="passport-fields__ocr-summary"><span>OCR: {passportFieldOcrLabel(meta.ocr.model)} · {meta.ocr.duration_seconds.toFixed(2)} с</span><span>Обработано полей: {meta.ocr.processed_fields} · Ошибок: {meta.ocr.failed_fields}</span></div>}
     {missing.length > 0 && <div className="passport-fields__empty" role="status"><strong>Не найдены:</strong><p>{missing.map((name) => fieldLabels[name]).join(", ")}</p></div>}

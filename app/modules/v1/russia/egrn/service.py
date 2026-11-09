@@ -6,7 +6,6 @@ from fastapi import UploadFile
 from app.core.errors import AppError, ErrorCode, api_success_response
 from app.core.field_selection import resolve_fields
 from app.modules.v1.crop.egrn import read_egrn_fields_upload
-from app.modules.v1.crop.egrn_layout import FIELD_LABELS
 from app.modules.v1.crop.egrn_schemas import EgrnOcrModel
 from app.modules.v1.russia.egrn.field_selection import EgrnField
 from app.modules.v1.russia.egrn.schemas import EgrnData, EgrnModel
@@ -57,7 +56,7 @@ async def recognize_egrn_upload(
     if not any(values.values()):
         if errors and len(errors) == len(result["fields"]):
             raise AppError(ErrorCode(errors[0]["code"]), errors[0]["message"])
-        if len(selected) == len(FIELD_LABELS):
+        if len(selected) == len(resolve_fields(None, EgrnField)):
             raise AppError(
                 ErrorCode.OCR_FAILED, "Не удалось прочитать поля ЕГРН"
             )

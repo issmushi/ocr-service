@@ -15,9 +15,23 @@ from app.modules.v1.crop.field_schemas import (
 
 EgrnFieldName = Literal[
     "application_number",
+    "object_type",
     "cadastral_number",
+    "cadastral_quarter_number",
+    "cadastral_number_assignment_date",
+    "previous_registration_number",
     "address",
+    "floor",
+    "area",
+    "purpose",
     "object_name",
+    "residential_premises_type",
+    "cadastral_value",
+    "parent_cadastral_numbers",
+    "cadastral_engineer",
+    "cultural_heritage",
+    "claims",
+    "specialized_housing",
     "actuality_date",
 ]
 

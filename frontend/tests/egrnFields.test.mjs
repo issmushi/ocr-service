@@ -29,21 +29,28 @@ const { EgrnFieldsView, parseEgrnFields } = await import(await sourceUrl("../src
 }));
 const { toolById, defaultParams } = await import(await sourceUrl("../src/config.ts"));
 const { runTool } = await import(await sourceUrl("../src/api.ts"));
-const names = ["application_number", "cadastral_number", "address", "object_name", "actuality_date"];
+const names = [
+  "application_number", "object_type", "cadastral_number",
+  "cadastral_quarter_number", "cadastral_number_assignment_date",
+  "previous_registration_number", "address", "floor", "area", "purpose",
+  "object_name", "residential_premises_type", "cadastral_value",
+  "parent_cadastral_numbers", "cadastral_engineer", "cultural_heritage",
+  "claims", "specialized_housing", "actuality_date",
+];
 const image = "data:image/png;base64,iVBORw0KGgo=";
 function sample() {
   return {
-    document: { image, width: 600, height: 500 },
+    document: { image, width: 600, height: 1400 },
     fields: names.map((name, index) => ({ name, label: `Область ${index + 1}`, image, width: 200, height: 30, bbox: [100, 50 + index * 70, 300, 80 + index * 70] })),
     missing_fields: [],
     meta: { engine: "opencv", model: "egrn-gosuslugi-first-page", duration_seconds: 0.42 },
   };
 }
-test("EGRN shows five exact overlays and independent PNG downloads", () => {
+test("EGRN shows all 19 exact overlays and independent PNG downloads", () => {
   const result = sample();
   const markup = renderToStaticMarkup(createElement(EgrnFieldsView, { data: result }));
-  assert.match(markup, /Найдено участков: 5 из 5/);
-  assert.match(markup, /viewBox="0 0 600 500"/);
+  assert.match(markup, /Найдено участков: 19 из 19/);
+  assert.match(markup, /viewBox="0 0 600 1400"/);
   assert.match(markup, /height="30"[^>]*width="200" x="100" y="50"/);
   for (const name of names) assert.match(markup, new RegExp(`download="egrn-${name}\\.png"`));
   assert.doesNotMatch(markup, /Уверенность|100%/);
@@ -54,7 +61,7 @@ test("missing regions remain explicit instead of fabricated crops", () => {
   result.missing_fields = ["address"];
   assert.ok(parseEgrnFields(result));
   const markup = renderToStaticMarkup(createElement(EgrnFieldsView, { data: result }));
-  assert.match(markup, /Найдено участков: 4 из 5/);
+  assert.match(markup, /Найдено участков: 18 из 19/);
   assert.match(markup, /Не найдены:/);
   assert.match(markup, /Адрес \(местоположение\)/);
   assert.doesNotMatch(markup, /download="egrn-address/);
@@ -93,7 +100,7 @@ test("EGRN displays raw multiline OCR, failures and the same model labels as doc
   const ocr = { model: "paddle-cyrillic", engine: "paddleocr", device: "cpu", status: "success", text: "ТЕСТОВЫЙ АДРЕС\nСТРОКА 2", confidence: 0.93, duration_seconds: 0.2, error: null };
   result.fields[2].ocr = ocr;
   result.fields[3].ocr = { ...ocr, status: "error", text: null, confidence: null, error: { code: "OCR_FAILED", message: "Ошибка поля" } };
-  result.meta.ocr = { model: "paddle-cyrillic", engine: "paddleocr", duration_seconds: 1, processed_fields: 5, failed_fields: 1 };
+  result.meta.ocr = { model: "paddle-cyrillic", engine: "paddleocr", duration_seconds: 1, processed_fields: 19, failed_fields: 1 };
   assert.ok(parseEgrnFields(result));
   const markup = renderToStaticMarkup(createElement(EgrnFieldsView, { data: result }));
   assert.match(markup, /ТЕСТОВЫЙ АДРЕС\nСТРОКА 2/);

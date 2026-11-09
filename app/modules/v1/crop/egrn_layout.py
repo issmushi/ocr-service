@@ -13,11 +13,31 @@ import numpy as np
 
 Box = tuple[int, int, int, int]
 
+TOP_TABLE_FIELDS = {
+    "object_type": "Вид объекта",
+    "cadastral_number": "Кадастровый номер",
+}
+MAIN_TABLE_FIELDS = {
+    "cadastral_quarter_number": "Номер кадастрового квартала",
+    "cadastral_number_assignment_date": "Дата присвоения кадастрового номера",
+    "previous_registration_number": "Ранее присвоенный учётный номер",
+    "address": "Адрес (местоположение)",
+    "floor": "Номер, тип этажа",
+    "area": "Площадь, м²",
+    "purpose": "Назначение",
+    "object_name": "Наименование объекта",
+    "residential_premises_type": "Вид жилого помещения",
+    "cadastral_value": "Кадастровая стоимость, руб.",
+    "parent_cadastral_numbers": "Кадастровые номера содержащих объектов",
+    "cadastral_engineer": "Сведения о кадастровом инженере",
+    "cultural_heritage": "Сведения о включении в реестр культурного наследия",
+    "claims": "Сведения о правопритязаниях",
+    "specialized_housing": "Отнесение к специализированному жилищному фонду",
+}
 FIELD_LABELS = {
     "application_number": "Номер заявления",
-    "cadastral_number": "Кадастровый номер",
-    "address": "Адрес (местоположение)",
-    "object_name": "Наименование объекта",
+    **TOP_TABLE_FIELDS,
+    **MAIN_TABLE_FIELDS,
     "actuality_date": "Дата актуальности",
 }
 
@@ -163,20 +183,23 @@ def locate_egrn_fields(image: np.ndarray) -> dict[str, Box]:
     if grid is None:
         return {}
     boxes: dict[str, Box] = {}
-    for name, rows, index in (
-        ("cadastral_number", grid.top_rows, 1),
-        ("address", grid.main_rows, 3),
-        ("object_name", grid.main_rows, 7),
+    for names, rows in (
+        (TOP_TABLE_FIELDS, grid.top_rows),
+        (MAIN_TABLE_FIELDS, grid.main_rows),
     ):
-        region = (
-            grid.divider + 5,
-            rows[index] + 5,
-            grid.right - 5,
-            rows[index + 1] - 5,
-        )
-        box = _text_box(binary, region)
-        if box is not None:
-            boxes[name] = box
+        for index, name in enumerate(names):
+            # Some extracts omit the final horizontal rule. The ends of
+            # the vertical rules still bound the last value's cell.
+            bottom = rows[index + 1] if index + 1 < len(rows) else grid.bottom
+            region = (
+                grid.divider + 5,
+                rows[index] + 5,
+                grid.right - 5,
+                bottom - 5,
+            )
+            box = _text_box(binary, region)
+            if box is not None:
+                boxes[name] = box
 
     # Text blocks detached from the tables: right-aligned statement header
     # and the wide date line below the page number. Keep their prefixes.
