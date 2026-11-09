@@ -4937,27 +4937,6 @@ files = [
 ]
 
 [[package]]
-name = "qrcode"
-version = "8.2"
-description = "QR Code image generator"
-optional = false
-python-versions = "<4.0,>=3.9"
-groups = ["main"]
-files = [
-    {file = "qrcode-8.2-py3-none-any.whl", hash = "sha256:16e64e0716c14960108e85d853062c9e8bba5ca8252c0b4d0231b9df4060ff4f"},
-    {file = "qrcode-8.2.tar.gz", hash = "sha256:35c3f2a4172b33136ab9f6b3ef1c00260dd2f66f858f24d88418a015f446506c"},
-]
-
-[package.dependencies]
-colorama = {version = "*", markers = "sys_platform == \"win32\""}
-pillow = {version = ">=9.1.0", optional = true, markers = "extra == \"pil\" or extra == \"all\""}
-
-[package.extras]
-all = ["pillow (>=9.1.0)", "pypng"]
-pil = ["pillow (>=9.1.0)"]
-png = ["pypng"]
-
-[[package]]
 name = "requests"
 version = "2.34.2"
 description = "Python HTTP for Humans."
@@ -6208,4 +6187,4 @@ propcache = ">=0.2.1"
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.11,<3.12"
-content-hash = "994e2b5146df710dde07233cf072703100cc2e395591da14b2f5f657cf97fc57"
+content-hash = "7f3a897ab0f92af2a852031e8c92b4e06cdc301ddf18f901df29573c6ab3b1a8"

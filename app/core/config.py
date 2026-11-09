@@ -76,19 +76,6 @@ class Settings:
     vlm_ocr_timeout_seconds: float = env_float(
         "VLM_OCR_TIMEOUT_SECONDS", 300.0
     )
-    qr_max_image_bytes: int = env_int(
-        "QR_MAX_IMAGE_BYTES",
-        25 * 1024 * 1024,
-    )
-    qr_max_images_per_request: int = env_int(
-        "QR_MAX_IMAGES_PER_REQUEST",
-        3,
-    )
-    api_qr_max_request_body_size_mb: int = env_int(
-        "API_QR_MAX_REQUEST_BODY_SIZE_MB",
-        ((qr_max_image_bytes * qr_max_images_per_request) // (1024 * 1024))
-        + 1,
-    )
     health_check_timeout_seconds: float = env_float(
         "HEALTH_CHECK_TIMEOUT_SECONDS",
         3.0,
@@ -121,8 +108,6 @@ class Settings:
         "MRZ_SCANNER_DOCUMENT_HARD_TIMEOUT_SECONDS",
         18.0,
     )
-    qr_active_key_id: str = os.getenv("QR_ACTIVE_KEY_ID", "primary")
-    qr_encryption_keys: str = os.getenv("QR_ENCRYPTION_KEYS", "")
     postgres_host: str = os.getenv("POSTGRES_HOST", "127.0.0.1")
     postgres_port: int = env_int("POSTGRES_PORT", 5432)
     postgres_user: str = os.getenv("POSTGRES_USER", "ocr")
@@ -269,10 +254,6 @@ class Settings:
     @property
     def api_max_request_body_size_bytes(self) -> int:
         return self.api_max_request_body_size_mb * 1024 * 1024
-
-    @property
-    def api_qr_max_request_body_size_bytes(self) -> int:
-        return self.api_qr_max_request_body_size_mb * 1024 * 1024
 
     @property
     def postgres_async_dsn(self) -> str:

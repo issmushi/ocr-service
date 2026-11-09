@@ -41,13 +41,6 @@ def json_response(
     return response
 
 
-def success_example(summary: str, data: dict[str, Any]) -> dict[str, Any]:
-    return {
-        "summary": summary,
-        "value": {"success": True, "data": data, "error": None},
-    }
-
-
 class ErrorSchema(BaseModel):
     code: str = Field(..., description="Машиночитаемый код ошибки.")
     message: str = Field(..., description="Человекочитаемое описание ошибки.")
@@ -95,7 +88,6 @@ class HealthComponentsSchema(BaseModel):
     russian_ocr: HealthComponentSchema
     mrz_scanner: HealthComponentSchema
     qwen_vlm_service: HealthComponentSchema
-    qr: HealthComponentSchema
 
 
 class HealthDataSchema(BaseModel):
@@ -196,16 +188,6 @@ def _healthy_components_example() -> dict[str, dict[str, Any]]:
             },
             "error": None,
         },
-        "qr": {
-            "status": "ok",
-            "latency_ms": 3,
-            "details": {
-                "engine": "opencv-qrcode",
-                "encryption": "A256GCM",
-                "key_id": "primary",
-            },
-            "error": None,
-        },
     }
 
 
@@ -302,9 +284,6 @@ COMMON_ERROR_RESPONSES = {
             "image_read_error": error_example(
                 "IMAGE_READ_ERROR", "Изображение невозможно прочитать"
             ),
-            "empty_payload": error_example(
-                "EMPTY_PAYLOAD", "Некорректный запрос: проверьте поля"
-            ),
         },
     ),
     413: error_response(
@@ -333,31 +312,7 @@ COMMON_ERROR_RESPONSES = {
     ),
 }
 
-QR_DECODE_ERROR_RESPONSES = {
-    400: error_response(
-        "Некорректный запрос с изображением QR.",
-        {
-            "no_image": error_example("NO_IMAGE", "В запросе нет поля image"),
-            "empty_image": error_example(
-                "EMPTY_IMAGE", "Передано пустое изображение"
-            ),
-            "image_read_error": error_example(
-                "IMAGE_READ_ERROR", "Изображение невозможно прочитать"
-            ),
-        },
-    ),
-    413: COMMON_ERROR_RESPONSES[413],
-    500: COMMON_ERROR_RESPONSES[500],
-}
 
-PAYLOAD_ERROR_RESPONSE = error_response(
-    "Некорректный JSON-запрос.",
-    {
-        "empty_payload": error_example(
-            "EMPTY_PAYLOAD", "Некорректный запрос: проверьте поля"
-        )
-    },
-)
 OCR_FAILED_RESPONSE = error_response(
     "OCR не смог получить пригодный результат.",
     {
@@ -383,29 +338,6 @@ OCR_ENGINE_UNAVAILABLE_RESPONSE = error_response(
         )
     },
 )
-QR_DECODE_FAILED_RESPONSE = error_response(
-    (
-        "QR-код не найден, содержит некорректные данные "
-        "или передано слишком много кадров."
-    ),
-    {
-        "qr_not_found": error_example("QR_NOT_FOUND", "QR-код не найден"),
-        "qr_invalid_payload": error_example(
-            "QR_INVALID_PAYLOAD", "QR содержит некорректные данные"
-        ),
-        "too_many_images": error_example(
-            "VALIDATION_ERROR", "Можно передать не более 3 изображений"
-        ),
-    },
-)
-QR_SERVICE_UNAVAILABLE_RESPONSE = error_response(
-    "QR-модуль недоступен.",
-    {
-        "qr_service_unavailable": error_example(
-            "QR_SERVICE_UNAVAILABLE", "QR-модуль недоступен"
-        )
-    },
-)
 VALIDATION_ERROR_RESPONSE = error_response(
     "Некорректные параметры запроса.",
     {
@@ -413,35 +345,4 @@ VALIDATION_ERROR_RESPONSE = error_response(
             "VALIDATION_ERROR", "Некорректные параметры запроса"
         )
     },
-)
-
-QR_DECODE_RESPONSE = json_response(
-    "QR-код распознан.",
-    {
-        "decoded": success_example(
-            "QR распознан",
-            {
-                "passport": {
-                    "surname": "ТЕСТОВ",
-                    "name": "ТЕСТ",
-                    "patronymic": "ТЕСТОВИЧ",
-                    "sex": "МУЖ.",
-                    "date_of_birth": "15.01.1990",
-                    "passport_series": "45 15",
-                    "passport_number": "123456",
-                },
-                "meta": {
-                    "format": "passport",
-                    "version": 2,
-                    "encrypted": True,
-                    "algorithm": "A256GCM",
-                    "key_id": "primary",
-                    "qr_count": 1,
-                },
-                "filename": "qr.png",
-                "content_type": "image/png",
-            },
-        )
-    },
-    model=ApiResponseSchema,
 )

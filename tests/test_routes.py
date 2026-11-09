@@ -3,7 +3,6 @@ from __future__ import annotations
 import unittest
 from unittest.mock import AsyncMock, patch
 
-from fastapi import Response
 from fastapi.testclient import TestClient
 
 from app.main import app
@@ -50,54 +49,6 @@ def sample_mrz_response() -> dict:
 class RouteTests(unittest.TestCase):
     def setUp(self) -> None:
         self.client = TestClient(app)
-
-    def test_qr_image_batch_is_documented_as_binary_files(self) -> None:
-        schema = app.openapi()
-
-        request_schema = schema["paths"]["/qr/decode"]["post"]["requestBody"][
-            "content"
-        ]["multipart/form-data"]["schema"]
-        component_name = request_schema["$ref"].rsplit("/", 1)[-1]
-        image_schema = schema["components"]["schemas"][component_name][
-            "properties"
-        ]["image"]
-        array_schema = next(
-            candidate
-            for candidate in image_schema["anyOf"]
-            if candidate.get("type") == "array"
-        )
-
-        self.assertEqual(
-            array_schema["items"],
-            {"type": "string", "format": "binary"},
-        )
-
-    def test_openapi_contains_only_the_documented_synthetic_passport(
-        self,
-    ) -> None:
-        schema = app.openapi()
-        synthetic_passport = {
-            "surname": "ТЕСТОВ",
-            "name": "ТЕСТ",
-            "patronymic": "ТЕСТОВИЧ",
-            "sex": "МУЖ.",
-            "date_of_birth": "15.01.1990",
-            "passport_series": "45 15",
-            "passport_number": "123456",
-        }
-        request_properties = schema["components"]["schemas"][
-            "QRGenerateRequest"
-        ]["properties"]
-
-        for field, value in synthetic_passport.items():
-            self.assertEqual(request_properties[field]["examples"], [value])
-
-        response_example = schema["paths"]["/qr/decode"]["post"]["responses"][
-            "200"
-        ]["content"]["application/json"]["examples"]["decoded"]["value"]
-        self.assertEqual(
-            response_example["data"]["passport"], synthetic_passport
-        )
 
     def test_unified_mrz_openapi_documents_route_and_fields(self) -> None:
         schema = app.openapi()
@@ -324,127 +275,6 @@ class RouteTests(unittest.TestCase):
         self.assertEqual(mark_cancelled_mock.await_args.args[1], JOB_ID)
         self.assertIsInstance(mark_cancelled_mock.await_args.args[1], str)
 
-    def test_generate_qr(self) -> None:
-        with patch(
-            "app.modules.qr.router.generate_qr",
-            new=AsyncMock(
-                return_value=Response(content=b"png", media_type="image/png")
-            ),
-        ):
-            response = self.client.post(
-                "/qr/generate",
-                json={
-                    "surname": "ТЕСТОВ",
-                    "name": "ТЕСТ",
-                    "patronymic": "ТЕСТОВИЧ",
-                    "sex": "МУЖ.",
-                    "date_of_birth": "15.01.1990",
-                    "passport_series": "45 15",
-                    "passport_number": "123456",
-                },
-            )
-
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.headers["content-type"], "image/png")
-        self.assertEqual(response.content, b"png")
-
-    def test_generate_qr_rejects_oversized_text_field(self) -> None:
-        response = self.client.post(
-            "/qr/generate",
-            json={
-                "surname": "И" * 101,
-                "name": "ТЕСТ",
-                "patronymic": "ТЕСТОВИЧ",
-                "sex": "МУЖ.",
-                "date_of_birth": "15.01.1990",
-                "passport_series": "45 15",
-                "passport_number": "123456",
-            },
-        )
-
-        self.assertEqual(response.status_code, 400)
-        self.assertEqual(response.json()["error"]["code"], "EMPTY_PAYLOAD")
-
-    def test_decode_qr(self) -> None:
-        expected = {
-            "success": True,
-            "data": {
-                "passport": {
-                    "surname": "ТЕСТОВ",
-                    "name": "ТЕСТ",
-                    "patronymic": "ТЕСТОВИЧ",
-                    "sex": "МУЖ.",
-                    "date_of_birth": "15.01.1990",
-                    "passport_series": "45 15",
-                    "passport_number": "123456",
-                },
-                "meta": {
-                    "format": "passport",
-                    "version": 2,
-                    "encrypted": True,
-                    "algorithm": "A256GCM",
-                    "key_id": "primary",
-                    "qr_count": 1,
-                },
-                "filename": "qr.png",
-                "content_type": "image/png",
-            },
-            "error": None,
-        }
-        decode_qr = AsyncMock(return_value=expected)
-        with patch(
-            "app.modules.qr.router.decode_qr",
-            new=decode_qr,
-        ):
-            response = self.client.post(
-                "/qr/decode",
-                files=[
-                    (
-                        "image",
-                        (
-                            f"qr-{index}.png",
-                            f"fake-image-{index}".encode(),
-                            "image/png",
-                        ),
-                    )
-                    for index in range(1, 4)
-                ],
-            )
-
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json(), expected)
-        images = decode_qr.await_args.args[0]
-        self.assertEqual(len(images), 3)
-
-    def test_decode_qr_missing_image_error(self) -> None:
-        response = self.client.post("/qr/decode")
-
-        self.assertEqual(response.status_code, 400)
-        body = response.json()
-        self.assertFalse(body["success"])
-        self.assertEqual(body["error"]["code"], "NO_IMAGE")
-
-    def test_decode_qr_rejects_more_than_three_images(self) -> None:
-        response = self.client.post(
-            "/qr/decode",
-            files=[
-                (
-                    "image",
-                    (
-                        f"qr-{index}.png",
-                        b"fake-image",
-                        "image/png",
-                    ),
-                )
-                for index in range(4)
-            ],
-        )
-
-        self.assertEqual(response.status_code, 422)
-        body = response.json()
-        self.assertFalse(body["success"])
-        self.assertEqual(body["error"]["code"], "VALIDATION_ERROR")
-
     def test_health_returns_503_for_degraded_stack(self) -> None:
         expected = {
             "success": False,
@@ -471,7 +301,6 @@ class RouteTests(unittest.TestCase):
                         "russian_ocr",
                         "mrz_scanner",
                         "qwen_vlm_service",
-                        "qr",
                     )
                 },
             },

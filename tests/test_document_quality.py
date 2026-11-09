@@ -6,10 +6,7 @@ import cv2
 import numpy as np
 import pytest
 
-from app.core.images.quality import (
-    assess_image_quality,
-    assess_qr_image_quality,
-)
+from app.core.images.quality import assess_image_quality
 
 
 def document(paper: int = 238) -> np.ndarray:
@@ -156,19 +153,6 @@ def test_underexposure_reduces_document_quality():
         > worse.component_scores["exposure"]
     )
     assert better.score > worse.score
-
-
-def test_qr_selection_retains_its_existing_measurements():
-    from app.modules.qr.selection import assess_image_quality as qr_assessor
-
-    assert qr_assessor is assess_qr_image_quality
-    source = encoded(document(255))
-    qr = qr_assessor(source)
-    assert source.tell() == 0
-    document_quality = assess_image_quality(source)
-    assert source.tell() == 0
-    assert qr.glare_ratio > 0.04
-    assert document_quality.glare_ratio == 0
 
 
 @pytest.mark.parametrize("size", [(1, 1), (8, 3), (30, 30)])

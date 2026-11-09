@@ -22,15 +22,6 @@ QUALITY_WEIGHTS = {
     "noise_and_blur": 0.05,
 }
 
-QR_QUALITY_WEIGHTS = {
-    "sharpness": 0.30,
-    "glare": 0.20,
-    "exposure": 0.15,
-    "local_contrast": 0.15,
-    "resolution": 0.10,
-    "noise_and_blur": 0.10,
-}
-
 
 @dataclass(frozen=True)
 class ImageQualityAssessment:
@@ -277,118 +268,6 @@ def _document_geometry(image: np.ndarray) -> _DocumentGeometry:
     )
 
 
-def _analysis_region(
-    gray: np.ndarray, geometry: _DocumentGeometry
-) -> np.ndarray:
-    if geometry.points is None:
-        return gray
-
-    x, y, width, height = cv2.boundingRect(geometry.points.astype(np.int32))
-    x = max(0, x)
-    y = max(0, y)
-    return gray[y : y + max(1, height), x : x + max(1, width)]
-
-
-def _glare_ratio(image: np.ndarray) -> float:
-    hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
-    saturation = hsv[:, :, 1]
-    value = hsv[:, :, 2]
-    kernel = np.ones((11, 11), dtype=np.uint8)
-    local_range = cv2.dilate(value, kernel) - cv2.erode(value, kernel)
-    glare = (value >= 248) & (saturation <= 35) & (local_range >= 12)
-    return float(np.mean(glare))
-
-
-def _qr_readability(
-    image: np.ndarray,
-    original_width: int,
-    original_height: int,
-    geometry: _DocumentGeometry,
-) -> _ReadabilityMetrics:
-    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    region = _analysis_region(gray, geometry)
-
-    sharpness_variance = float(cv2.Laplacian(region, cv2.CV_64F).var())
-    sharpness_score = _scaled_score(sharpness_variance, 45.0, 450.0)
-
-    brightness = float(np.mean(region))
-    underexposure_ratio = float(np.mean(region <= 20))
-    overexposure_ratio = float(np.mean(region >= 245))
-    brightness_score = 1.0 - _clip(abs(brightness - 155.0) / 125.0)
-    clipping_score = 1.0 - _clip(
-        (underexposure_ratio + overexposure_ratio) / 0.35
-    )
-
-    sigma = max(5.0, min(region.shape[:2]) / 30.0)
-    illumination = cv2.GaussianBlur(region, (0, 0), sigmaX=sigma)
-    illumination_spread = float(
-        np.percentile(illumination, 90) - np.percentile(illumination, 10)
-    )
-    illumination_score = 1.0 - _scaled_score(
-        illumination_spread,
-        35.0,
-        150.0,
-    )
-    exposure_score = _clip(
-        (brightness_score * 0.45)
-        + (clipping_score * 0.35)
-        + (illumination_score * 0.20)
-    )
-
-    region_float = region.astype(np.float32)
-    local_mean = cv2.GaussianBlur(region_float, (0, 0), sigmaX=3.0)
-    local_square_mean = cv2.GaussianBlur(
-        region_float * region_float,
-        (0, 0),
-        sigmaX=3.0,
-    )
-    local_variance = np.maximum(
-        local_square_mean - (local_mean * local_mean),
-        0.0,
-    )
-    local_contrast = float(np.mean(np.sqrt(local_variance)))
-    contrast_score = _scaled_score(local_contrast, 5.0, 32.0)
-
-    median = cv2.medianBlur(region, 3)
-    noise_level = float(
-        np.mean(np.abs(region.astype(np.float32) - median.astype(np.float32)))
-    )
-    noise_score = 1.0 - _scaled_score(noise_level, 2.0, 16.0)
-    noise_and_blur_score = _clip(
-        (noise_score * 0.60) + (sharpness_score * 0.40)
-    )
-
-    glare_ratio = _glare_ratio(image)
-    glare_score = 1.0 - _scaled_score(glare_ratio, 0.005, 0.08)
-    resolution_score = _scaled_score(
-        float(min(original_width, original_height)),
-        400.0,
-        1_200.0,
-    )
-
-    component_scores = {
-        "document_completeness": geometry.completeness_score,
-        "sharpness": sharpness_score,
-        "glare": glare_score,
-        "exposure": exposure_score,
-        "perspective": geometry.perspective_score,
-        "local_contrast": contrast_score,
-        "resolution": resolution_score,
-        "noise_and_blur": noise_and_blur_score,
-    }
-    return _ReadabilityMetrics(
-        sharpness_variance=sharpness_variance,
-        glare_ratio=glare_ratio,
-        brightness=brightness,
-        underexposure_ratio=underexposure_ratio,
-        overexposure_ratio=overexposure_ratio,
-        illumination_spread=illumination_spread,
-        local_contrast=local_contrast,
-        noise_level=noise_level,
-        component_scores=component_scores,
-    )
-
-
 def _document_mask(
     gray: np.ndarray, geometry: _DocumentGeometry
 ) -> np.ndarray:
@@ -538,13 +417,15 @@ def _document_readability(
     )
 
 
-def _assess_image_quality(
-    image_source: str | Path | BinaryIO, *, qr: bool
+def assess_image_quality(
+    image_source: str | Path | BinaryIO,
 ) -> ImageQualityAssessment:
+    """Rank document frames using bounded, CPU-only readability heuristics."""
     image, original_width, original_height = _load_analysis_image(image_source)
     geometry = _document_geometry(image)
-    measure = _qr_readability if qr else _document_readability
-    metrics = measure(image, original_width, original_height, geometry)
+    metrics = _document_readability(
+        image, original_width, original_height, geometry
+    )
     score = sum(
         metrics.component_scores[name] * weight
         for name, weight in QUALITY_WEIGHTS.items()
@@ -573,25 +454,3 @@ def _assess_image_quality(
             for name, value in metrics.component_scores.items()
         },
     )
-
-
-def assess_image_quality(
-    image_source: str | Path | BinaryIO,
-) -> ImageQualityAssessment:
-    """Rank document frames using bounded, CPU-only readability heuristics."""
-    return _assess_image_quality(image_source, qr=False)
-
-
-def assess_qr_image_quality(
-    image_source: str | Path | BinaryIO,
-) -> ImageQualityAssessment:
-    """Preserve QR measurements independently of document-specific scoring."""
-    return _assess_image_quality(image_source, qr=True)
-
-
-def qr_quality_score(assessment: ImageQualityAssessment) -> float:
-    score = sum(
-        assessment.component_scores[name] * weight
-        for name, weight in QR_QUALITY_WEIGHTS.items()
-    )
-    return round(score, 4)

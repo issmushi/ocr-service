@@ -17,7 +17,6 @@ from app.core.openapi import normalize_binary_file_schemas
 from app.modules.changelog import router as changelog_router
 from app.modules.health.router import router as health_router
 from app.modules.health.service import get_app_version
-from app.modules.qr.router import router as qr_router
 from app.modules.tasks.router import router as tasks_router
 from app.modules.v1.router import router as v1_router
 
@@ -34,7 +33,6 @@ def configure_openapi(app: FastAPI) -> None:
             version=app.version,
             routes=app.routes,
         )
-        schema["paths"]["/qr/generate"]["post"]["responses"].pop("422", None)
         normalize_binary_file_schemas(schema)
         app.openapi_schema = schema
         return schema
@@ -57,7 +55,6 @@ def create_app(*, frontend_dist_dir: str | Path | None = None) -> FastAPI:
         lifespan=lifespan,
     )
     configure_http(app)
-    app.include_router(qr_router)
     app.include_router(v1_router)
     app.include_router(tasks_router)
     app.include_router(health_router)

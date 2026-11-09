@@ -75,10 +75,6 @@ class HealthServiceTests(unittest.IsolatedAsyncioTestCase):
                 "app.modules.health.service.probe_vlm_service",
                 new=vlm_probe,
             ),
-            patch(
-                "app.modules.health.service.probe_qr_module",
-                new=AsyncMock(return_value=healthy_component(1)),
-            ),
         ):
             result = await get_health_status()
 
@@ -131,10 +127,6 @@ class HealthServiceTests(unittest.IsolatedAsyncioTestCase):
                 "app.modules.health.service.probe_vlm_service",
                 new=AsyncMock(return_value=healthy_component(1)),
             ),
-            patch(
-                "app.modules.health.service.probe_qr_module",
-                new=AsyncMock(return_value=healthy_component(1)),
-            ),
         ):
             result = await get_health_status()
 
@@ -154,7 +146,6 @@ class HealthServiceTests(unittest.IsolatedAsyncioTestCase):
                 "russian_ocr",
                 "mrz_scanner",
                 "qwen_vlm_service",
-                "qr",
             },
         )
         self.assertIsNone(result["error"])
@@ -206,10 +197,6 @@ class HealthServiceTests(unittest.IsolatedAsyncioTestCase):
                 "app.modules.health.service.probe_vlm_service",
                 new=AsyncMock(return_value=healthy_component(1)),
             ),
-            patch(
-                "app.modules.health.service.probe_qr_module",
-                new=AsyncMock(return_value=healthy_component(1)),
-            ),
         ):
             result = await get_health_status()
 
@@ -256,10 +243,6 @@ class HealthServiceTests(unittest.IsolatedAsyncioTestCase):
                 "app.modules.health.service.probe_vlm_service",
                 new=AsyncMock(return_value=healthy_component(1)),
             ),
-            patch(
-                "app.modules.health.service.probe_qr_module",
-                new=AsyncMock(return_value=healthy_component(1)),
-            ),
         ):
             result = await get_health_status()
 
@@ -301,10 +284,6 @@ class HealthServiceTests(unittest.IsolatedAsyncioTestCase):
             ),
             patch(
                 "app.modules.health.service.probe_vlm_service",
-                new=AsyncMock(return_value=healthy_component(1)),
-            ),
-            patch(
-                "app.modules.health.service.probe_qr_module",
                 new=AsyncMock(return_value=healthy_component(1)),
             ),
         ):
@@ -587,10 +566,6 @@ class RussianRuntimeHealthTests(unittest.IsolatedAsyncioTestCase):
             ),
             patch(
                 "app.modules.health.service.probe_vlm_service",
-                AsyncMock(return_value=healthy_component(1)),
-            ),
-            patch(
-                "app.modules.health.service.probe_qr_module",
                 AsyncMock(return_value=healthy_component(1)),
             ),
             patch("app.modules.health.service.russian_runtime", runtime),

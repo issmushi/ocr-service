@@ -760,18 +760,6 @@ activate_runtime() {
   fi
 }
 
-ensure_qr_key() {
-  local python="$1" key_id generated
-  if [ -n "${QR_ENCRYPTION_KEYS:-}" ]; then
-    return
-  fi
-  key_id="${QR_ACTIVE_KEY_ID:-primary}"
-  [[ "$key_id" =~ ^[A-Za-z0-9._-]{1,64}$ ]] || die "QR_ACTIVE_KEY_ID содержит недопустимые символы"
-  generated="$($python -c 'import base64,secrets; print(base64.urlsafe_b64encode(secrets.token_bytes(32)).decode().rstrip("="))')"
-  upsert_env QR_ACTIVE_KEY_ID "$key_id"
-  upsert_env QR_ENCRYPTION_KEYS "$key_id:$generated"
-}
-
 write_configuration() {
   remove_env OCR_EDITION
   remove_env OCR_ACCELERATOR
@@ -797,7 +785,6 @@ write_configuration() {
     remove_env HF_HOME
     remove_env VLM_LLAMA_SERVER_BIN
   fi
-  ensure_qr_key "$ROOT_DIR/profiles/$RUNTIME_PROFILE/.venv/bin/python"
 }
 
 pid_is_running() {

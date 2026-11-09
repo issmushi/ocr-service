@@ -20,7 +20,7 @@ router = APIRouter(tags=["Health"])
     summary="Проверить состояние OCR-стека",
     description=(
         "Параллельно проверяет API, PostgreSQL, RabbitMQ, workers, "
-        "PaddleOCR, RussianDocsOCR, MRZ Scanner, Qwen VLM и QR. "
+        "PaddleOCR, RussianDocsOCR, MRZ Scanner и Qwen VLM. "
         "Возвращает HTTP 503, "
         "если хотя бы один компонент недоступен."
     ),

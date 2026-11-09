@@ -1,7 +1,7 @@
 [project]
 name = "ocr-service"
 version = "3.1.0"
-description = "Unified OCR API, PaddleOCR, RussianDocsOCR, QR and queue worker"
+description = "Unified OCR API, PaddleOCR, RussianDocsOCR and queue worker"
 requires-python = ">=3.11,<3.12"
 dependencies = [
     "fastapi>=0.136.3,<0.137.0",
@@ -28,8 +28,6 @@ dependencies = [
     "onnxruntime-gpu==1.22.0; sys_platform == 'linux'",
     "paddleocr>=3.6.0,<4.0.0",
     "paddlepaddle>=3.2.0,<4.0.0",
-    "qrcode[pil]>=8.2,<9.0",
-    "cryptography>=44.0.0,<51.0.0",
 ]
 
 [project.scripts]

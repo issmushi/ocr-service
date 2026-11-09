@@ -27,9 +27,6 @@ class ApplicationFactoryTests(unittest.TestCase):
         self.assertIsNot(first_schema, second_schema)
         self.assertIn("/first-only", first_schema["paths"])
         self.assertNotIn("/first-only", second_schema["paths"])
-        self.assertNotIn(
-            "422", first_schema["paths"]["/qr/generate"]["post"]["responses"]
-        )
 
     def test_cors_and_logging_wrap_body_size_rejections(self):
         with (
@@ -37,7 +34,6 @@ class ApplicationFactoryTests(unittest.TestCase):
             patch.object(http, "settings") as settings,
         ):
             settings.api_max_request_body_size_bytes = 4
-            settings.api_qr_max_request_body_size_bytes = 2
             app = create_app()
 
         with patch.object(http.logger, "warning") as warning:

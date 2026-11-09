@@ -31,7 +31,6 @@ def configure_http(app: FastAPI) -> None:
         RequestBodyLimitMiddleware,
         max_body_size=max_body_size,
         path_limits={
-            "/qr/decode": settings.api_qr_max_request_body_size_bytes,
             "/v1/ocr/full": max_body_size,
             "/v1/ocr/best-frame": max_body_size,
             "/v1/ocr/mrz": max_body_size,
@@ -168,15 +167,8 @@ def validation_error_summary(
 
 
 def validation_error_payload(
-    request: Request,
     error: RequestValidationError,
 ) -> tuple[ErrorCode, str]:
-    if request.url.path == "/qr/generate":
-        return (
-            ErrorCode.EMPTY_PAYLOAD,
-            "Некорректный запрос: проверьте паспортные поля",
-        )
-
     for item in error.errors():
         location = item.get("loc") or ()
         if tuple(location)[-2:] == ("body", "image"):
@@ -205,7 +197,7 @@ async def validation_error_handler(
         validation_error_summary(error),
         await summarize_form_request(request),
     )
-    code, message = validation_error_payload(request, error)
+    code, message = validation_error_payload(error)
 
     return JSONResponse(
         status_code=ERROR_HTTP_STATUS[code],

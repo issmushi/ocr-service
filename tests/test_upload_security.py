@@ -166,7 +166,7 @@ class ChunkedRequestBodyLimitTests(unittest.IsolatedAsyncioTestCase):
 
 class UploadStreamTests(unittest.IsolatedAsyncioTestCase):
     async def test_prepare_upload_stream_rejects_oversized_file(self) -> None:
-        upload = UploadFile(filename="qr.png", file=BytesIO(b"123456"))
+        upload = UploadFile(filename="document.png", file=BytesIO(b"123456"))
 
         with self.assertRaises(AppError) as context:
             await prepare_upload_stream(upload, max_bytes=5)
@@ -174,7 +174,7 @@ class UploadStreamTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(context.exception.code, ErrorCode.IMAGE_TOO_LARGE)
 
     async def test_prepare_upload_stream_rewinds_file(self) -> None:
-        upload = UploadFile(filename="qr.png", file=BytesIO(b"12345"))
+        upload = UploadFile(filename="document.png", file=BytesIO(b"12345"))
         upload.file.seek(3)
 
         size = await prepare_upload_stream(upload, max_bytes=5)

@@ -20,10 +20,6 @@ from app.core.errors import (
 )
 from app.core.infrastructure.queue import get_queue_status
 from app.modules.paddle import paddle_runtime
-from app.modules.qr.crypto import (
-    TOKEN_ALGORITHM,
-    active_encryption_key_id,
-)
 from app.modules.russian.runtime import russian_runtime
 from app.modules.v1.passport.runtime import mrz_scanner_runtime
 
@@ -301,26 +297,6 @@ async def probe_vlm_service() -> dict[str, Any]:
         )
 
 
-async def probe_qr_module() -> dict[str, Any]:
-    started_at = perf_counter()
-    try:
-        key_id = active_encryption_key_id()
-    except Exception:
-        logger.warning("Health QR encryption configuration check failed")
-        return failed_component(
-            elapsed_ms(started_at),
-            "QR encryption не настроен",
-        )
-    return healthy_component(
-        elapsed_ms(started_at),
-        details={
-            "engine": "opencv-qrcode",
-            "encryption": TOKEN_ALGORITHM,
-            "key_id": key_id,
-        },
-    )
-
-
 def worker_component(queue_component: dict[str, Any]) -> dict[str, Any]:
     queue_details = queue_component.get("details")
     queue_details = queue_details if isinstance(queue_details, dict) else {}
@@ -374,7 +350,6 @@ async def get_health_status() -> dict[str, Any]:
         russian_ocr,
         mrz_scanner,
         qwen_vlm_service,
-        qr,
     ) = await asyncio.gather(
         probe_database(),
         probe_queue(),
@@ -382,7 +357,6 @@ async def get_health_status() -> dict[str, Any]:
         russian_probe,
         mrz_probe,
         qwen_probe,
-        probe_qr_module(),
     )
     worker = worker_component(rabbitmq)
     active_workers = int(worker.get("details", {}).get("active_workers") or 0)
@@ -398,7 +372,6 @@ async def get_health_status() -> dict[str, Any]:
         "russian_ocr": russian_ocr,
         "mrz_scanner": mrz_scanner,
         "qwen_vlm_service": qwen_vlm_service,
-        "qr": qr,
     }
     failed_components = [
         name
