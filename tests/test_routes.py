@@ -53,7 +53,7 @@ class RouteTests(unittest.TestCase):
     def test_unified_mrz_openapi_documents_route_and_fields(self) -> None:
         schema = app.openapi()
         endpoint = schema["paths"]["/v1/ocr/mrz"]["post"]
-        self.assertEqual(endpoint["tags"], ["MRZ"])
+        self.assertEqual(endpoint["tags"], ["MRZ Sync"])
         for old in ("/v1/ocr/passport/mrz", "/v1/ocr/idcard/mrz"):
             self.assertNotIn(old, schema["paths"])
         request = endpoint["requestBody"]["content"]["multipart/form-data"][

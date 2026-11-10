@@ -244,7 +244,7 @@ def test_snils_invalid_upload_does_not_start_ocr(client, upload, status, code):
 def test_snils_openapi_is_under_russia_and_accepts_one_image_only():
     schema = app.openapi()
     operation = schema["paths"][PATH]["post"]
-    assert operation["tags"] == ["Russia"]
+    assert operation["tags"] == ["Russia Sync"]
     request_schema = operation["requestBody"]["content"][
         "multipart/form-data"
     ]["schema"]

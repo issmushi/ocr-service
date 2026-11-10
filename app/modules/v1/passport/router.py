@@ -27,7 +27,7 @@ from app.modules.v1.passport.service import (
     recognize_passport_international_upload,
 )
 
-router = APIRouter(tags=["Russia"])
+router = APIRouter(tags=["Russia Sync"])
 
 
 @router.post(

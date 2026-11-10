@@ -238,7 +238,7 @@ def test_international_endpoint_does_not_change_internal_contract(
 def test_international_openapi_is_under_russia_with_image_only():
     schema = app.openapi()
     operation = schema["paths"][PATH]["post"]
-    assert operation["tags"] == ["Russia"]
+    assert operation["tags"] == ["Russia Sync"]
     request_schema = operation["requestBody"]["content"][
         "multipart/form-data"
     ]["schema"]

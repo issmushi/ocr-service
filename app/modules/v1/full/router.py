@@ -13,7 +13,7 @@ from app.core.api_schemas import (
 from app.modules.v1.full.schemas import FullOcrModel, FullOcrResponseSchema
 from app.modules.v1.full.service import recognize_full_upload
 
-router = APIRouter(tags=["Full"])
+router = APIRouter(tags=["Full Sync"])
 
 
 @router.post(

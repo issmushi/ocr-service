@@ -23,7 +23,7 @@ from app.modules.v1.russia.driver_license.service import (
     recognize_driver_license_upload,
 )
 
-router = APIRouter(tags=["Russia"])
+router = APIRouter(tags=["Russia Sync"])
 
 
 @router.post(

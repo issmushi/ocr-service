@@ -176,7 +176,7 @@ class EgrnCropEndpointTests(unittest.TestCase):
             self.assertLess(image.height, 820)
         schema = self.client.get("/openapi.json").json()
         operation = schema["paths"]["/v1/ocr/crop/egrn"]["post"]
-        self.assertEqual(operation["tags"], ["Crop"])
+        self.assertEqual(operation["tags"], ["Crop Sync"])
         self.assertIn("image/png", operation["responses"]["200"]["content"])
 
     def test_invalid_blank_and_oversized_files_use_error_envelope(self):

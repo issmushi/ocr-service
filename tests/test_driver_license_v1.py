@@ -179,7 +179,7 @@ def test_adjacent_dates_are_not_silently_accepted_as_one_field():
 
 def test_driver_license_openapi_has_one_image_and_russia_tag():
     operation = app.openapi()["paths"][PATH]["post"]
-    assert operation["tags"] == ["Russia"]
+    assert operation["tags"] == ["Russia Sync"]
     schema = operation["requestBody"]["content"]["multipart/form-data"]
     assert "schema" in schema
     assert "DriverLicenseResponseSchema" in str(operation["responses"]["200"])

@@ -17,7 +17,7 @@ from app.modules.v1.russia.snils.field_selection import SnilsFields
 from app.modules.v1.russia.snils.schemas import SnilsResponseSchema
 from app.modules.v1.russia.snils.service import recognize_snils_upload
 
-router = APIRouter(tags=["Russia"])
+router = APIRouter(tags=["Russia Sync"])
 
 
 @router.post(

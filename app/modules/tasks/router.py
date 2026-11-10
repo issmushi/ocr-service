@@ -57,7 +57,7 @@ from app.modules.v1.russia.egrn.field_selection import EgrnField, EgrnFields
 from app.modules.v1.russia.egrn.schemas import EgrnModel
 from app.modules.v1.russia.snils.field_selection import SnilsField, SnilsFields
 
-router = APIRouter(prefix="/v1/tasks", tags=["Tasks"])
+router = APIRouter(prefix="/v1/tasks")
 
 
 def isoformat_z(value: Any) -> str | None:
@@ -97,6 +97,7 @@ TASK_ERRORS = {
 
 @router.post(
     "/mrz",
+    tags=["MRZ Async"],
     status_code=202,
     response_model=TaskCreatedResponseSchema,
     summary="Создать задачу распознавания MRZ документа",
@@ -125,6 +126,7 @@ async def create_mrz_task(
 
 @router.post(
     "/passport/internal",
+    tags=["Russia Async"],
     status_code=202,
     response_model=TaskCreatedResponseSchema,
     summary="Создать задачу распознавания внутреннего паспорта РФ",
@@ -147,6 +149,7 @@ async def create_passport_internal_task(
 
 @router.post(
     "/passport/international",
+    tags=["Russia Async"],
     status_code=202,
     response_model=TaskCreatedResponseSchema,
     summary="Создать задачу распознавания загранпаспорта РФ",
@@ -170,6 +173,7 @@ async def create_passport_international_task(
 
 @router.post(
     "/egrn",
+    tags=["Russia Async"],
     status_code=202,
     response_model=TaskCreatedResponseSchema,
     summary="Создать задачу распознавания выписки ЕГРН",
@@ -193,6 +197,7 @@ async def create_egrn_task(
 
 @router.post(
     "/snils",
+    tags=["Russia Async"],
     status_code=202,
     response_model=TaskCreatedResponseSchema,
     summary="Создать задачу распознавания СНИЛС",
@@ -217,6 +222,7 @@ async def create_snils_task(
 
 @router.post(
     "/driver-license",
+    tags=["Russia Async"],
     status_code=202,
     response_model=TaskCreatedResponseSchema,
     summary="Создать задачу распознавания водительского удостоверения РФ",
@@ -239,6 +245,7 @@ async def create_driver_license_task(
 
 @router.post(
     "/full",
+    tags=["Full Async"],
     status_code=202,
     response_model=TaskCreatedResponseSchema,
     summary="Создать задачу полного распознавания текста",
@@ -256,6 +263,7 @@ async def create_full_task(
 
 @router.post(
     "/crop/document",
+    tags=["Crop Async"],
     status_code=202,
     response_model=TaskCreatedResponseSchema,
     summary="Создать задачу обрезки документа",
@@ -271,6 +279,7 @@ async def create_document_crop_task(
 
 @router.post(
     "/crop/mrz",
+    tags=["Crop Async"],
     status_code=202,
     response_model=TaskCreatedResponseSchema,
     summary="Создать задачу обрезки MRZ",
@@ -309,6 +318,7 @@ def _task_error(job: dict[str, Any]) -> dict[str, str] | None:
 
 @router.get(
     "/{task_id}",
+    tags=["Tasks"],
     response_model=TaskStatusResponseSchema,
     summary="Получить состояние задачи",
     responses=TASK_ERRORS,
@@ -336,6 +346,7 @@ async def get_task_status(
 
 @router.get(
     "/{task_id}/result",
+    tags=["Tasks"],
     response_class=Response,
     summary="Получить готовый результат задачи",
     description=(
@@ -411,6 +422,7 @@ async def get_task_result(
 
 @router.post(
     "/{task_id}/cancel",
+    tags=["Tasks"],
     response_model=TaskCancelledResponseSchema,
     summary="Отменить задачу",
     responses=TASK_ERRORS,

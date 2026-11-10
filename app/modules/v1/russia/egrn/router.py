@@ -13,7 +13,7 @@ from app.modules.v1.russia.egrn.field_selection import EgrnFields
 from app.modules.v1.russia.egrn.schemas import EgrnModel, EgrnResponse
 from app.modules.v1.russia.egrn.service import recognize_egrn_upload
 
-router = APIRouter(tags=["Russia"])
+router = APIRouter(tags=["Russia Sync"])
 
 
 @router.post(

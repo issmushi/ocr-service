@@ -15,7 +15,7 @@ from app.modules.v1.mrz_api.field_selection import MrzFields
 from app.modules.v1.mrz_api.schemas import UnifiedMrzResponseSchema
 from app.modules.v1.mrz_api.service import recognize_mrz_upload
 
-router = APIRouter(tags=["MRZ"])
+router = APIRouter(tags=["MRZ Sync"])
 
 
 @router.post(

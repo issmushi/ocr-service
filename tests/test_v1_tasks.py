@@ -654,6 +654,11 @@ def test_openapi_creation_parameters_match_sync_endpoints():
         return schema["components"]["schemas"][ref.rsplit("/", 1)[-1]]
 
     for suffix, _, _, _ in CASES:
+        sync_tags = schema["paths"][f"/v1/ocr/{suffix}"]["post"]["tags"]
+        async_tags = schema["paths"][f"/v1/tasks/{suffix}"]["post"]["tags"]
+        assert len(sync_tags) == 1
+        assert sync_tags[0].endswith(" Sync")
+        assert async_tags == [sync_tags[0].removesuffix(" Sync") + " Async"]
         asynchronous = body(f"/v1/tasks/{suffix}")
         synchronous = body(f"/v1/ocr/{suffix}")
         assert asynchronous["required"] == synchronous["required"]
@@ -672,7 +677,17 @@ def test_openapi_creation_parameters_match_sync_endpoints():
             "202"
             in schema["paths"][f"/v1/tasks/{suffix}"]["post"]["responses"]
         )
-    assert schema["paths"]["/v1/tasks/{task_id}"]["get"]["tags"] == ["Tasks"]
+    task_management = {
+        (method, path)
+        for path, operations in schema["paths"].items()
+        for method, operation in operations.items()
+        if "Tasks" in operation.get("tags", [])
+    }
+    assert task_management == {
+        ("get", "/v1/tasks/{task_id}"),
+        ("get", "/v1/tasks/{task_id}/result"),
+        ("post", "/v1/tasks/{task_id}/cancel"),
+    }
     contents = schema["paths"]["/v1/tasks/{task_id}/result"]["get"][
         "responses"
     ]["200"]["content"]

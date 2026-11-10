@@ -13,7 +13,7 @@ from app.bootstrap.http import configure_http
 from app.bootstrap.lifecycle import lifespan
 from app.core.config import settings
 from app.core.logging_config import configure_logging
-from app.core.openapi import normalize_binary_file_schemas
+from app.core.openapi import OPENAPI_TAGS, normalize_binary_file_schemas
 from app.modules.changelog import router as changelog_router
 from app.modules.health.router import router as health_router
 from app.modules.health.service import get_app_version
@@ -32,6 +32,7 @@ def configure_openapi(app: FastAPI) -> None:
             title=app.title,
             version=app.version,
             routes=app.routes,
+            tags=app.openapi_tags,
         )
         normalize_binary_file_schemas(schema)
         app.openapi_schema = schema
@@ -53,6 +54,7 @@ def create_app(*, frontend_dist_dir: str | Path | None = None) -> FastAPI:
         title="OCR Service",
         version=get_app_version(),
         lifespan=lifespan,
+        openapi_tags=OPENAPI_TAGS,
     )
     configure_http(app)
     app.include_router(v1_router)

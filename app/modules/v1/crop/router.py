@@ -29,7 +29,7 @@ from app.modules.v1.crop.service import (
     crop_mrz_bytes,
 )
 
-router = APIRouter(tags=["Crop"])
+router = APIRouter(tags=["Crop Sync"])
 
 ERROR_RESPONSES = {
     400: COMMON_ERROR_RESPONSES[400],

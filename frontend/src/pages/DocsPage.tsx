@@ -153,6 +153,7 @@ export function DocsPage({ navigate }: Props) {
           <div className="doc-section__index">02</div>
           <div className="doc-section__body">
             <span className="eyebrow">Эндпоинты</span><h2>Ответ в том же запросе</h2>
+            <p>В Swagger операции сгруппированы по назначению: <strong>MRZ Sync</strong>, <strong>Russia Sync</strong>, <strong>Full Sync</strong> и <strong>Crop Sync</strong>. В этих группах результат приходит в ответе на запрос. Создание задач находится в соответствующих группах <strong>Async</strong>.</p>
             <div className="endpoint-list">
               {tools.map((tool) => (
                 <button key={tool.id} onClick={() => navigate("playground", tool.id)} type="button">
@@ -185,6 +186,7 @@ export function DocsPage({ navigate }: Props) {
           <div className="doc-section__body">
             <span className="eyebrow">Задачи</span><h2>Обработка через очередь</h2>
             <p>Эндпоинт создания задачи принимает те же multipart-поля, что и синхронная версия, и возвращает HTTP <code>202</code>. Используйте задачи для долгих операций: клиенту не нужно держать соединение открытым до конца OCR.</p>
+            <p>В Swagger задачи создаются в группах <strong>MRZ Async</strong>, <strong>Russia Async</strong>, <strong>Full Async</strong> и <strong>Crop Async</strong>. В общей группе <strong>Tasks</strong> остаются только статус, результат и отмена по <code>task_id</code>.</p>
             <div className="data-table-wrap"><table className="data-table">
               <thead><tr><th>Синхронно</th><th>Создать задачу</th></tr></thead>
               <tbody>{taskOperations.map(([sync, task]) => <tr key={task}><td><code>{sync}</code></td><td><code>{task}</code></td></tr>)}</tbody>

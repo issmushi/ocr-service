@@ -589,7 +589,7 @@ class CropRouteTests(unittest.TestCase):
         for path in paths:
             self.assertEqual(
                 self.client.app.openapi()["paths"][path]["post"]["tags"],
-                ["Crop"],
+                ["Crop Sync"],
             )
 
     def test_rejects_unsupported_extension(self) -> None:
