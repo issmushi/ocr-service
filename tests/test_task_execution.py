@@ -160,7 +160,7 @@ class TaskExecutionTests(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(options, original_options)
 
     async def test_previously_queued_mrz_tasks_discard_model_and_crop(self):
-        """Old tasks keep normalization flags and automatically crop MRZ."""
+        """Old crop options cannot enable preprocessing."""
         response = {"success": True, "data": None, "error": None}
         flags = {"normalize": False, "normalization": True}
         for operation, handler_name in (

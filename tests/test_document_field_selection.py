@@ -92,10 +92,6 @@ def test_selected_fields_survive_direct_and_queued_serialization(
         ),
         patch("app.modules.v1.mrz_api.service.perf_counter", return_value=10),
         patch(
-            "app.modules.v1.mrz_api.service.crop_mrz_bytes",
-            new=AsyncMock(return_value=IMAGE_BYTES),
-        ),
-        patch(
             "app.modules.v1.passport.runtime.mrz_scanner_runtime.run",
             new=AsyncMock(return_value={"items": [{"text": "\n".join(rows)}]}),
         ) as scanner,
@@ -174,15 +170,16 @@ def test_invalid_fields_fail_before_execution(
             new=AsyncMock(),
         ) as egrn,
         patch(
-            "app.modules.v1.mrz_api.service.crop_mrz_bytes", new=AsyncMock()
-        ) as crop,
+            "app.modules.v1.mrz_api.service.mrz_scanner_runtime.run",
+            new=AsyncMock(),
+        ) as scanner,
     ):
         response = client.post(
             f"/v1/{prefix}/{path}", files=FILES, data={"fields": value}
         )
         assert response.status_code == 422, response.text
         assert response.json()["error"]["code"] == "VALIDATION_ERROR"
-        for mock in (russian, create, egrn, crop):
+        for mock in (russian, create, egrn, scanner):
             mock.assert_not_awaited()
     client.close()
 
@@ -357,10 +354,6 @@ def test_mrz_selection_respects_normalization_flag(normalization, selected):
         "AA12345678ARM9001158M3001156<<<<<<<<<<<<<<06",
     ]
     with (
-        patch(
-            "app.modules.v1.mrz_api.service.crop_mrz_bytes",
-            new=AsyncMock(return_value=IMAGE_BYTES),
-        ),
         patch(
             "app.modules.v1.passport.runtime.mrz_scanner_runtime.run",
             new=AsyncMock(return_value={"items": [{"text": "\n".join(rows)}]}),

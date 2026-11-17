@@ -9,6 +9,7 @@ from fastapi.testclient import TestClient
 
 from app.core.config import settings
 from app.main import app
+from tests.test_passport_v1_text_service import IMAGE_BYTES
 
 PATH = "/v1/ocr/mrz"
 
@@ -106,14 +107,9 @@ def _post_idcard(
 ) -> tuple[Any, dict[str, AsyncMock]]:
     raw_result = _raw_result(lines)
     mocks = {
-        "crop": AsyncMock(return_value=b"cropped-mrz"),
         "mrz": AsyncMock(return_value=raw_result),
     }
     with (
-        patch(
-            "app.modules.v1.mrz_api.service.crop_mrz_bytes",
-            new=mocks["crop"],
-        ),
         patch(
             "app.modules.v1.mrz_api.service.mrz_scanner_runtime.run",
             new=mocks["mrz"],
@@ -138,7 +134,7 @@ def _post_idcard(
         response = client.post(
             PATH,
             data=data,
-            files={"image": ("idcard.png", b"fake-image", "image/png")},
+            files={"image": ("idcard.png", IMAGE_BYTES, "image/png")},
         )
     return response, mocks
 
@@ -146,10 +142,9 @@ def _post_idcard(
 def _assert_mrz_runtime(
     mocks: dict[str, AsyncMock],
 ) -> None:
-    content = b"cropped-mrz"
-    mocks["crop"].assert_awaited_once_with(b"fake-image")
+    content = IMAGE_BYTES
     mocks["mrz"].assert_awaited_once_with(
-        "mrz_crop_text",
+        "mrz_text",
         content,
         timeout_seconds=17.0,
     )
@@ -160,7 +155,7 @@ def client() -> TestClient:
     return TestClient(app)
 
 
-def test_idcard_is_cropped_before_scanner(
+def test_idcard_goes_directly_to_scanner(
     client: TestClient,
 ) -> None:
     response, mocks = _post_idcard(
@@ -423,7 +418,7 @@ def test_openapi_documents_mrz_scanner_flags_and_response_fields() -> None:
     }.issubset(response_properties)
 
 
-def test_request_defaults_enable_crop_normalization_and_report(
+def test_request_defaults_enable_normalization_and_report(
     client: TestClient,
 ) -> None:
     response, mocks = _post_idcard(

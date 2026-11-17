@@ -9,12 +9,12 @@ if TYPE_CHECKING:
     from mrzscanner import MRZScanner
 
 
-def process_mrz_crop_text_bytes_with_mrz_scanner(
+def recognize_mrz_text_bytes(
     content: bytes,
     *,
     scanner: MRZScanner,
 ) -> dict[str, Any]:
-    """Read a prepared crop with scanner postprocessing explicitly disabled."""
+    """Decode the original image and pass it directly to MRZ Scanner."""
     image = decode_image_bytes(content)
     width, height = image_dimensions(image)
     recognition = recognize_mrz(image, scanner)

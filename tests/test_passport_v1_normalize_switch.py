@@ -16,6 +16,7 @@ from app.modules.v1.passport.pipeline import (
     process_passport_bytes,
     process_passport_bytes_with_mrz_scanner,
 )
+from tests.test_passport_v1_text_service import IMAGE_BYTES
 
 PATH = "/v1/ocr/mrz"
 RAW_MRZ = [
@@ -152,15 +153,12 @@ def test_scanner_normalization_and_report_switches_are_independent(
     raw_text = {"items": [{"text": "\n".join(RAW_MRZ)}]}
 
     async def run(operation, content, **kwargs):
-        assert operation == "mrz_crop_text"
+        assert operation == "mrz_text"
+        assert content == IMAGE_BYTES
         assert "normalize" not in kwargs
         return raw_text
 
     with (
-        patch(
-            "app.modules.v1.mrz_api.service.crop_mrz_bytes",
-            AsyncMock(return_value=b"crop"),
-        ) as crop_mrz,
         patch(
             "app.modules.v1.mrz_api.service.mrz_scanner_runtime.run",
             AsyncMock(side_effect=run),
@@ -172,16 +170,15 @@ def test_scanner_normalization_and_report_switches_are_independent(
                 "normalize": str(normalize).lower(),
                 "normalization": str(normalization).lower(),
             },
-            files={"image": ("passport.jpg", b"image", "image/jpeg")},
+            files={"image": ("passport.jpg", IMAGE_BYTES, "image/jpeg")},
         )
 
     assert response.status_code == 200, response.text
     mrz_run.assert_awaited_once_with(
-        "mrz_crop_text",
-        b"crop",
+        "mrz_text",
+        IMAGE_BYTES,
         timeout_seconds=settings.mrz_scanner_document_hard_timeout_seconds,
     )
-    crop_mrz.assert_awaited_once_with(b"image")
     data = response.json()["data"]
     assert data["meta"]["engine"] == "mrz-scanner"
     assert data["meta"]["model"] == "mrz"
@@ -209,14 +206,11 @@ def test_disabled_normalization_does_not_repair_unknown_header():
     raw_text = {"items": [{"text": "\n".join(raw)}]}
 
     async def run(operation, content, **kwargs):
-        assert operation == "mrz_crop_text"
+        assert operation == "mrz_text"
+        assert content == IMAGE_BYTES
         return raw_text
 
     with (
-        patch(
-            "app.modules.v1.mrz_api.service.crop_mrz_bytes",
-            AsyncMock(return_value=b"crop"),
-        ),
         patch(
             "app.modules.v1.mrz_api.service.mrz_scanner_runtime.run",
             AsyncMock(side_effect=run),
@@ -227,7 +221,7 @@ def test_disabled_normalization_does_not_repair_unknown_header():
             data={
                 "normalize": "false",
             },
-            files={"image": ("passport.jpg", b"image", "image/jpeg")},
+            files={"image": ("passport.jpg", IMAGE_BYTES, "image/jpeg")},
         )
     assert response.status_code == 422
     assert response.json()["error"]["code"] == "OCR_FAILED"

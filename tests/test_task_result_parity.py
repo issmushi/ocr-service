@@ -89,10 +89,18 @@ def test_task_result_matches_direct_http_response(
     raw_text = "\n".join(idcard_rows if idcard else passport_rows)
 
     async def recognize_mrz(scanner_operation, _content, **options):
-        assert scanner_operation == "mrz_crop_text"
+        assert scanner_operation == "mrz_text"
+        assert _content == content
         return {"items": [{"text": raw_text}]}
 
     with ExitStack() as stack:
+        if operation == "mrz":
+            stack.enter_context(
+                patch(
+                    "app.core.config.Settings.is_model_enabled",
+                    side_effect=lambda model: model == "mrz",
+                )
+            )
         client = TestClient(app)
         stack.callback(client.close)
         stack.enter_context(
@@ -149,12 +157,6 @@ def test_task_result_matches_direct_http_response(
                         }
                     }
                 ),
-            )
-        )
-        stack.enter_context(
-            patch(
-                "app.modules.v1.mrz_api.service.crop_mrz_bytes",
-                new=AsyncMock(return_value=content),
             )
         )
         stack.enter_context(

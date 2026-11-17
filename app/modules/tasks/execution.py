@@ -82,7 +82,7 @@ async def execute_task_operation(
             TaskOperation.PASSPORT_MRZ,
             TaskOperation.IDCARD_MRZ,
         }:
-            # Previously queued tasks may still store model/crop options.
+            # Old model/crop options must not alter direct scanner input.
             options.pop("model", None)
             options.pop("crop", None)
             response = await recognize_mrz_upload(upload, **options)

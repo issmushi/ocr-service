@@ -16,8 +16,7 @@ const stats = [
 
 const stages: { icon: IconName; title: string; text: string }[] = [
   { icon: "image", title: "Файл", text: "Проверка формата файла, его размера и числа пикселей." },
-  { icon: "crop", title: "Обрезка", text: "Автоматический поиск документа, выравнивание и обрезка MRZ." },
-  { icon: "scan", title: "Распознавание", text: "MRZ Scanner читает строки MRZ паспорта или ID-карты." },
+  { icon: "scan", title: "Распознавание", text: "MRZ Scanner читает строки MRZ паспорта или ID-карты на исходном фото, без предварительного кропа сервисом." },
   { icon: "spark", title: "Нормализация", text: "При normalize=true: замены похожих символов и дополнение MRZ по правилам страны." },
   { icon: "code", title: "Ответ", text: "MRZ, поля документа, список исправлений и meta с моделью и временем обработки." },
 ];

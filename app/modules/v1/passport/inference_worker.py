@@ -20,12 +20,12 @@ def mrz_scanner_inference_worker(connection: Connection) -> None:
         args: tuple[Any, ...],
         kwargs: dict[str, Any],
     ) -> Any:
-        if operation == "mrz_crop_text":
-            from app.modules.v1.crop.text_pipeline import (
-                process_mrz_crop_text_bytes_with_mrz_scanner,
+        if operation == "mrz_text":
+            from app.modules.v1.mrz_api.recognition import (
+                recognize_mrz_text_bytes,
             )
 
-            return process_mrz_crop_text_bytes_with_mrz_scanner(
+            return recognize_mrz_text_bytes(
                 *args,
                 scanner=engine,
                 **kwargs,

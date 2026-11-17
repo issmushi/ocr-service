@@ -6,8 +6,8 @@ import cv2
 import numpy as np
 import pytest
 
-from app.modules.v1.crop.text_pipeline import (
-    process_mrz_crop_text_bytes_with_mrz_scanner,
+from app.modules.v1.mrz_api.recognition import (
+    recognize_mrz_text_bytes,
 )
 from app.modules.v1.passport.inference_worker import (
     mrz_scanner_inference_worker,
@@ -35,9 +35,7 @@ def test_scanner_returns_raw_lines_without_postprocessing():
     with patch(
         "app.modules.v1.passport.pipeline.normalize_passport_mrz"
     ) as normalize:
-        result = process_mrz_crop_text_bytes_with_mrz_scanner(
-            content, scanner=scanner
-        )
+        result = recognize_mrz_text_bytes(content, scanner=scanner)
     normalize.assert_not_called()
     assert scanner.call_count == 1
     np.testing.assert_array_equal(scanner.call_args.args[0], image)
@@ -63,9 +61,7 @@ def test_scanner_returns_raw_lines_without_postprocessing():
 def test_scanner_without_detection_returns_empty_items():
     _, content = encoded_image()
     scanner = Mock(return_value=None)
-    assert process_mrz_crop_text_bytes_with_mrz_scanner(
-        content, scanner=scanner
-    ) == {
+    assert recognize_mrz_text_bytes(content, scanner=scanner) == {
         "items": [],
         "image_width": 220,
         "image_height": 100,
@@ -75,9 +71,7 @@ def test_scanner_without_detection_returns_empty_items():
 def test_invalid_image_is_rejected_before_scanner_runs():
     scanner = Mock()
     with pytest.raises(ValueError, match="Cannot read image"):
-        process_mrz_crop_text_bytes_with_mrz_scanner(
-            b"invalid-image", scanner=scanner
-        )
+        recognize_mrz_text_bytes(b"invalid-image", scanner=scanner)
     scanner.assert_not_called()
 
 
@@ -90,14 +84,14 @@ def test_scanner_worker_reuses_engine_and_keeps_passport_operation_separate():
         engine = initialize()
         for _ in range(2):
             assert (
-                dispatch(engine, "mrz_crop_text", (b"mrz-crop",), {})
+                dispatch(engine, "mrz_text", (b"original-image",), {})
                 is expected
             )
         dispatch(engine, "passport_v1", (b"passport",), {})
         with pytest.raises(
             ValueError, match="Unsupported MRZ Scanner operation"
         ):
-            dispatch(engine, "unknown", (b"mrz-crop",), {})
+            dispatch(engine, "unknown", (b"original-image",), {})
 
     with (
         patch(
@@ -109,8 +103,7 @@ def test_scanner_worker_reuses_engine_and_keeps_passport_operation_separate():
             return_value=scanner,
         ) as create,
         patch(
-            "app.modules.v1.crop.text_pipeline."
-            "process_mrz_crop_text_bytes_with_mrz_scanner",
+            "app.modules.v1.mrz_api.recognition.recognize_mrz_text_bytes",
             return_value=expected,
         ) as raw,
         patch(
@@ -121,5 +114,5 @@ def test_scanner_worker_reuses_engine_and_keeps_passport_operation_separate():
         mrz_scanner_inference_worker(connection)
     create.assert_called_once_with()
     assert raw.call_count == 2
-    raw.assert_called_with(b"mrz-crop", scanner=scanner)
+    raw.assert_called_with(b"original-image", scanner=scanner)
     passport.assert_called_once_with(b"passport", scanner=scanner)

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from time import perf_counter
 from typing import Any
 
@@ -10,9 +11,11 @@ from app.core.config import settings
 from app.core.errors import AppError, ErrorCode, api_success_response
 from app.core.field_selection import resolve_fields
 from app.core.images.uploads import prepare_upload_stream
-from app.core.images.validation import validate_image_extension
+from app.core.images.validation import (
+    validate_image_bytes,
+    validate_image_extension,
+)
 from app.core.model_availability import ensure_ocr_model_enabled
-from app.modules.v1.crop.service import crop_mrz_bytes
 from app.modules.v1.idcard.parsing import parse_idcard_mrz
 from app.modules.v1.idcard.pipeline import normalize_idcard_mrz
 from app.modules.v1.idcard.profiles import IdcardMrzFormatError
@@ -90,11 +93,11 @@ async def recognize_mrz_upload(
         image, max_bytes=settings.ocr_max_image_size_bytes
     )
     content = await image.read()
-    content = await crop_mrz_bytes(content)
+    await asyncio.to_thread(validate_image_bytes, content)
 
     started = perf_counter()
     raw_result = await mrz_scanner_runtime.run(
-        "mrz_crop_text",
+        "mrz_text",
         content,
         timeout_seconds=settings.mrz_scanner_document_hard_timeout_seconds,
     )

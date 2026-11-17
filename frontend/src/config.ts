@@ -69,7 +69,7 @@ export const tools: ToolDefinition[] = [
     group: "MRZ",
     title: "MRZ документа",
     shortTitle: "Document MRZ",
-    description: "С помощью MRZ Scanner прочитать две или три строки и разобрать поля паспорта или ID-карты.",
+    description: "MRZ Scanner получает исходное фото без предварительной обрезки и выравнивания сервисом, читает две или три строки и возвращает поля паспорта или ID-карты.",
     endpoint: "/v1/ocr/mrz",
     responseKind: "json",
     params: mrzParams,
