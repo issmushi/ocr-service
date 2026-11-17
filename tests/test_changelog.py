@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import json
+from datetime import date
+from pathlib import Path
 from unittest.mock import patch
 
 from fastapi.testclient import TestClient
@@ -17,6 +20,12 @@ def test_changelog_matches_exposed_service_version() -> None:
     assert response.status_code == 200
     releases = response.json()["releases"]
     assert releases[0]["version"] == get_app_version() == app.version
-    assert releases[0]["date"] == "2026-10-22"
+    dates = [date.fromisoformat(release["date"]) for release in releases]
+    assert dates == sorted(dates, reverse=True)
     assert releases[0]["changes"]
     assert "/v1/changelog" not in app.openapi()["paths"]
+    frontend = Path(__file__).resolve().parents[1] / "frontend"
+    package = json.loads((frontend / "package.json").read_text())
+    lock = json.loads((frontend / "package-lock.json").read_text())
+    assert package["version"] == app.version
+    assert lock["version"] == lock["packages"][""]["version"] == app.version

@@ -42,7 +42,9 @@ def test_openapi_exposes_normalization_switches_without_model_selection():
         "image",
         "normalize",
         "normalization",
+        "fields",
     }
+    assert body["properties"]["fields"]["default"] == ["all"]
     for field in ("normalize", "normalization"):
         assert body["properties"][field]["type"] == "boolean"
         assert body["properties"][field]["default"] is True

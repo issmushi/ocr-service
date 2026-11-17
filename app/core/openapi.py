@@ -30,7 +30,7 @@ OPENAPI_TAGS = [
     },
     {
         "name": "Crop Async",
-        "description": "Создание задач обрезки документа или MRZ.",
+        "description": "Создание задач обрезки документов, MRZ и полей.",
     },
     {
         "name": "Authenticity",

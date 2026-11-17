@@ -384,7 +384,8 @@ def test_openapi_documents_mrz_scanner_flags_and_response_fields() -> None:
     assert properties["image"]["type"] == "string"
     assert properties["image"]["format"] == "binary"
     assert body_schema["required"] == ["image"]
-    assert set(properties) == {"image", "normalize", "normalization"}
+    assert set(properties) == {"image", "normalize", "normalization", "fields"}
+    assert properties["fields"]["default"] == ["all"]
     assert "IdcardOcrModel" not in schema["components"]["schemas"]
     for flag in ("normalize", "normalization"):
         assert properties[flag]["type"] == "boolean"

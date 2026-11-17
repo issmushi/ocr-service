@@ -56,6 +56,8 @@ UI раздаётся самим API; отдельный сервер для н�
 OCR_MODELS=paddle,mrz ./install.sh --edition manual --device cpu --yes
 ```
 
+Для `/v1/ocr/mrz`, `/v1/ocr/crop/document` и `/v1/ocr/crop/mrz` включайте `paddle`: он определяет ориентацию документа. Сам текст MRZ читает `mrz`.
+
 Допустимые значения `OCR_MODELS`: `paddle`, `mrz`, `russian-ocr`,
 `qwen3-vl-4b`, `qwen3-vl-8b` — через запятую.
 
