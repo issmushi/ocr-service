@@ -285,6 +285,8 @@ async def create_document_crop_task(
     response_model=TaskCreatedResponseSchema,
     summary="Создать задачу обрезки пустых полей выписки ЕГРН",
     description=(
+        "Тестовый эндпоинт для визуальной проверки обрезки страницы ЕГРН "
+        "через очередь. В /v1/tasks/egrn эта подготовка уже встроена. "
         "Асинхронный вариант /v1/ocr/crop/egrn. "
         "Результат /v1/tasks/{task_id}/result возвращает PNG "
         "в исходном разрешении без JPEG-сжатия. OCR не запускается."
@@ -304,6 +306,8 @@ async def create_egrn_crop_task(
     response_model=TaskCreatedResponseSchema,
     summary="Создать задачу поиска и вырезания полей первой страницы ЕГРН",
     description=(
+        "Тестовый эндпоинт для проверки найденных областей и OCR вырезок "
+        "через очередь. В /v1/tasks/egrn поиск и чтение полей уже встроены. "
         "Асинхронный вариант /v1/ocr/crop/egrn-fields для того же макета "
         "первой страницы Госуслуг. Результат /v1/tasks/{task_id}/result "
         "содержит тот же JSON с PNG-вырезками, координатами, "
