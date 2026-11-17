@@ -8,6 +8,16 @@ from fastapi import UploadFile
 from starlette.datastructures import Headers
 
 from app.modules.tasks.enums import TaskOperation
+from app.modules.v1.crop.egrn import crop_egrn_bytes, crop_egrn_fields_upload
+from app.modules.v1.crop.egrn_schemas import (
+    EgrnFieldCropResponse,
+    EgrnOcrModel,
+)
+from app.modules.v1.crop.field_schemas import (
+    FieldOcrModel,
+    PassportFieldCropResponse,
+)
+from app.modules.v1.crop.passport_fields import crop_passport_fields_upload
 from app.modules.v1.crop.service import (
     crop_document_image_bytes,
     crop_mrz_bytes,
@@ -40,23 +50,24 @@ async def execute_task_operation(
     job: dict[str, Any],
     content: bytes,
 ) -> dict[str, Any]:
-    """Execute the same V1 service and persist its public JSON or JPEG result.
+    """Execute the same V1 service and persist its public JSON or image result.
 
     Each service retains its engine-specific timeout. The task worker keeps
     renewing its lease while an OCR or crop operation is running.
     """
     operation = TaskOperation(job["mode"])
     options = dict(job.get("options") or {})
-    if operation in {TaskOperation.CROP_DOCUMENT, TaskOperation.CROP_MRZ}:
-        crop = (
-            crop_document_image_bytes
-            if operation == TaskOperation.CROP_DOCUMENT
-            else crop_mrz_bytes
-        )
-        jpeg = await crop(content, **options)
+    image_operations = {
+        TaskOperation.CROP_DOCUMENT: (crop_document_image_bytes, "jpeg"),
+        TaskOperation.CROP_MRZ: (crop_mrz_bytes, "jpeg"),
+        TaskOperation.CROP_EGRN: (crop_egrn_bytes, "png"),
+    }
+    if operation in image_operations:
+        crop, image_format = image_operations[operation]
+        image = await crop(content, **options)
         return {
-            "format": "jpeg",
-            "content_base64": base64.b64encode(jpeg).decode("ascii"),
+            "format": image_format,
+            "content_base64": base64.b64encode(image).decode("ascii"),
         }
 
     upload = UploadFile(
@@ -109,13 +120,30 @@ async def execute_task_operation(
                 options["model"] = FullOcrModel(options["model"])
             response = await recognize_full_upload(upload, **options)
             schema = FullOcrResponseSchema
+        elif operation == TaskOperation.CROP_DOCUMENT_FIELDS:
+            options["ocr_model"] = FieldOcrModel(
+                options.get("ocr_model", FieldOcrModel.NONE)
+            )
+            response = await crop_passport_fields_upload(upload, **options)
+            schema = PassportFieldCropResponse
+        elif operation == TaskOperation.CROP_EGRN_FIELDS:
+            options["ocr_model"] = EgrnOcrModel(
+                options.get("ocr_model", EgrnOcrModel.NONE)
+            )
+            response = await crop_egrn_fields_upload(upload, **options)
+            schema = EgrnFieldCropResponse
         else:  # pragma: no cover - every TaskOperation has a handler above.
             raise ValueError(f"Unsupported task operation: {operation}")
         return {
             "format": "json",
             "response": schema.model_validate(response).model_dump(
                 mode="json",
-                exclude_unset=operation != TaskOperation.FULL_V1,
+                exclude_unset=operation
+                not in {
+                    TaskOperation.FULL_V1,
+                    TaskOperation.CROP_DOCUMENT_FIELDS,
+                    TaskOperation.CROP_EGRN_FIELDS,
+                },
             ),
         }
     finally:

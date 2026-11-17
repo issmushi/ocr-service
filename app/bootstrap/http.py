@@ -49,6 +49,9 @@ def configure_http(app: FastAPI) -> None:
             "/v1/tasks/driver-license": max_body_size,
             "/v1/tasks/full": max_body_size,
             "/v1/tasks/crop/document": max_body_size,
+            "/v1/tasks/crop/document-fields": max_body_size,
+            "/v1/tasks/crop/egrn": max_body_size,
+            "/v1/tasks/crop/egrn-fields": max_body_size,
             "/v1/tasks/crop/mrz": max_body_size,
         },
     )

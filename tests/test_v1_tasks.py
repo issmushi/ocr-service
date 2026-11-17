@@ -57,6 +57,34 @@ CASES = [
     ("driver-license", "driver_license", {}, {"fields": ["all"]}),
     ("full", "full_v1", {}, {"model": "paddle"}),
     ("crop/document", "crop_document", {}, {}),
+    (
+        "crop/document-fields",
+        "crop_document_fields",
+        {},
+        {"crop_document": True, "padding": 4, "ocr_model": "none"},
+    ),
+    (
+        "crop/document-fields",
+        "crop_document_fields",
+        {
+            "crop_document": "false",
+            "padding": "16",
+            "ocr_model": "paddle-cyrillic",
+        },
+        {
+            "crop_document": False,
+            "padding": 16,
+            "ocr_model": "paddle-cyrillic",
+        },
+    ),
+    ("crop/egrn", "crop_egrn", {}, {}),
+    ("crop/egrn-fields", "crop_egrn_fields", {}, {"ocr_model": "none"}),
+    (
+        "crop/egrn-fields",
+        "crop_egrn_fields",
+        {"ocr_model": "paddle"},
+        {"ocr_model": "paddle"},
+    ),
     ("crop/mrz", "crop_mrz", {}, {}),
 ]
 
@@ -325,6 +353,11 @@ def test_old_mrz_task_routes_are_removed(
     [
         ("mrz", {"normalize": "sometimes"}),
         ("full", {"model": "mrz"}),
+        ("crop/document-fields", {"padding": "-1"}),
+        ("crop/document-fields", {"padding": "65"}),
+        ("crop/document-fields", {"crop_document": "sometimes"}),
+        ("crop/document-fields", {"ocr_model": "mrz"}),
+        ("crop/egrn-fields", {"ocr_model": "qwen3-vl-4b"}),
     ],
 )
 def test_invalid_options_do_not_store_or_enqueue(
@@ -336,6 +369,52 @@ def test_invalid_options_do_not_store_or_enqueue(
     assert response.json()["error"]["code"] == "VALIDATION_ERROR"
     create.assert_not_awaited()
     assert list(directory.iterdir()) == []
+
+
+@pytest.mark.parametrize(
+    ("path", "form", "enabled", "expected_status"),
+    [
+        ("crop/document-fields", {}, set(), 503),
+        ("crop/document-fields", {}, {"russian-ocr"}, 202),
+        (
+            "crop/document-fields",
+            {"ocr_model": "russian-ocr-accurate"},
+            {"russian-ocr"},
+            202,
+        ),
+        (
+            "crop/document-fields",
+            {"ocr_model": "paddle-cyrillic"},
+            {"russian-ocr"},
+            503,
+        ),
+        (
+            "crop/document-fields",
+            {"ocr_model": "qwen3-vl-8b"},
+            {"russian-ocr"},
+            503,
+        ),
+        ("crop/egrn", {}, set(), 202),
+        ("crop/egrn-fields", {}, set(), 202),
+        ("crop/egrn-fields", {"ocr_model": "paddle"}, set(), 503),
+    ],
+)
+def test_crop_tasks_check_only_the_required_models_before_saving(
+    client, image_content, persistence, path, form, enabled, expected_status
+):
+    create, directory = persistence
+    with patch(
+        "app.core.config.Settings.is_model_enabled",
+        side_effect=lambda model: model in enabled,
+    ):
+        response = post_task(client, path, image_content, form)
+    assert response.status_code == expected_status, response.text
+    if expected_status == 503:
+        assert response.json()["error"]["code"] == "OCR_ENGINE_UNAVAILABLE"
+        create.assert_not_awaited()
+        assert list(directory.iterdir()) == []
+    else:
+        create.assert_awaited_once()
 
 
 @pytest.mark.parametrize(
@@ -468,14 +547,17 @@ def test_done_json_result_is_original_public_response(client):
     assert response.headers["cache-control"] == "no-store"
 
 
-def test_done_crop_result_returns_exact_jpeg(client, image_content):
+@pytest.mark.parametrize("image_format", ["jpeg", "png"])
+def test_done_crop_result_returns_exact_image(
+    client, image_content, image_format
+):
     output = BytesIO()
     with Image.open(BytesIO(image_content)) as image:
-        image.save(output, format="JPEG")
-    jpeg = output.getvalue()
+        image.save(output, format=image_format.upper())
+    content = output.getvalue()
     stored = {
-        "format": "jpeg",
-        "content_base64": base64.b64encode(jpeg).decode("ascii"),
+        "format": image_format,
+        "content_base64": base64.b64encode(content).decode("ascii"),
     }
     with patch(
         f"{ROUTER}.get_job",
@@ -485,8 +567,8 @@ def test_done_crop_result_returns_exact_jpeg(client, image_content):
     ):
         response = client.get(f"/v1/tasks/{TASK_ID}/result")
     assert response.status_code == 200
-    assert response.headers["content-type"] == "image/jpeg"
-    assert response.content == jpeg
+    assert response.headers["content-type"] == f"image/{image_format}"
+    assert response.content == content
     assert response.headers["cache-control"] == "no-store"
 
 
@@ -537,6 +619,8 @@ def test_failed_result_returns_saved_processing_error(
         {"format": "json", "response": []},
         {"format": "jpeg", "content_base64": "broken"},
         {"format": "jpeg", "content_base64": ""},
+        {"format": "png", "content_base64": "broken"},
+        {"format": "png", "content_base64": ""},
     ],
 )
 def test_corrupt_result_is_an_internal_error(client, result):
@@ -667,7 +751,14 @@ def test_openapi_creation_parameters_match_sync_endpoints():
         )
         for name, actual in asynchronous["properties"].items():
             expected = synchronous["properties"][name]
-            for key in ("type", "format", "default", "$ref"):
+            for key in (
+                "type",
+                "format",
+                "default",
+                "$ref",
+                "minimum",
+                "maximum",
+            ):
                 assert actual.get(key) == expected.get(key), (
                     suffix,
                     name,
@@ -691,4 +782,15 @@ def test_openapi_creation_parameters_match_sync_endpoints():
     contents = schema["paths"]["/v1/tasks/{task_id}/result"]["get"][
         "responses"
     ]["200"]["content"]
-    assert set(contents) == {"application/json", "image/jpeg"}
+    assert set(contents) == {"application/json", "image/jpeg", "image/png"}
+    crop_sync = {
+        path.removeprefix("/v1/ocr/")
+        for path, operations in schema["paths"].items()
+        if operations.get("post", {}).get("tags") == ["Crop Sync"]
+    }
+    crop_async = {
+        path.removeprefix("/v1/tasks/")
+        for path, operations in schema["paths"].items()
+        if operations.get("post", {}).get("tags") == ["Crop Async"]
+    }
+    assert crop_sync == crop_async

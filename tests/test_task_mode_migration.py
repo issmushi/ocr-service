@@ -5,6 +5,11 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+from sqlalchemy import CheckConstraint
+
+from app.modules.tasks.enums import TaskOperation
+from app.modules.tasks.models import OCRJob
+
 MIGRATION_PATH = (
     Path(__file__).resolve().parents[1]
     / "alembic"
@@ -272,6 +277,57 @@ class DriverLicenseTaskModeMigrationTests(unittest.TestCase):
         self.assertNotIn(
             "'driver_license'", migration.PREVIOUS_TASK_MODE_CHECK
         )
+
+
+class CropTaskModeMigrationTests(unittest.TestCase):
+    def test_upgrade_keeps_all_modes_and_matches_model_constraint(self):
+        migration = load_migration(
+            MIGRATION_PATH.with_name("20261117_0013_crop_task_modes.py")
+        )
+        self.assertEqual(migration.down_revision, "20261106_0012")
+        with (
+            patch.object(migration.op, "drop_constraint") as drop,
+            patch.object(migration.op, "create_check_constraint") as create,
+        ):
+            migration.upgrade()
+        drop.assert_called_once_with(
+            "ck_ocr_jobs_mode", "ocr_jobs", type_="check"
+        )
+        create.assert_called_once_with(
+            "ck_ocr_jobs_mode",
+            "ocr_jobs",
+            migration.CROP_TASK_MODE_CHECK,
+            postgresql_not_valid=True,
+        )
+        for operation in TaskOperation:
+            self.assertIn(
+                f"'{operation.value}'", migration.CROP_TASK_MODE_CHECK
+            )
+        constraint = next(
+            constraint
+            for constraint in OCRJob.__table__.constraints
+            if isinstance(constraint, CheckConstraint)
+        )
+        self.assertEqual(
+            str(constraint.sqltext), migration.CROP_TASK_MODE_CHECK
+        )
+
+    def test_downgrade_preserves_existing_jobs(self):
+        migration = load_migration(
+            MIGRATION_PATH.with_name("20261117_0013_crop_task_modes.py")
+        )
+        with (
+            patch.object(migration.op, "drop_constraint"),
+            patch.object(migration.op, "create_check_constraint") as create,
+        ):
+            migration.downgrade()
+        create.assert_called_once_with(
+            "ck_ocr_jobs_mode",
+            "ocr_jobs",
+            migration.PREVIOUS_TASK_MODE_CHECK,
+            postgresql_not_valid=True,
+        )
+        self.assertNotIn("'crop_egrn'", migration.PREVIOUS_TASK_MODE_CHECK)
 
 
 if __name__ == "__main__":

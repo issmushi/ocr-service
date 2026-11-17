@@ -36,7 +36,8 @@ class OCRJob(Base):
             "mode IN ('mrz', 'passport_mrz', 'passport_page', "
             "'passport_international', 'idcard_mrz', "
             "'snils', 'driver_license', 'egrn', 'full_v1', "
-            "'crop_document', 'crop_mrz')",
+            "'crop_document', 'crop_mrz', 'crop_document_fields', "
+            "'crop_egrn', 'crop_egrn_fields')",
             name="ck_ocr_jobs_mode",
         ),
     )

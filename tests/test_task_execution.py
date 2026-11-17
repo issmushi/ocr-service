@@ -8,6 +8,8 @@ from unittest.mock import AsyncMock, patch
 from app.core.errors import AppError, ErrorCode
 from app.modules.tasks.enums import TaskOperation
 from app.modules.tasks.execution import execute_task_operation
+from app.modules.v1.crop.egrn_schemas import EgrnOcrModel
+from app.modules.v1.crop.field_schemas import FieldOcrModel
 from app.modules.v1.full.schemas import FullOcrModel
 
 EXECUTION = "app.modules.tasks.execution"
@@ -94,6 +96,26 @@ class TaskExecutionTests(unittest.IsolatedAsyncioTestCase):
                 },
             ),
             (
+                TaskOperation.CROP_DOCUMENT_FIELDS,
+                "crop_passport_fields_upload",
+                {
+                    "crop_document": False,
+                    "padding": 8,
+                    "ocr_model": "paddle-cyrillic",
+                },
+                {
+                    "crop_document": False,
+                    "padding": 8,
+                    "ocr_model": FieldOcrModel.PADDLE_CYRILLIC,
+                },
+            ),
+            (
+                TaskOperation.CROP_EGRN_FIELDS,
+                "crop_egrn_fields_upload",
+                {"ocr_model": "paddle"},
+                {"ocr_model": EgrnOcrModel.PADDLE},
+            ),
+            (
                 TaskOperation.FULL_V1,
                 "recognize_full_upload",
                 {"model": "qwen3-vl-4b"},
@@ -115,6 +137,13 @@ class TaskExecutionTests(unittest.IsolatedAsyncioTestCase):
                     if "model" in expected:
                         self.assertIsInstance(
                             kwargs["model"], type(expected["model"])
+                        )
+                    if "ocr_model" in expected and operation in {
+                        TaskOperation.CROP_DOCUMENT_FIELDS,
+                        TaskOperation.CROP_EGRN_FIELDS,
+                    }:
+                        self.assertIsInstance(
+                            kwargs["ocr_model"], type(expected["ocr_model"])
                         )
                     return response
 
@@ -210,16 +239,31 @@ class TaskExecutionTests(unittest.IsolatedAsyncioTestCase):
             },
         )
 
-    async def test_crop_outputs_are_persisted_as_exact_jpeg_bytes(
+    async def test_crop_outputs_are_persisted_as_exact_image_bytes(
         self,
     ) -> None:
-        jpeg = b"\xff\xd8\xffjpeg-result\xff\xd9"
-        for operation, name in (
-            (TaskOperation.CROP_DOCUMENT, "crop_document_image_bytes"),
-            (TaskOperation.CROP_MRZ, "crop_mrz_bytes"),
+        for operation, name, image_format, content in (
+            (
+                TaskOperation.CROP_DOCUMENT,
+                "crop_document_image_bytes",
+                "jpeg",
+                b"\xff\xd8\xffjpeg-result\xff\xd9",
+            ),
+            (
+                TaskOperation.CROP_MRZ,
+                "crop_mrz_bytes",
+                "jpeg",
+                b"\xff\xd8\xffjpeg-result\xff\xd9",
+            ),
+            (
+                TaskOperation.CROP_EGRN,
+                "crop_egrn_bytes",
+                "png",
+                b"\x89PNG\r\n\x1a\nresult",
+            ),
         ):
             with self.subTest(operation=operation):
-                handler = AsyncMock(return_value=jpeg)
+                handler = AsyncMock(return_value=content)
                 with (
                     patch(f"{EXECUTION}.{name}", handler),
                     patch(
@@ -231,10 +275,10 @@ class TaskExecutionTests(unittest.IsolatedAsyncioTestCase):
                         job(operation), b"source"
                     )
                 handler.assert_awaited_once_with(b"source")
-                self.assertEqual(result["format"], "jpeg")
+                self.assertEqual(result["format"], image_format)
                 self.assertEqual(
                     base64.b64decode(result["content_base64"], validate=True),
-                    jpeg,
+                    content,
                 )
 
     async def test_upload_closes_on_service_error(self) -> None:

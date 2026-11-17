@@ -23,6 +23,9 @@ class TaskOperation(StrEnum):
     IDCARD_MRZ = "idcard_mrz"
     FULL_V1 = "full_v1"
     CROP_DOCUMENT = "crop_document"
+    CROP_DOCUMENT_FIELDS = "crop_document_fields"
+    CROP_EGRN = "crop_egrn"
+    CROP_EGRN_FIELDS = "crop_egrn_fields"
     CROP_MRZ = "crop_mrz"
 
 

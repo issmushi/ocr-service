@@ -38,6 +38,11 @@ from app.modules.tasks.api_schemas import (
 from app.modules.tasks.creation import create_image_task
 from app.modules.tasks.enums import TERMINAL_STATUSES, JobStatus, TaskOperation
 from app.modules.tasks.service import get_job, mark_cancelled
+from app.modules.v1.crop.egrn_schemas import EgrnOcrModel
+from app.modules.v1.crop.field_schemas import FieldOcrModel
+from app.modules.v1.crop.passport_fields import (
+    ensure_document_field_models_enabled,
+)
 from app.modules.v1.full.schemas import FullOcrModel
 from app.modules.v1.mrz_api.field_selection import MrzField, MrzFields
 from app.modules.v1.passport.field_selection import (
@@ -278,6 +283,96 @@ async def create_document_crop_task(
 
 
 @router.post(
+    "/crop/document-fields",
+    tags=["Crop Async"],
+    status_code=202,
+    response_model=TaskCreatedResponseSchema,
+    summary="Создать задачу поиска и вырезания областей документа",
+    description=(
+        "Асинхронный вариант /v1/ocr/crop/document-fields. "
+        "Результат /v1/tasks/{task_id}/result содержит тот же JSON "
+        "с вырезками, координатами и результатами OCR выбранной модели."
+    ),
+    responses=CREATION_ERRORS,
+)
+async def create_document_fields_crop_task(
+    image: UploadFile = File(..., description="Фото или скан документа."),
+    crop_document: bool = Form(
+        True, description="Найти границы и исправить перспективу документа."
+    ),
+    padding: int = Form(
+        4, ge=0, le=64, description="Отступ вокруг каждого поля в пикселях."
+    ),
+    ocr_model: FieldOcrModel = Form(
+        FieldOcrModel.NONE,
+        description="Модель чтения вырезанных полей; none — только вырезки.",
+    ),
+) -> dict[str, Any]:
+    ensure_document_field_models_enabled(ocr_model)
+    return await create_image_task(
+        image,
+        operation=TaskOperation.CROP_DOCUMENT_FIELDS,
+        options={
+            "crop_document": crop_document,
+            "padding": padding,
+            "ocr_model": ocr_model.value,
+        },
+    )
+
+
+@router.post(
+    "/crop/egrn",
+    tags=["Crop Async"],
+    status_code=202,
+    response_model=TaskCreatedResponseSchema,
+    summary="Создать задачу обрезки пустых полей выписки ЕГРН",
+    description=(
+        "Асинхронный вариант /v1/ocr/crop/egrn. "
+        "Результат /v1/tasks/{task_id}/result возвращает PNG "
+        "в исходном разрешении без JPEG-сжатия. OCR не запускается."
+    ),
+    responses=CREATION_ERRORS,
+)
+async def create_egrn_crop_task(
+    image: UploadFile = File(..., description="Скан одной страницы ЕГРН."),
+) -> dict[str, Any]:
+    return await create_image_task(image, operation=TaskOperation.CROP_EGRN)
+
+
+@router.post(
+    "/crop/egrn-fields",
+    tags=["Crop Async"],
+    status_code=202,
+    response_model=TaskCreatedResponseSchema,
+    summary="Создать задачу поиска и вырезания полей первой страницы ЕГРН",
+    description=(
+        "Асинхронный вариант /v1/ocr/crop/egrn-fields для того же макета "
+        "первой страницы Госуслуг. Результат /v1/tasks/{task_id}/result "
+        "содержит тот же JSON с PNG-вырезками, координатами, "
+        "missing_fields и результатами OCR выбранной модели."
+    ),
+    responses=CREATION_ERRORS,
+)
+async def create_egrn_fields_crop_task(
+    image: UploadFile = File(..., description="Первая страница ЕГРН."),
+    ocr_model: EgrnOcrModel = Form(
+        EgrnOcrModel.NONE,
+        description=(
+            "none — только вырезки; paddle — eslav v5; "
+            "paddle-cyrillic — Cyrillic v5. OCR на CPU."
+        ),
+    ),
+) -> dict[str, Any]:
+    if ocr_model != EgrnOcrModel.NONE:
+        ensure_ocr_model_enabled("paddle")
+    return await create_image_task(
+        image,
+        operation=TaskOperation.CROP_EGRN_FIELDS,
+        options={"ocr_model": ocr_model.value},
+    )
+
+
+@router.post(
     "/crop/mrz",
     tags=["Crop Async"],
     status_code=202,
@@ -350,13 +445,17 @@ async def get_task_status(
     response_class=Response,
     summary="Получить готовый результат задачи",
     description=(
-        "Возвращает тот же JSON или JPEG, что синхронный endpoint. "
+        "Возвращает тот же JSON, JPEG или PNG, что синхронный endpoint. "
         "Для незавершённой или отменённой задачи возвращает 409."
     ),
     responses={
         200: {
             "description": "Готовый результат распознавания или обрезки.",
-            "content": {"application/json": {}, "image/jpeg": {}},
+            "content": {
+                "application/json": {},
+                "image/jpeg": {},
+                "image/png": {},
+            },
         },
         **TASK_ERRORS,
         409: {
@@ -399,7 +498,7 @@ async def get_task_result(
             return JSONResponse(
                 result["response"], headers={"Cache-Control": "no-store"}
             )
-        if result.get("format") == "jpeg" and isinstance(
+        if result.get("format") in {"jpeg", "png"} and isinstance(
             result.get("content_base64"), str
         ):
             try:
@@ -411,7 +510,7 @@ async def get_task_result(
             if content:
                 return Response(
                     content,
-                    media_type="image/jpeg",
+                    media_type=f"image/{result['format']}",
                     headers={"Cache-Control": "no-store"},
                 )
     raise AppError(

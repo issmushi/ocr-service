@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import base64
 from contextlib import ExitStack
+from copy import deepcopy
 from io import BytesIO
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
@@ -13,6 +14,7 @@ from PIL import Image
 
 from app.main import app
 from app.workers.ocr_worker import execute_ocr_job
+from tests.test_egrn_fields import encode, synthetic_extract
 
 
 @pytest.mark.parametrize(
@@ -47,6 +49,15 @@ from app.workers.ocr_worker import execute_ocr_job
         ("full", {"model": "paddle"}, False),
         ("crop/document", {}, False),
         ("crop/mrz", {}, False),
+        ("crop/egrn", {}, False),
+        ("crop/egrn-fields", {}, False),
+        ("crop/egrn-fields", {"ocr_model": "paddle-cyrillic"}, False),
+        ("crop/document-fields", {}, False),
+        (
+            "crop/document-fields",
+            {"crop_document": "false", "padding": "8", "ocr_model": "paddle"},
+            False,
+        ),
     ],
 )
 def test_task_result_matches_direct_http_response(
@@ -56,6 +67,8 @@ def test_task_result_matches_direct_http_response(
     image_buffer = BytesIO()
     Image.new("RGB", (100, 50), "white").save(image_buffer, format="PNG")
     content = image_buffer.getvalue()
+    if operation.startswith("crop/egrn"):
+        content = encode(synthetic_extract()[0])
     jpeg_buffer = BytesIO()
     Image.new("RGB", (90, 20), "white").save(jpeg_buffer, format="JPEG")
     mrz_jpeg = jpeg_buffer.getvalue()
@@ -100,6 +113,13 @@ def test_task_result_matches_direct_http_response(
             stack.enter_context(
                 patch(
                     f"app.modules.v1.{module}.service.perf_counter",
+                    return_value=10.0,
+                )
+            )
+        for module in ("egrn", "passport_fields", "field_ocr"):
+            stack.enter_context(
+                patch(
+                    f"app.modules.v1.crop.{module}.perf_counter",
                     return_value=10.0,
                 )
             )
@@ -157,6 +177,54 @@ def test_task_result_matches_direct_http_response(
                 ),
             )
         )
+        if operation.endswith("-fields"):
+            # Keep real crop/serialization/OCR routing; stub model inference.
+            stack.enter_context(
+                patch(
+                    "app.modules.v1.crop.field_ocr.paddle_runtime.run",
+                    new=AsyncMock(
+                        return_value={
+                            "text": "ТЕСТ",
+                            "confidence": 0.95,
+                            "device": "cpu",
+                        }
+                    ),
+                )
+            )
+        if operation == "crop/document-fields":
+            preview = {
+                "image": "data:image/png;base64,"
+                + base64.b64encode(content).decode("ascii"),
+                "width": 100,
+                "height": 50,
+            }
+            detected = {
+                "document": {
+                    **preview,
+                    "detected": True,
+                    "rotation_degrees": 0,
+                },
+                "fields": [
+                    {
+                        **preview,
+                        "name": "Last_name_ru",
+                        "label": "Фамилия",
+                        "bbox": [0, 0, 100, 50],
+                        "detection_bbox": [0, 0, 100, 50],
+                        "confidence": 0.9,
+                        "rotation_degrees": 0,
+                    }
+                ],
+                "timings": {"fields": 0.01},
+            }
+            stack.enter_context(
+                patch(
+                    "app.modules.v1.crop.passport_fields.russian_runtime.run",
+                    new=AsyncMock(
+                        side_effect=lambda *a, **k: deepcopy(detected)
+                    ),
+                )
+            )
         files = {"image": ("scan.png", content, "image/png")}
         direct = client.post(f"/v1/ocr/{operation}", files=files, data=form)
         assert direct.status_code == 200, direct.text
@@ -197,10 +265,18 @@ def test_task_result_matches_direct_http_response(
 
     assert completed.status_code == 200, completed.text
     assert completed.headers["content-type"] == direct.headers["content-type"]
-    if operation.startswith("crop/"):
+    if operation.startswith("crop/") and not operation.endswith("-fields"):
         assert completed.content == direct.content
     else:
         assert completed.json() == direct.json()
+        if operation.endswith("-fields"):
+            data = completed.json()["data"]
+            assert data["fields"]
+            if form.get("ocr_model"):
+                assert data["fields"][0]["ocr"]["text"] == "ТЕСТ"
+            else:
+                assert data["fields"][0]["ocr"] is None
+                assert data["meta"]["ocr"] is None
         if operation == "mrz":
             data = completed.json()["data"]
             assert data["document_type"] == (
