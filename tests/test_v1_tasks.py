@@ -57,26 +57,6 @@ CASES = [
     ("driver-license", "driver_license", {}, {"fields": ["all"]}),
     ("full", "full_v1", {}, {"model": "paddle"}),
     ("crop/document", "crop_document", {}, {}),
-    (
-        "crop/document-fields",
-        "crop_document_fields",
-        {},
-        {"crop_document": True, "padding": 4, "ocr_model": "none"},
-    ),
-    (
-        "crop/document-fields",
-        "crop_document_fields",
-        {
-            "crop_document": "false",
-            "padding": "16",
-            "ocr_model": "paddle-cyrillic",
-        },
-        {
-            "crop_document": False,
-            "padding": 16,
-            "ocr_model": "paddle-cyrillic",
-        },
-    ),
     ("crop/egrn", "crop_egrn", {}, {}),
     ("crop/egrn-fields", "crop_egrn_fields", {}, {"ocr_model": "none"}),
     (
@@ -353,10 +333,6 @@ def test_old_mrz_task_routes_are_removed(
     [
         ("mrz", {"normalize": "sometimes"}),
         ("full", {"model": "mrz"}),
-        ("crop/document-fields", {"padding": "-1"}),
-        ("crop/document-fields", {"padding": "65"}),
-        ("crop/document-fields", {"crop_document": "sometimes"}),
-        ("crop/document-fields", {"ocr_model": "mrz"}),
         ("crop/egrn-fields", {"ocr_model": "qwen3-vl-4b"}),
     ],
 )
@@ -374,26 +350,6 @@ def test_invalid_options_do_not_store_or_enqueue(
 @pytest.mark.parametrize(
     ("path", "form", "enabled", "expected_status"),
     [
-        ("crop/document-fields", {}, set(), 503),
-        ("crop/document-fields", {}, {"russian-ocr"}, 202),
-        (
-            "crop/document-fields",
-            {"ocr_model": "russian-ocr-accurate"},
-            {"russian-ocr"},
-            202,
-        ),
-        (
-            "crop/document-fields",
-            {"ocr_model": "paddle-cyrillic"},
-            {"russian-ocr"},
-            503,
-        ),
-        (
-            "crop/document-fields",
-            {"ocr_model": "qwen3-vl-8b"},
-            {"russian-ocr"},
-            503,
-        ),
         ("crop/egrn", {}, set(), 202),
         ("crop/egrn-fields", {}, set(), 202),
         ("crop/egrn-fields", {"ocr_model": "paddle"}, set(), 503),

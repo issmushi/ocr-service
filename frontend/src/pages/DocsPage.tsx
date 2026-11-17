@@ -81,7 +81,6 @@ const taskOperations = [
   ["/v1/ocr/driver-license", "/v1/tasks/driver-license"],
   ["/v1/ocr/full", "/v1/tasks/full"],
   ["/v1/ocr/crop/document", "/v1/tasks/crop/document"],
-  ["/v1/ocr/crop/document-fields", "/v1/tasks/crop/document-fields"],
   ["/v1/ocr/crop/egrn", "/v1/tasks/crop/egrn"],
   ["/v1/ocr/crop/egrn-fields", "/v1/tasks/crop/egrn-fields"],
   ["/v1/ocr/crop/mrz", "/v1/tasks/crop/mrz"],

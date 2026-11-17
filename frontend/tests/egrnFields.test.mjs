@@ -22,7 +22,7 @@ const fieldOcrViewUrl = await sourceUrl("../src/components/FieldOcrView.tsx", {
 });
 const { EgrnFieldsView, parseEgrnFields } = await import(await sourceUrl("../src/components/EgrnFieldsView.tsx", {
   "./FieldOcrView": fieldOcrViewUrl,
-  "./passportFields": await sourceUrl("../src/components/passportFields.ts"),
+  "./fieldOcr": await sourceUrl("../src/components/fieldOcr.ts"),
   "../config": await sourceUrl("../src/config.ts"),
   react: pathToFileURL(require.resolve("react")).href,
   "react/jsx-runtime": pathToFileURL(require.resolve("react/jsx-runtime")).href,

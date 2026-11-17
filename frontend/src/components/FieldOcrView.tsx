@@ -1,7 +1,7 @@
 import { passportFieldOcrLabel } from "../config";
-import type { PassportFieldOcr } from "./passportFields";
+import type { FieldOcr } from "./fieldOcr";
 
-export function FieldOcrView({ ocr }: { ocr: PassportFieldOcr }) {
+export function FieldOcrView({ ocr }: { ocr: FieldOcr }) {
   return <section className={`passport-field__ocr passport-field__ocr--${ocr.status}`} aria-label="Результат OCR">
     <strong>Распознавание</strong>
     {ocr.status === "success" && (ocr.text?.trim()

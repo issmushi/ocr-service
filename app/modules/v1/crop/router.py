@@ -19,11 +19,6 @@ from app.modules.v1.crop.egrn_schemas import (
     EgrnFieldCropResponse,
     EgrnOcrModel,
 )
-from app.modules.v1.crop.field_schemas import (
-    FieldOcrModel,
-    PassportFieldCropResponse,
-)
-from app.modules.v1.crop.passport_fields import crop_passport_fields_upload
 from app.modules.v1.crop.service import (
     crop_document_image_bytes,
     crop_mrz_bytes,
@@ -39,52 +34,6 @@ ERROR_RESPONSES = {
     503: OCR_ENGINE_UNAVAILABLE_RESPONSE,
     504: OCR_TIMEOUT_RESPONSE,
 }
-
-
-@router.post(
-    "/crop/document-fields",
-    response_model=PassportFieldCropResponse,
-    summary="Найти и вырезать области документа",
-    description=(
-        "Позволяет загрузить изображение любого документа и вырезать все "
-        "обнаруженные области: текстовые поля, фотографии, подписи и другие "
-        "области, которые распознаёт детектор. "
-        "Использует детектор Russian OCR, исправляет ориентацию, "
-        "при crop_document=true выравнивает документ, затем вырезает поля. "
-        "При ocr_model=none возвращает только вырезки. Можно отдельно "
-        "прочитать каждое текстовое поле через Paddle eslav v5, "
-        "Paddle Cyrillic v5 или Russian OCR accurate на CPU, либо Qwen "
-        "в текущем режиме VLM-сервера. Текст возвращается без нормализации, "
-        "фото и подпись пропускаются. Ошибки OCR указаны в отдельных полях; "
-        "success=true означает, что вырезки получены. "
-        "Возвращает обзор документа в JPEG, вырезки в PNG без потерь, "
-        "координаты и уверенность детектора. Вертикальная серия и номер "
-        "поворачиваются горизонтально. Если поля не найдены, fields пустой. "
-        "Изображения не сохраняются."
-    ),
-    responses=ERROR_RESPONSES,
-)
-async def crop_document_fields(
-    response: Response,
-    image: UploadFile = File(..., description="Фото или скан документа."),
-    crop_document: bool = Form(
-        True, description="Найти границы и исправить перспективу документа."
-    ),
-    padding: int = Form(
-        4, ge=0, le=64, description="Отступ вокруг каждого поля в пикселях."
-    ),
-    ocr_model: FieldOcrModel = Form(
-        FieldOcrModel.NONE,
-        description="Модель чтения вырезанных полей; none — только вырезки.",
-    ),
-) -> dict[str, Any]:
-    response.headers["Cache-Control"] = "no-store"
-    return await crop_passport_fields_upload(
-        image,
-        crop_document=crop_document,
-        padding=padding,
-        ocr_model=ocr_model,
-    )
 
 
 async def _crop_upload(

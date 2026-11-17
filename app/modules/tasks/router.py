@@ -39,10 +39,6 @@ from app.modules.tasks.creation import create_image_task
 from app.modules.tasks.enums import TERMINAL_STATUSES, JobStatus, TaskOperation
 from app.modules.tasks.service import get_job, mark_cancelled
 from app.modules.v1.crop.egrn_schemas import EgrnOcrModel
-from app.modules.v1.crop.field_schemas import FieldOcrModel
-from app.modules.v1.crop.passport_fields import (
-    ensure_document_field_models_enabled,
-)
 from app.modules.v1.full.schemas import FullOcrModel
 from app.modules.v1.mrz_api.field_selection import MrzField, MrzFields
 from app.modules.v1.passport.field_selection import (
@@ -279,44 +275,6 @@ async def create_document_crop_task(
 ) -> dict[str, Any]:
     return await create_image_task(
         image, operation=TaskOperation.CROP_DOCUMENT
-    )
-
-
-@router.post(
-    "/crop/document-fields",
-    tags=["Crop Async"],
-    status_code=202,
-    response_model=TaskCreatedResponseSchema,
-    summary="Создать задачу поиска и вырезания областей документа",
-    description=(
-        "Асинхронный вариант /v1/ocr/crop/document-fields. "
-        "Результат /v1/tasks/{task_id}/result содержит тот же JSON "
-        "с вырезками, координатами и результатами OCR выбранной модели."
-    ),
-    responses=CREATION_ERRORS,
-)
-async def create_document_fields_crop_task(
-    image: UploadFile = File(..., description="Фото или скан документа."),
-    crop_document: bool = Form(
-        True, description="Найти границы и исправить перспективу документа."
-    ),
-    padding: int = Form(
-        4, ge=0, le=64, description="Отступ вокруг каждого поля в пикселях."
-    ),
-    ocr_model: FieldOcrModel = Form(
-        FieldOcrModel.NONE,
-        description="Модель чтения вырезанных полей; none — только вырезки.",
-    ),
-) -> dict[str, Any]:
-    ensure_document_field_models_enabled(ocr_model)
-    return await create_image_task(
-        image,
-        operation=TaskOperation.CROP_DOCUMENT_FIELDS,
-        options={
-            "crop_document": crop_document,
-            "padding": padding,
-            "ocr_model": ocr_model.value,
-        },
     )
 
 

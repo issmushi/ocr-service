@@ -581,7 +581,6 @@ class CropRouteTests(unittest.TestCase):
             {
                 "/v1/ocr/crop/document",
                 "/v1/ocr/crop/mrz",
-                "/v1/ocr/crop/document-fields",
                 "/v1/ocr/crop/egrn",
                 "/v1/ocr/crop/egrn-fields",
             },

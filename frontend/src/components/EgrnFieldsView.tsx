@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { passportFieldOcrLabel } from "../config";
 import { FieldOcrView } from "./FieldOcrView";
-import { isFieldOcr, isOcrSummary, type PassportFieldOcr, type FieldOcrSummary } from "./passportFields";
+import { isFieldOcr, isOcrSummary, type FieldOcr, type FieldOcrSummary } from "./fieldOcr";
 
 const fieldLabels = {
   application_number: "Номер заявления",
@@ -27,7 +27,7 @@ const fieldLabels = {
 
 type FieldName = keyof typeof fieldLabels;
 interface Preview { image: string; width: number; height: number }
-interface Field extends Preview { ocr?: PassportFieldOcr | null; name: FieldName; label: string; bbox: [number, number, number, number] }
+interface Field extends Preview { ocr?: FieldOcr | null; name: FieldName; label: string; bbox: [number, number, number, number] }
 interface Result { document: Preview; fields: Field[]; missing_fields: FieldName[]; meta: { duration_seconds: number; ocr?: FieldOcrSummary | null } }
 
 function record(value: unknown): value is Record<string, unknown> {

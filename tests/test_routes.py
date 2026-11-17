@@ -50,6 +50,18 @@ class RouteTests(unittest.TestCase):
     def setUp(self) -> None:
         self.client = TestClient(app)
 
+    def test_document_field_crop_routes_are_removed(self) -> None:
+        schema = self.client.app.openapi()
+        for prefix in ("ocr", "tasks"):
+            path = f"/v1/{prefix}/crop/document-fields"
+            with self.subTest(path=path):
+                self.assertNotIn(path, schema["paths"])
+                response = self.client.post(path)
+                self.assertEqual(response.status_code, 404)
+        self.assertNotIn(
+            "PassportFieldCropResponse", schema["components"]["schemas"]
+        )
+
     def test_unified_mrz_openapi_documents_route_and_fields(self) -> None:
         schema = app.openapi()
         endpoint = schema["paths"]["/v1/ocr/mrz"]["post"]

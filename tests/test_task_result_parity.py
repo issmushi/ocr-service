@@ -3,7 +3,6 @@ from __future__ import annotations
 import asyncio
 import base64
 from contextlib import ExitStack
-from copy import deepcopy
 from io import BytesIO
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
@@ -52,12 +51,6 @@ from tests.test_egrn_fields import encode, synthetic_extract
         ("crop/egrn", {}, False),
         ("crop/egrn-fields", {}, False),
         ("crop/egrn-fields", {"ocr_model": "paddle-cyrillic"}, False),
-        ("crop/document-fields", {}, False),
-        (
-            "crop/document-fields",
-            {"crop_document": "false", "padding": "8", "ocr_model": "paddle"},
-            False,
-        ),
     ],
 )
 def test_task_result_matches_direct_http_response(
@@ -124,7 +117,7 @@ def test_task_result_matches_direct_http_response(
                     return_value=10.0,
                 )
             )
-        for module in ("egrn", "passport_fields", "field_ocr"):
+        for module in ("egrn", "field_ocr"):
             stack.enter_context(
                 patch(
                     f"app.modules.v1.crop.{module}.perf_counter",
@@ -190,40 +183,6 @@ def test_task_result_matches_direct_http_response(
                             "confidence": 0.95,
                             "device": "cpu",
                         }
-                    ),
-                )
-            )
-        if operation == "crop/document-fields":
-            preview = {
-                "image": "data:image/png;base64,"
-                + base64.b64encode(content).decode("ascii"),
-                "width": 100,
-                "height": 50,
-            }
-            detected = {
-                "document": {
-                    **preview,
-                    "detected": True,
-                    "rotation_degrees": 0,
-                },
-                "fields": [
-                    {
-                        **preview,
-                        "name": "Last_name_ru",
-                        "label": "Фамилия",
-                        "bbox": [0, 0, 100, 50],
-                        "detection_bbox": [0, 0, 100, 50],
-                        "confidence": 0.9,
-                        "rotation_degrees": 0,
-                    }
-                ],
-                "timings": {"fields": 0.01},
-            }
-            stack.enter_context(
-                patch(
-                    "app.modules.v1.crop.passport_fields.russian_runtime.run",
-                    new=AsyncMock(
-                        side_effect=lambda *a, **k: deepcopy(detected)
                     ),
                 )
             )

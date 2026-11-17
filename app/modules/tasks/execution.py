@@ -13,11 +13,6 @@ from app.modules.v1.crop.egrn_schemas import (
     EgrnFieldCropResponse,
     EgrnOcrModel,
 )
-from app.modules.v1.crop.field_schemas import (
-    FieldOcrModel,
-    PassportFieldCropResponse,
-)
-from app.modules.v1.crop.passport_fields import crop_passport_fields_upload
 from app.modules.v1.crop.service import (
     crop_document_image_bytes,
     crop_mrz_bytes,
@@ -120,19 +115,13 @@ async def execute_task_operation(
                 options["model"] = FullOcrModel(options["model"])
             response = await recognize_full_upload(upload, **options)
             schema = FullOcrResponseSchema
-        elif operation == TaskOperation.CROP_DOCUMENT_FIELDS:
-            options["ocr_model"] = FieldOcrModel(
-                options.get("ocr_model", FieldOcrModel.NONE)
-            )
-            response = await crop_passport_fields_upload(upload, **options)
-            schema = PassportFieldCropResponse
         elif operation == TaskOperation.CROP_EGRN_FIELDS:
             options["ocr_model"] = EgrnOcrModel(
                 options.get("ocr_model", EgrnOcrModel.NONE)
             )
             response = await crop_egrn_fields_upload(upload, **options)
             schema = EgrnFieldCropResponse
-        else:  # pragma: no cover - every TaskOperation has a handler above.
+        else:  # Retired operations cannot start new recognition.
             raise ValueError(f"Unsupported task operation: {operation}")
         return {
             "format": "json",
@@ -141,7 +130,6 @@ async def execute_task_operation(
                 exclude_unset=operation
                 not in {
                     TaskOperation.FULL_V1,
-                    TaskOperation.CROP_DOCUMENT_FIELDS,
                     TaskOperation.CROP_EGRN_FIELDS,
                 },
             ),

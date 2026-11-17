@@ -23,6 +23,7 @@ class TaskOperation(StrEnum):
     IDCARD_MRZ = "idcard_mrz"
     FULL_V1 = "full_v1"
     CROP_DOCUMENT = "crop_document"
+    # Retained only to read statuses/results of historical tasks.
     CROP_DOCUMENT_FIELDS = "crop_document_fields"
     CROP_EGRN = "crop_egrn"
     CROP_EGRN_FIELDS = "crop_egrn_fields"

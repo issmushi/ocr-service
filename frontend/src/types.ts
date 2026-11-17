@@ -12,7 +12,6 @@ export type ToolId =
   | "crop-egrn"
   | "crop-egrn-fields"
   | "crop-mrz"
-  | "crop-document-fields"
   | "best-frame";
 
 export type ResponseKind = "json" | "image";

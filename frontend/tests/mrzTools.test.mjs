@@ -260,10 +260,9 @@ test("MRZ fields show the shared document names and all document types", () => {
   }
 });
 
-test("full text and field crop tools retain model selection", () => {
+test("full text tool retains model selection", () => {
   for (const [id, key, expectedDefault] of [
     ["full-ocr", "model", "paddle"],
-    ["crop-document-fields", "ocr_model", "paddle"],
   ]) {
     const tool = toolById[id];
     const selector = tool.params.find((param) => param.key === key);
@@ -273,6 +272,16 @@ test("full text and field crop tools retain model selection", () => {
     const curl = buildCurl("http://localhost:8000", tool, [], defaultParams(tool));
     assert.ok(curl.includes(`-F '${key}=${expectedDefault}'`));
   }
+});
+
+test("document field crop is removed while all four other crops remain", () => {
+  assert.equal(toolById["crop-document-fields"], undefined);
+  assert.deepEqual(
+    tools.filter((tool) => tool.endpoint.startsWith("/v1/ocr/crop/")).map((tool) => tool.endpoint).sort(),
+    ["document", "egrn", "egrn-fields", "mrz"].map((name) => `/v1/ocr/crop/${name}`).sort(),
+  );
+  const docs = renderToStaticMarkup(createElement(DocsPage, { navigate() {} }));
+  assert.doesNotMatch(docs, /crop\/document-fields/);
 });
 
 test("documentation and overview show MRZ Scanner and examples without model", () => {

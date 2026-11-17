@@ -9,7 +9,6 @@ from app.core.errors import AppError, ErrorCode
 from app.modules.tasks.enums import TaskOperation
 from app.modules.tasks.execution import execute_task_operation
 from app.modules.v1.crop.egrn_schemas import EgrnOcrModel
-from app.modules.v1.crop.field_schemas import FieldOcrModel
 from app.modules.v1.full.schemas import FullOcrModel
 
 EXECUTION = "app.modules.tasks.execution"
@@ -96,20 +95,6 @@ class TaskExecutionTests(unittest.IsolatedAsyncioTestCase):
                 },
             ),
             (
-                TaskOperation.CROP_DOCUMENT_FIELDS,
-                "crop_passport_fields_upload",
-                {
-                    "crop_document": False,
-                    "padding": 8,
-                    "ocr_model": "paddle-cyrillic",
-                },
-                {
-                    "crop_document": False,
-                    "padding": 8,
-                    "ocr_model": FieldOcrModel.PADDLE_CYRILLIC,
-                },
-            ),
-            (
                 TaskOperation.CROP_EGRN_FIELDS,
                 "crop_egrn_fields_upload",
                 {"ocr_model": "paddle"},
@@ -139,7 +124,6 @@ class TaskExecutionTests(unittest.IsolatedAsyncioTestCase):
                             kwargs["model"], type(expected["model"])
                         )
                     if "ocr_model" in expected and operation in {
-                        TaskOperation.CROP_DOCUMENT_FIELDS,
                         TaskOperation.CROP_EGRN_FIELDS,
                     }:
                         self.assertIsInstance(
